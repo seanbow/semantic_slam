@@ -9,6 +9,8 @@ enum class FactorType {
     SMART_PROJECTION = 3,
 
     ODOMETRY = 4,
-    PRIOR = 5
+    PRIOR = 5,
+
+    ORIGIN = 6
 };
 

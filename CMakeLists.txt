@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 project(semantic_slam)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++14 -g3 -O3)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -141,6 +141,12 @@ target_link_libraries(FactorGraph
 
 add_library(Utils src/Utils.cpp)
 
+add_library(OdometryHandler src/OdometryHandler.cpp)
+
+add_library(PosePresenter src/PosePresenter.cpp)
+
+add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
+
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
@@ -149,13 +155,16 @@ add_library(Utils src/Utils.cpp)
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_node src/semantic_slam_node.cpp)
-target_link_libraries(${PROJECT_NAME}_node
+add_executable(semantic_slam_node src/semantic_slam_node.cpp)
+target_link_libraries(semantic_slam_node
     ${catkin_LIBRARIES}
     # ${GTSAM_LIBRARIES}
     ${Boost_LIBRARIES}
     FactorGraph
     Utils
+    OdometryHandler
+    PosePresenter
+    TrajectoryPresenter
 )
 
 ## Rename C++ executable without prefix

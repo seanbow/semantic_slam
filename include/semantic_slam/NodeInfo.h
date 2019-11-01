@@ -10,11 +10,7 @@ public:
     NodeInfo()
         : in_graph(false) { }
 
-    NodeInfo(gtsam::Symbol symbol)
-        : in_graph(false),
-          symbol_(symbol) { }
-
-    NodeInfo(gtsam::Symbol symbol, ros::Time time)
+    NodeInfo(gtsam::Symbol symbol, boost::optional<ros::Time> time=boost::none)
         : in_graph(false),
           symbol_(symbol),
           time_(time) { }
@@ -29,7 +25,13 @@ public:
 
     bool in_graph;
 
-    using Ptr = boost::shared_ptr<FactorInfo>;
+    using Ptr = boost::shared_ptr<NodeInfo>;
+    using ConstPtr = boost::shared_ptr<const NodeInfo>;
+
+    static NodeInfo::Ptr Create() { return boost::make_shared<NodeInfo>(); }
+    static NodeInfo::Ptr Create(gtsam::Symbol symbol, boost::optional<ros::Time> time=boost::none) { 
+        return boost::make_shared<NodeInfo>(symbol, time); 
+    }
 
 private:
     gtsam::Symbol symbol_;
@@ -37,5 +39,5 @@ private:
     boost::optional<ros::Time> time_;
 };
 
-using FactorInfoPtr = boost::shared_ptr<FactorInfo>;
-
+using NodeInfoPtr = NodeInfo::Ptr;
+using NodeInfoConstPtr = NodeInfo::ConstPtr;

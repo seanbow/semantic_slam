@@ -6,65 +6,57 @@
 
 namespace sym = gtsam::symbol_shorthand;
 
-TEST(FactorGraphTests, testAddNode_CheckExistsTrue)
+class FactorGraphTests : public ::testing::Test
 {
-    FactorGraph graph;
-    gtsam::Symbol symb = sym::C(3);
-    NodeInfo node(symb);
-
+protected:
+  void SetUp() {
+    std::vector<NodeInfoPtr> nodes;
     double value = 0;
 
-    graph.addNode(node, value);
+    for (int i = 2; i <= 5; ++i) {
+      nodes.emplace_back(NodeInfo::Create(sym::C(i), ros::Time(i)));
+      graph.addNode(nodes.back(), value);
+    }
 
-    auto result = graph.findNodeBySymbol(symb);
-    
-    EXPECT_TRUE(result);
-    EXPECT_EQ(result->symbol(), symb);
+  }
+
+  FactorGraph graph;
+};
+
+/******************************/
+
+TEST_F(FactorGraphTests, testNumNodes_CheckEqual)
+{
+  EXPECT_TRUE(graph.num_nodes() == 4);
 }
 
-TEST(FactorGraphTests, testAddNode_CheckExistsFalse)
+TEST_F(FactorGraphTests, testAddNode_CheckExistsTrue)
 {
-    FactorGraph graph;
-    gtsam::Symbol symb = sym::C(3);
-    NodeInfo node(symb);
+    auto result = graph.findNodeBySymbol(sym::C(3));
+    
+    EXPECT_TRUE(result);
+    EXPECT_EQ(result->symbol(), sym::C(3));
+}
 
-    double value = 0;
-
-    graph.addNode(node, value);
-
-    auto result = graph.findNodeBySymbol(sym::C(4));
+TEST_F(FactorGraphTests, testAddNode_CheckExistsFalse)
+{
+    auto result = graph.findNodeBySymbol(sym::C(6));
     
     EXPECT_FALSE(result);
 }
 
-TEST(FactorGraphTests, testFindNodeBeforeTime_Exists)
+/******************************/
+
+TEST_F(FactorGraphTests, testFindNodeBeforeTime_Exists)
 {
-    FactorGraph graph;
-    std::vector<NodeInfo> nodes;
-
-    for (int i = 0; i <= 5; ++i) nodes.emplace_back(sym::C(i), ros::Time(i));
-
-    double value = 0;
-
-    for (int i = 0; i <= 5; ++i) graph.addNode(nodes[i], value);
-
-    auto result = graph.findLastNodeBeforeTime('c', ros::Time(4));
+    auto result = graph.findLastNodeBeforeTime('c', ros::Time(4.25));
     
     EXPECT_TRUE(result);
     EXPECT_EQ(result->symbol(), sym::C(4));
 }
 
-TEST(FactorGraphTests, testFindNodeBeforeTime_NotExists)
+TEST_F(FactorGraphTests, testFindNodeBeforeTime_NotExists)
 {
-    FactorGraph graph;
-    std::vector<NodeInfo> nodes;
-
-    for (int i = 2; i <= 5; ++i) nodes.emplace_back(sym::C(i), ros::Time(i));
-
-    double value = 0;
-
-    for (int i = 2; i <= 5; ++i) graph.addNode(nodes[i], value);
-    
     // wrong character
     auto result1 = graph.findLastNodeBeforeTime('b', ros::Time(3));
     EXPECT_FALSE(result1);
@@ -74,27 +66,76 @@ TEST(FactorGraphTests, testFindNodeBeforeTime_NotExists)
     EXPECT_FALSE(result2);
 }
 
-TEST(FactorGraphTests, testSolve_SimplePriorFactor)
+/******************************/
+
+TEST_F(FactorGraphTests, testFindNodeAfterTime_Exists)
 {
-  FactorGraph graph;
+    auto result = graph.findFirstNodeAfterTime('c', ros::Time(3.5));
+    
+    EXPECT_TRUE(result);
+    EXPECT_EQ(result->symbol(), sym::C(4));
+}
+
+TEST_F(FactorGraphTests, testFindNodeAfterTime_NotExists)
+{
+    // wrong character
+    auto result1 = graph.findFirstNodeAfterTime('b', ros::Time(3));
+    EXPECT_FALSE(result1);
+
+    // none in graph after time
+    auto result2 = graph.findFirstNodeAfterTime('c', ros::Time(5.5));
+    EXPECT_FALSE(result2);
+}
+
+/******************************/
+
+TEST_F(FactorGraphTests, testFindLastNode_Exists)
+{
+    auto result = graph.findLastNode('c');
+    
+    EXPECT_TRUE(result);
+    EXPECT_EQ(result->symbol(), sym::C(5));
+}
+
+TEST_F(FactorGraphTests, testFindLastNode_NotExists)
+{
+    auto result = graph.findLastNode('d');
+    
+    EXPECT_FALSE(result);
+}
+
+TEST(FactorGraphTest, testFindLastNode_EmptyGraph)
+{
+    FactorGraph graph2;
+
+    auto result = graph2.findLastNode('c');
+    
+    EXPECT_FALSE(result);
+}
+
+/******************************/
+
+TEST(FactorGraphTest, testSolve_SimplePriorFactor)
+{
+  FactorGraph graph2;
   gtsam::Symbol symb = sym::X(0);
   double value = -1;
 
-  NodeInfo node(symb);
+  NodeInfoPtr node = NodeInfo::Create(symb);
 
-  graph.addNode(node, value);
+  graph2.addNode(node, value);
 
   auto noise_model = gtsam::noiseModel::Isotropic::Sigma(1,1);
 
   auto fac = util::allocate_aligned<gtsam::PriorFactor<double>>(symb, 0, noise_model);
-  FactorInfo fac_info(FactorType::PRIOR, fac);
+  FactorInfoPtr fac_info = FactorInfo::Create(FactorType::PRIOR, fac);
 
-  graph.addFactor(fac_info);
+  graph2.addFactor(fac_info);
 
-  bool opt_succeeded = graph.solve();
+  bool opt_succeeded = graph2.solve();
 
   double result;
-  bool get_result_succeeded = graph.getEstimate(symb, result);
+  bool get_result_succeeded = graph2.getEstimate(symb, result);
 
   EXPECT_TRUE(opt_succeeded);
   EXPECT_TRUE(get_result_succeeded);

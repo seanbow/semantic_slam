@@ -12,25 +12,16 @@ public:
     FactorInfo()
         : in_graph(false) { }
 
-    FactorInfo(const boost::shared_ptr<gtsam::NonlinearFactor>& fac)
-        : in_graph(false),
-          factor_(fac) { }
-
-    FactorInfo(FactorType type, int tag)
+    FactorInfo(FactorType type, int tag=0)
         : in_graph(false),
           type_(type),
           tag_(tag) { }
 
-    FactorInfo(FactorType type, int tag, const boost::shared_ptr<gtsam::NonlinearFactor>& fac)
+    FactorInfo(FactorType type, const boost::shared_ptr<gtsam::NonlinearFactor>& fac, int tag=0)
         : in_graph(false),
           factor_(fac),
           type_(type),
           tag_(tag) { }
-
-    FactorInfo(FactorType type, const boost::shared_ptr<gtsam::NonlinearFactor>& fac)
-        : in_graph(false),
-          factor_(fac),
-          type_(type) { }
 
     boost::shared_ptr<gtsam::NonlinearFactor> factor() { return factor_; }
 
@@ -46,6 +37,13 @@ public:
     bool in_graph;
 
     using Ptr = boost::shared_ptr<FactorInfo>;
+    using ConstPtr = boost::shared_ptr<const FactorInfo>;
+
+    static FactorInfo::Ptr Create() { return boost::make_shared<FactorInfo>(); }
+    static FactorInfo::Ptr Create(FactorType type, int tag=0) { return boost::make_shared<FactorInfo>(type,tag); }
+    static FactorInfo::Ptr Create(FactorType type, const boost::shared_ptr<gtsam::NonlinearFactor>& fac, int tag=0) {
+        return boost::make_shared<FactorInfo>(type,fac,tag);
+    }
 
 private:
     boost::shared_ptr<gtsam::NonlinearFactor> factor_;
@@ -55,5 +53,5 @@ private:
     int tag_;
 };
 
-using FactorInfoPtr = boost::shared_ptr<FactorInfo>;
-
+using FactorInfoPtr = FactorInfo::Ptr;
+using FactorInfoConstPtr = FactorInfo::ConstPtr;

@@ -53,6 +53,8 @@
   <depend>gtsam</depend>
   <depend>rosfmt</depend>
 
+  <exec_depend>rviz_plugin_covariance</exec_depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

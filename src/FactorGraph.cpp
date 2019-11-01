@@ -10,25 +10,29 @@ FactorGraph::FactorGraph()
 }
 
 
-void FactorGraph::addFactor(FactorInfo fac)
+void FactorGraph::addFactor(FactorInfoPtr fac)
 {
-    factors_.push_back(fac);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
 
-    graph_->push_back(fac.factor());
+        factors_.push_back(fac);
+        graph_->push_back(fac->factor());
+    }
 
-    modified_ = true;
+    // do *not* set modified here -- let the calling handler set it themselves
+    // so they can finish their full set of modifications first
 }
 
-boost::optional<NodeInfo&>
+NodeInfoPtr
 FactorGraph::findNodeBySymbol(gtsam::Symbol sym)
 {
     for (auto& node : nodes_) {
-        if (node.symbol() == sym) {
+        if (node->symbol() == sym) {
             return node;
         }
     }
 
-    return boost::none;
+    return nullptr;
 }
 
 bool FactorGraph::solve()
@@ -37,8 +41,11 @@ bool FactorGraph::solve()
     // lm_params.setVerbosityLM("SUMMARY");
     // lm_params.setVerbosityLM("DAMPED");
     lm_params.diagonalDamping = true;
+    lm_params.relativeErrorTol = 1.0e-2;
+    lm_params.absoluteErrorTol = 1.0e-2;
 
     try {
+        std::lock_guard<std::mutex> lock(mutex_);
         gtsam::LevenbergMarquardtOptimizer optimizer(*graph_, *values_, lm_params);
         *values_ = optimizer.optimize();
     } catch (std::exception& e) {
@@ -47,31 +54,102 @@ bool FactorGraph::solve()
         return false;
     }
 
+    try {
+        std::lock_guard<std::mutex> lock(mutex_);
+        marginals_ = boost::make_shared<gtsam::Marginals>(*graph_, *values_);
+    } catch (std::exception& e) {
+        ROS_WARN("Error when computing marginals");
+        ROS_WARN_STREAM(e.what());
+        // should we return false here?? probably not
+    }
+
     modified_ = false;
 
     return true;
 
 }
 
-
-boost::optional<NodeInfo&> FactorGraph::findLastNodeBeforeTime(unsigned char symbol_chr, ros::Time time)
+bool FactorGraph::marginalCovariance(gtsam::Key key, Eigen::MatrixXd& cov)
 {
+    try {
+        std::lock_guard<std::mutex> lock(mutex_);
+        cov = marginals_->marginalCovariance(key);
+        return true;
+    } catch (std::exception& e) {
+        ROS_WARN_STREAM("Failed to get covariance.");
+        ROS_WARN_STREAM(e.what());
+        return false;
+    }
+}
+
+NodeInfoPtr
+FactorGraph::findLastNodeBeforeTime(unsigned char symbol_chr, ros::Time time)
+{
+    if (nodes_.size() == 0) return nullptr;
+
     ros::Time last_time(0);
     bool found = false;
     size_t node_index = 0;
 
     for (size_t i = 0; i < nodes_.size(); ++i) {
-        if (nodes_[i].chr() != symbol_chr) continue;
+        if (nodes_[i]->chr() != symbol_chr) continue;
 
-        if (!nodes_[i].time()) continue;
+        if (!nodes_[i]->time()) continue;
 
-        if (nodes_[i].time() > last_time && nodes_[i].time() <= time) {
-            last_time = *nodes_[i].time();
+        if (nodes_[i]->time() > last_time && nodes_[i]->time() <= time) {
+            last_time = *nodes_[i]->time();
             found = true;
             node_index = i;
         }
     }
 
     if (found) return nodes_[node_index];
-    else return boost::none;
+    else return nullptr;
+}
+
+
+NodeInfoPtr
+FactorGraph::findFirstNodeAfterTime(unsigned char symbol_chr, ros::Time time)
+{
+    if (nodes_.size() == 0) return nullptr;
+
+    ros::Time first_time = ros::TIME_MAX;
+    bool found = false;
+    size_t node_index = 0;
+
+    for (size_t i = 0; i < nodes_.size(); ++i) {
+        if (nodes_[i]->chr() != symbol_chr) continue;
+
+        if (!nodes_[i]->time()) continue;
+
+        if (nodes_[i]->time() <= first_time && nodes_[i]->time() >= time) {
+            first_time = *nodes_[i]->time();
+            found = true;
+            node_index = i;
+        }
+    }
+
+    if (found) return nodes_[node_index];
+    else return nullptr;
+}
+
+NodeInfoPtr
+FactorGraph::findLastNode(unsigned char symbol_chr)
+{
+    NodeInfoPtr result = nullptr;
+
+    ros::Time last_time = ros::Time(0);
+
+    for (auto& node : nodes_) {
+        if (node->chr() != symbol_chr) continue;
+
+        if (!node->time()) continue;
+
+        if (node->time() > last_time) {
+            last_time = *node->time();
+            result = node;
+        }
+    }
+
+    return result;
 }
