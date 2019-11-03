@@ -19,6 +19,9 @@ find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
 find_package(Boost COMPONENTS filesystem serialization system REQUIRED)
 
+find_package(Ceres REQUIRED)
+include_directories(${CERES_INCLUDE_DIRS})
+
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -233,6 +236,12 @@ target_link_libraries(semantic_slam_node
 catkin_add_gtest(testFactorGraph test/testFactorGraph.cpp)
 target_link_libraries(testFactorGraph 
     FactorGraph
+)
+
+catkin_add_gtest(testCeresBasics test/testCeresBasics.cpp)
+target_link_libraries(testCeresBasics
+    ${CERES_LIBRARIES}
+    gtsam
 )
 
 
