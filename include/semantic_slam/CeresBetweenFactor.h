@@ -23,7 +23,7 @@ private:
 
 using CeresBetweenFactorPtr = CeresBetweenFactor::Ptr;
 
-class BetweenCostTerm
+class BetweenCostTerm : public ceres::SizedCostFunction<6, 4, 3, 4, 3>
 {
 private:
     typedef BetweenCostTerm This;
@@ -34,12 +34,14 @@ public:
 
     BetweenCostTerm(const Pose3& between, const Eigen::MatrixXd& cov);
 
-    template <typename T>
-    bool operator()(const T* const q1, 
-                    const T* const p1, 
-                    const T* const q2, 
-                    const T* const p2, 
-                    T* residual_ptr) const;
+    // template <typename T>
+    // bool operator()(const T* const q1, 
+    //                 const T* const p1, 
+    //                 const T* const q2, 
+    //                 const T* const p2, 
+    //                 T* residual_ptr) const;
+
+    bool Evaluate(double const* const* parameters, double* residuals, double** jacobians);
 
     static ceres::CostFunction* Create(const Pose3& between, const Eigen::MatrixXd& cov);
 
@@ -84,36 +86,36 @@ BetweenCostTerm::BetweenCostTerm(const Pose3& between, const Eigen::MatrixXd& co
     dp_ = between.translation();
 }
 
-template <typename T>
-bool BetweenCostTerm::operator()(const T* const q1_ptr, 
-                                 const T* const p1_ptr, 
-                                 const T* const q2_ptr, 
-                                 const T* const p2_ptr, 
-                                 T* residual_ptr) const
-{
-    Eigen::Map<const math::Quaternion<T>> q1(q1_ptr);
-    Eigen::Map<const Eigen::Matrix<T,3,1>> p1(p1_ptr);
+// template <typename T>
+// bool BetweenCostTerm::operator()(const T* const q1_ptr, 
+//                                  const T* const p1_ptr, 
+//                                  const T* const q2_ptr, 
+//                                  const T* const p2_ptr, 
+//                                  T* residual_ptr) const
+// {
+//     Eigen::Map<const math::Quaternion<T>> q1(q1_ptr);
+//     Eigen::Map<const Eigen::Matrix<T,3,1>> p1(p1_ptr);
 
-    Eigen::Map<const math::Quaternion<T>> q2(q2_ptr);
-    Eigen::Map<const Eigen::Matrix<T,3,1>> p2(p2_ptr);
+//     Eigen::Map<const math::Quaternion<T>> q2(q2_ptr);
+//     Eigen::Map<const Eigen::Matrix<T,3,1>> p2(p2_ptr);
 
-    // Need to make pose3 generic...
-    math::Quaternion<T> q_between = math::quat_mul(math::quat_inv(q1), q2);
-    Eigen::Matrix<T,3,1> p_between = math::quat2rot(q1).transpose() * (p2 - p1);
+//     // Need to make pose3 generic...
+//     math::Quaternion<T> q_between = math::quat_mul(math::quat_inv(q1), q2);
+//     Eigen::Matrix<T,3,1> p_between = math::quat2rot(q1).transpose() * (p2 - p1);
 
-    math::Quaternion<T> q_error = math::quat_mul( math::quat_inv(dq_.cast<T>()), q_between);
-    // Eigen::Quaternion<T> q_error = q_between * dq_.inverse().cast<T>();
-    Eigen::Matrix<T, 3, 1> p_error = p_between - dp_.cast<T>();
+//     math::Quaternion<T> q_error = math::quat_mul( math::quat_inv(dq_.cast<T>()), q_between);
+//     // Eigen::Quaternion<T> q_error = q_between * dq_.inverse().cast<T>();
+//     Eigen::Matrix<T, 3, 1> p_error = p_between - dp_.cast<T>();
 
-    Eigen::Map<Eigen::Matrix<T,6,1>> residual(residual_ptr);
+//     Eigen::Map<Eigen::Matrix<T,6,1>> residual(residual_ptr);
 
-    residual.template head<3>() = T(2.0) * q_error.template head<3>();
-    residual.template tail<3>() = p_error;
+//     residual.template head<3>() = T(2.0) * q_error.template head<3>();
+//     residual.template tail<3>() = p_error;
 
-    residual.applyOnTheLeft(sqrt_information_);
+//     residual.applyOnTheLeft(sqrt_information_);
 
-    return true;
-}
+//     return true;
+// }
 
 ceres::CostFunction* BetweenCostTerm::Create(const Pose3& between, const Eigen::MatrixXd& cov)
 {
