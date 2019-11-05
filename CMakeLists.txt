@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 project(semantic_slam)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++14 -g3 -O3)
+add_compile_options(-std=c++14 -g3 -O3 -march=native)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -150,6 +150,15 @@ add_library(PosePresenter src/PosePresenter.cpp)
 
 add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
 
+add_library(Key src/Key.cpp)
+add_library(Symbol src/Symbol.cpp)
+
+set(BASE_LIBS 
+    Utils
+    Key
+    Symbol
+)
+
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
@@ -164,10 +173,10 @@ target_link_libraries(semantic_slam_node
     # ${GTSAM_LIBRARIES}
     ${Boost_LIBRARIES}
     FactorGraph
-    Utils
     OdometryHandler
     PosePresenter
     TrajectoryPresenter
+    ${BASE_LIBS}
 )
 
 ## Rename C++ executable without prefix
@@ -241,7 +250,8 @@ target_link_libraries(testFactorGraph
 catkin_add_gtest(testCeresBasics test/testCeresBasics.cpp)
 target_link_libraries(testCeresBasics
     ${CERES_LIBRARIES}
-    gtsam
+    # gtsam
+    ${BASE_LIBS}
 )
 
 

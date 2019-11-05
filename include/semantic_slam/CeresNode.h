@@ -1,9 +1,10 @@
 #pragma once 
 
 #include "semantic_slam/Common.h"
+#include "semantic_slam/Symbol.h"
 
 #include <ceres/ceres.h>
-#include <gtsam/inference/Symbol.h>
+// #include <gtsam/inference/Symbol.h>
 #include <ros/ros.h>
 
 class CeresNode {
@@ -11,10 +12,10 @@ public:
 
     virtual void addToProblem(boost::shared_ptr<ceres::Problem> problem) = 0;
 
-    gtsam::Symbol symbol() const { return gtsam::Symbol(key_); }
-    unsigned char chr() const { return gtsam::Symbol(key_).chr(); }
-    size_t index() const { return gtsam::Symbol(key_).index(); }
-    gtsam::Key key() const { return key_; }
+    Symbol symbol() const { return Symbol(key_); }
+    unsigned char chr() const { return Symbol(key_).chr(); }
+    size_t index() const { return Symbol(key_).index(); }
+    Key key() const { return key_; }
 
     boost::optional<ros::Time> time() const { return time_; }
 
@@ -24,17 +25,17 @@ public:
 
 protected:
 
-    CeresNode(gtsam::Key key, boost::optional<ros::Time> time=boost::none);
+    CeresNode(Key key, boost::optional<ros::Time> time=boost::none);
 
     std::vector<double*> parameter_blocks_;
 
-    gtsam::Key key_;
+    Key key_;
     boost::optional<ros::Time> time_;
 };
 
 using CeresNodePtr = CeresNode::Ptr;
 
-CeresNode::CeresNode(gtsam::Key key, boost::optional<ros::Time> time)
+CeresNode::CeresNode(Key key, boost::optional<ros::Time> time)
     : key_(key),
       time_(time)
 {

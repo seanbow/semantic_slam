@@ -55,11 +55,8 @@ public:
 private:
     Eigen::Matrix<double, 6, 6> sqrt_information_;
 
-    math::Quaternion dq_;
-    Eigen::Quaterniond dq_eigen_;
+    Eigen::Quaterniond dq_;
     Eigen::Vector3d dp_;
-
-    Pose3 between_;
 
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -97,10 +94,6 @@ BetweenCostTerm::BetweenCostTerm(const Pose3& between, const Eigen::MatrixXd& co
 
     dq_ = between.rotation();
     dp_ = between.translation();
-
-    dq_eigen_ = Eigen::Map<Eigen::Quaterniond>(dq_.data());
-
-    between_ = between;
 }
 
 #if AUTODIFF
@@ -127,7 +120,7 @@ bool BetweenCostTerm::operator()(const T* const q1_ptr,
 
     // Compute the error between the two orientation estimates.
     Eigen::Quaternion<T> delta_q =
-        dq_eigen_.template cast<T>() * q_ab_estimated.conjugate();
+        dq_.template cast<T>() * q_ab_estimated.conjugate();
 
     // Compute the residuals.
     // [ position         ]   [ delta_p          ]
@@ -153,10 +146,10 @@ ceres::CostFunction* BetweenCostTerm::Create(const Pose3& between, const Eigen::
 
 bool BetweenCostTerm::Evaluate(double const* const* parameters, double* residuals_ptr, double** jacobians) const
 {
-    Eigen::Map<const math::Quaternion> q1(parameters[0]);
+    Eigen::Map<const Eigen::Quaterniond> q1(parameters[0]);
     Eigen::Map<const Eigen::Vector3d> p1(parameters[1]);
 
-    Eigen::Map<const math::Quaternion> q2(parameters[2]);
+    Eigen::Map<const Eigen::Quaterniond> q2(parameters[2]);
     Eigen::Map<const Eigen::Vector3d> p2(parameters[3]);
 
     Eigen::Map<Eigen::Matrix<double, 6, 1>> residual(residuals_ptr);
@@ -170,23 +163,13 @@ bool BetweenCostTerm::Evaluate(double const* const* parameters, double* residual
 
     Eigen::MatrixXd Herror;
 
-    math::Quaternion between_q_inv = math::quat_inv(between.rotation());
-    math::Quaternion dq = math::quat_mul(dq_, between_q_inv);
+    Eigen::Quaterniond between_q_inv = between.rotation().conjugate();
+    Eigen::Quaterniond dq = dq_ * between_q_inv;
     Eigen::MatrixXd H_q_error = math::Dquat_mul_dq2(dq_, between_q_inv) * math::Dquat_inv(between.rotation());
-
-    // math::Quaternion dq = math::quat_mul(between.rotation(), math::quat_inv(dq_));
-    // Eigen::MatrixXd H_q_error = math::Dquat_mul_dq1(between.rotation(), math::quat_inv(dq_));
 
     Eigen::Vector3d dp = between.translation() - dp_;
 
-
-    Eigen::MatrixXd H_error = Eigen::MatrixXd::Identity(7,7);
-    H_error.block<4,4>(0,0) = H_q_error;
-
-    Hpose1.applyOnTheLeft(H_error);
-    Hpose2.applyOnTheLeft(H_error);
-
-    residual.head<3>() = 2.0 * dq.head<3>();
+    residual.head<3>() = 2.0 * dq.vec();
     residual.tail<3>() = dp;
 
     residual.applyOnTheLeft(sqrt_information_);
@@ -194,52 +177,37 @@ bool BetweenCostTerm::Evaluate(double const* const* parameters, double* residual
     // Jacobians with respect to each parameter...
     if (jacobians != NULL) {
 
-        Eigen::Matrix<double, 6, 7> H_res;
-        H_res <<  2.0,   0,    0,  0,  0, 0, 0,
-                    0, 2.0,    0,  0,  0, 0, 0,
-                    0,   0,  2.0,  0,  0, 0, 0,
-                    0,   0,    0,  0,  1, 0, 0,
-                    0,   0,    0,  0,  0, 1, 0,
-                    0,   0,    0,  0,  0, 0, 1;
-
-        H_res.applyOnTheLeft(sqrt_information_);
-
         if (jacobians[0] != NULL) {
             // 6x4, w.r.t. q1
             Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::RowMajor>> dr_dq1(jacobians[0]);
 
-            // dr_dq1.block<3,4>(0,0) = H_q_res * Hpose1.block<4,4>(0,0);
-            // dr_dq1.block<3,4>(3,0) = Hpose1.block<3,4>(4,0);
-            // dr_dq1.applyOnTheLeft(sqrt_information_);
-
-            dr_dq1 = H_res * Hpose1.block<7,4>(0,0);
+            dr_dq1.block<3,4>(0,0) = 2.0 * (H_q_error * Hpose1.block<4,4>(0,0)).block<3,4>(0,0);
+            dr_dq1.block<3,4>(3,0) = Hpose1.block<3,4>(4,0);
+            dr_dq1.applyOnTheLeft(sqrt_information_);
         }
 
         if (jacobians[1] != NULL) {
             // 6x3, w.r.t. p1
             Eigen::Map<Eigen::Matrix<double, 6, 3, Eigen::RowMajor>> dr_dp1(jacobians[1]);
-            // dr_dp1.block<3,3>(0,0) = H_q_res * Hpose1.block<4,3>(0,4);
-            // dr_dp1.block<3,3>(3,0) = Hpose1.block<3,3>(4,4);
-            // dr_dp1.applyOnTheLeft(sqrt_information_);
-            dr_dp1 = H_res * Hpose1.block<7,3>(0,4);
+            dr_dp1.block<3,3>(0,0) = Hpose1.block<3,3>(0,4);
+            dr_dp1.block<3,3>(3,0) = Hpose1.block<3,3>(4,4);
+            dr_dp1.applyOnTheLeft(sqrt_information_);
         }
 
         if (jacobians[2] != NULL) {
             // 6x4, w.r.t. q2
             Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::RowMajor>> dr_dq2(jacobians[2]);
-            // dr_dq2.block<3,4>(0,0) = H_q_res * Hpose2.block<4,4>(0,0);
-            // dr_dq2.block<3,4>(3,0) = Hpose2.block<3,4>(4,0);
-            // dr_dq2.applyOnTheLeft(sqrt_information_);
-            dr_dq2 = H_res * Hpose2.block<7,4>(0,0);
+            dr_dq2.block<3,4>(0,0) = 2.0 * (H_q_error * Hpose2.block<4,4>(0,0)).block<3,4>(0,0);
+            dr_dq2.block<3,4>(3,0) = Hpose2.block<3,4>(4,0);
+            dr_dq2.applyOnTheLeft(sqrt_information_);
         }
 
         if (jacobians[3] != NULL) {
             // 6x3, w.r.t. p2
             Eigen::Map<Eigen::Matrix<double, 6, 3, Eigen::RowMajor>> dr_dp2(jacobians[3]);
-            // dr_dp2.block<3,3>(0,0) = H_q_res * Hpose2.block<4,3>(0,4);
-            // dr_dp2.block<3,3>(3,0) = Hpose2.block<3,3>(4,4);
-            // dr_dp2.applyOnTheLeft(sqrt_information_);
-            dr_dp2 = H_res * Hpose2.block<7,3>(0,4);
+            dr_dp2.block<3,3>(0,0) = Hpose2.block<3,3>(0,4);
+            dr_dp2.block<3,3>(3,0) = Hpose2.block<3,3>(4,4);
+            dr_dp2.applyOnTheLeft(sqrt_information_);
         }
     }
 

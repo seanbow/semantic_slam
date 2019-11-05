@@ -3,22 +3,21 @@
 #pragma once
 
 #include <ros/ros.h>
-#include <gtsam/geometry/Pose3.h>
+// #include <gtsam/geometry/Pose3.h>
 #include <Eigen/Geometry>
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/Imu.h>
 
-#include <gtsam/nonlinear/Values.h>
-#include <gtsam/slam/ProjectionFactor.h>
-#include <gtsam/geometry/Cal3DS2.h>
+// #include <gtsam/nonlinear/Values.h>
+// #include <gtsam/slam/ProjectionFactor.h>
+// #include <gtsam/geometry/Cal3DS2.h>
 
 #include <boost/function.hpp>
 #include <boost/preprocessor/arithmetic/sub.hpp>
+#include <boost/optional.hpp>
 
 #include <chrono>
-
-// #include <boost/optional.hpp>
 
 #define CONCAT_2(A,B) A##B
 #define CONCAT_1(A,B) CONCAT_2(A,B)
@@ -53,12 +52,12 @@ boost::shared_ptr<T> allocate_aligned(Args&& ... args) {
 } // namespace util
 
 
-void appendToValues(gtsam::Values& v, const gtsam::Values& v_other) {
-  for(gtsam::Values::const_iterator key_value = v_other.begin(); key_value != v_other.end(); ++key_value) {
-    if (v.exists(key_value->key)) v.update(key_value->key, key_value->value);
-    else v.insert(key_value->key, key_value->value);
-  }
-}
+// void appendToValues(gtsam::Values& v, const gtsam::Values& v_other) {
+//   for(gtsam::Values::const_iterator key_value = v_other.begin(); key_value != v_other.end(); ++key_value) {
+//     if (v.exists(key_value->key)) v.update(key_value->key, key_value->value);
+//     else v.insert(key_value->key, key_value->value);
+//   }
+// }
 
 template <typename T>
 T computeMedian(std::vector<T> vec) {
@@ -130,36 +129,36 @@ Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Eigen::Matrix3d& G_R
   return H;
 }
 
-bool rotationsApproxEqual(const gtsam::Rot3& a, const gtsam::Rot3& b, double threshold) {
-  Eigen::Quaterniond q = (a.inverse() * b).toQuaternion();
-  if (2 * acos(q.w()) < threshold) return true;
-  return false;
-}
+// bool rotationsApproxEqual(const gtsam::Rot3& a, const gtsam::Rot3& b, double threshold) {
+//   Eigen::Quaterniond q = (a.inverse() * b).toQuaternion();
+//   if (2 * acos(q.w()) < threshold) return true;
+//   return false;
+// }
 
-bool pointsApproxEqual(const gtsam::Point3& a, const gtsam::Point3& b, double threshold) {
-  return (a - b).norm() < threshold;
-}
+// bool pointsApproxEqual(const gtsam::Point3& a, const gtsam::Point3& b, double threshold) {
+//   return (a - b).norm() < threshold;
+// }
 
-bool pointsApproxEqual(const gtsam::Point2& a, const gtsam::Point2& b, double threshold) {
-  return (a - b).norm() < threshold;
-}
+// bool pointsApproxEqual(const gtsam::Point2& a, const gtsam::Point2& b, double threshold) {
+//   return (a - b).norm() < threshold;
+// }
 
-bool posesApproxEqual(const gtsam::Pose3& a, const gtsam::Pose3& b, double threshold) {
-  // todo rotations and points should not use the same threshold probably
-  return rotationsApproxEqual(a.rotation(), b.rotation(), threshold) && pointsApproxEqual(a.translation(), b.translation(), threshold);
-}
+// bool posesApproxEqual(const gtsam::Pose3& a, const gtsam::Pose3& b, double threshold) {
+//   // todo rotations and points should not use the same threshold probably
+//   return rotationsApproxEqual(a.rotation(), b.rotation(), threshold) && pointsApproxEqual(a.translation(), b.translation(), threshold);
+// }
 
-typedef gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3DS2> ProjectionFactorInUtils; //vomit;
+// typedef gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3DS2> ProjectionFactorInUtils; //vomit;
 
-bool cameraFactorsApproxEqual(const ProjectionFactorInUtils& a, const ProjectionFactorInUtils& b, const gtsam::Values& vals_, double thresh) {
-  // camera poses
-  if (posesApproxEqual(vals_.at<gtsam::Pose3>(a.key1()), vals_.at<gtsam::Pose3>(b.key1()), thresh)) return true;
+// bool cameraFactorsApproxEqual(const ProjectionFactorInUtils& a, const ProjectionFactorInUtils& b, const gtsam::Values& vals_, double thresh) {
+//   // camera poses
+//   if (posesApproxEqual(vals_.at<gtsam::Pose3>(a.key1()), vals_.at<gtsam::Pose3>(b.key1()), thresh)) return true;
 
-  // measurements
-  if (pointsApproxEqual(a.measured(), b.measured(), thresh)) return true;
+//   // measurements
+//   if (pointsApproxEqual(a.measured(), b.measured(), thresh)) return true;
 
-  return false;
-}
+//   return false;
+// }
 
 /**
  * For any given angle theta \in R returns the equivalent rotation theta' \in (-pi, pi]
@@ -408,9 +407,9 @@ void FromROSMsg(const geometry_msgs::PoseWithCovariance& msg,
                 Eigen::Quaterniond& orientation,
                 Eigen::Matrix<double, 6, 6>& covariance);
 
-void FromROSMsg(const geometry_msgs::PoseWithCovariance& msg,
-                gtsam::Pose3& pose,
-                Eigen::Matrix<double, 6, 6>& covariance);
+// void FromROSMsg(const geometry_msgs::PoseWithCovariance& msg,
+//                 gtsam::Pose3& pose,
+//                 Eigen::Matrix<double, 6, 6>& covariance);
 
 void FromROSMsg(const sensor_msgs::Imu& msg,
                 Eigen::Vector3d& omega,

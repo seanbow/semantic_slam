@@ -22,32 +22,42 @@ public:
   }
 };
 
-bool QuaternionLocalParameterization::Plus(const double* x, const double* delta, double* x_plus_delta) const
-{
-  math::Quaternion dq;
-  dq << 0.5 * delta[0], 0.5 * delta[1], 0.5 * delta[2], 1.0;
-  dq.normalize();
+bool QuaternionLocalParameterization::Plus(const double* x_ptr, const double* delta, double* x_plus_delta_ptr) const
+{  
+    // Eigen::Map<Eigen::Quaterniond> x_plus_delta(x_plus_delta_ptr);
+    // Eigen::Map<const Eigen::Quaterniond> x(x_ptr);
 
-  Eigen::Map<const math::Quaternion> q(x);
-  Eigen::Map<math::Quaternion> result(x_plus_delta);
+    // const double norm_delta =
+    // sqrt(delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2]);
+    // if (norm_delta > 0.0) {
+    //     const double sin_delta_by_delta = sin(norm_delta) / norm_delta;
 
-  result = math::quat_mul(dq, q);
+    //     // Note, in the constructor w is first.
+    //     Eigen::Quaterniond delta_q(cos(norm_delta),
+    //                                 sin_delta_by_delta * delta[0],
+    //                                 sin_delta_by_delta * delta[1],
+    //                                 sin_delta_by_delta * delta[2]);
+    //     x_plus_delta = delta_q * x;
+    // } else {
+    //     x_plus_delta = x;
+    // }
 
-  return true;
+    Eigen::Quaterniond dq(1.0, 0.5 * delta[0], 0.5 * delta[1], 0.5 * delta[2]);
+    dq.normalize();
+
+    Eigen::Map<const Eigen::Quaterniond> q(x_ptr);
+    Eigen::Map<Eigen::Quaterniond> x_plus_delta(x_plus_delta_ptr);
+    
+    return true;
 }
 
 bool QuaternionLocalParameterization::ComputeJacobian(const double* x, double* jacobian) const
 {
-  Eigen::Map<const math::Quaternion> q(x);
-  Eigen::Map<Jacobian> J(jacobian);
-
-  // Jacobian of Plus(q, dtheta) at dtheta = 0
-  // Plus(q, dtheta) = R(q)*dq, R = right quaternion matrix
-  // dq = [dtheta/2, 1]
-  // -> Plus(q, dtheta) = R(x)*[dtheta/2; 1]
-  // = [Xi(x) x]*[dtheta/2 ; 1] = Xi(x)*dtheta/2 + x
-  // -> dPlus/dtheta = 0.5*Xi(x)
-  J = 0.5 * math::quat_Xi_mat(q);
+  jacobian[0] =  x[3]; jacobian[1]  =  x[2]; jacobian[2]  = -x[1]; 
+  jacobian[3] = -x[2]; jacobian[4]  =  x[3]; jacobian[5]  =  x[0]; 
+  jacobian[6] =  x[1]; jacobian[7]  = -x[0]; jacobian[8]  =  x[3];  
+  jacobian[9] = -x[0]; jacobian[10] = -x[1]; jacobian[11] = -x[2];  
+  return true;
 
   return true;
 }

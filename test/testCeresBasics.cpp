@@ -10,7 +10,7 @@
 
 #include "test_utils.h"
 
-namespace sym = gtsam::symbol_shorthand;
+namespace sym = symbol_shorthand;
 
 // class FactorGraphTests : public ::testing::Test
 // {
@@ -39,7 +39,7 @@ namespace sym = gtsam::symbol_shorthand;
 TEST(CeresBasicTests, testAddSE3Node_Exists)
 {
     boost::shared_ptr<ceres::Problem> problem = boost::make_shared<ceres::Problem>();
-    SE3Node node(gtsam::Symbol('x', 0));
+    SE3Node node(Symbol('x', 0));
 
     node.addToProblem(problem);
 
@@ -52,13 +52,13 @@ TEST(CeresBasicTests, testAddNodeToGraph_CheckKeys)
 {
     CeresFactorGraph graph;
 
-    SE3NodePtr node0 = boost::make_shared<SE3Node>(sym::X(0));
-    SE3NodePtr node1 = boost::make_shared<SE3Node>(sym::X(1));
+    SE3NodePtr node0 = util::allocate_aligned<SE3Node>(sym::X(0));
+    SE3NodePtr node1 = util::allocate_aligned<SE3Node>(sym::X(1));
 
     graph.addNode(node0);
     graph.addNode(node1);
 
-    std::vector<gtsam::Key> keys = graph.keys();
+    std::vector<Key> keys = graph.keys();
 
     const ceres::Problem& problem = graph.problem();
 
@@ -70,11 +70,11 @@ TEST(CeresBasicTests, testAddNodeToGraph_CheckKeys)
 TEST(CeresBasicTests, testAddFactor_checkExistsInProblem)
 {
     CeresFactorGraph graph;
-    SE3NodePtr node0 = boost::make_shared<SE3Node>(sym::X(0));
+    SE3NodePtr node0 = util::allocate_aligned<SE3Node>(sym::X(0));
 
     Pose3 prior = Pose3::Identity();
     Eigen::MatrixXd cov = Eigen::MatrixXd::Identity(6,6);
-    CeresSE3PriorFactorPtr factor = boost::make_shared<CeresSE3PriorFactor>(node0, prior, cov);
+    CeresSE3PriorFactorPtr factor = util::allocate_aligned<CeresSE3PriorFactor>(node0, prior, cov);
 
     graph.addNode(node0);
     graph.addFactor(factor);
@@ -85,11 +85,11 @@ TEST(CeresBasicTests, testAddFactor_checkExistsInProblem)
 TEST(CeresBasicTests, testSolve_SimplePriorProblem)
 {
     CeresFactorGraph graph;
-    SE3NodePtr node0 = boost::make_shared<SE3Node>(sym::X(0));
+    SE3NodePtr node0 = util::allocate_aligned<SE3Node>(sym::X(0));
 
     Pose3 prior = Pose3::Identity();
     Eigen::MatrixXd cov = Eigen::MatrixXd::Identity(6,6);
-    CeresSE3PriorFactorPtr factor = boost::make_shared<CeresSE3PriorFactor>(node0, prior, cov);
+    CeresSE3PriorFactorPtr factor = util::allocate_aligned<CeresSE3PriorFactor>(node0, prior, cov);
 
     graph.addNode(node0);
     graph.addFactor(factor);
@@ -109,12 +109,12 @@ TEST(CeresBasicTests, testJacobians_BetweenInverseEquivalence)
 {
     Pose3 x0;
     x0.translation() << 1, -4.2, 3;
-    x0.rotation() << 0, .2, .45, .4;
+    x0.rotation().coeffs() << 0, .2, .45, .4;
     x0.rotation().normalize();
 
     Pose3 x1;
     x1.translation() << -4.7, 3.2, 1.04;
-    x1.rotation() << -.1, .76, -.2, .17;
+    x1.rotation().coeffs() << -.1, .76, -.2, .17;
     x1.rotation().normalize();
 
     // Compute Jacobian with between function
@@ -132,6 +132,12 @@ TEST(CeresBasicTests, testJacobians_BetweenInverseEquivalence)
 
     EXPECT_TRUE(H_final_0.isApprox(H0));
     EXPECT_TRUE(H_final_1.isApprox(H1));
+
+    // std::cout << "H_final_0:\n" << H_final_0 << std::endl;
+    // std::cout << "H0:\n" << H0 << std::endl;
+
+    // std::cout << "H_final_1:\n" << H_final_1 << std::endl;
+    // std::cout << "H1:\n" << H1 << std::endl;
 }
 
 // Simple between factor test case
@@ -139,15 +145,15 @@ TEST(CeresBasicTests, testBetweenFactor_SimpleCase)
 {
     // Initialize poses at origin, say true pose of 
     // x1 is at (1,0,0) but only enforce with between factor
-    SE3NodePtr x0 = boost::make_shared<SE3Node>(sym::X(0));
-    SE3NodePtr x1 = boost::make_shared<SE3Node>(sym::X(1));
+    SE3NodePtr x0 = util::allocate_aligned<SE3Node>(sym::X(0));
+    SE3NodePtr x1 = util::allocate_aligned<SE3Node>(sym::X(1));
 
     x0->pose() = Pose3::Identity();
     x1->pose() = Pose3::Identity();
 
     // Anchor x0 at origin
     Eigen::MatrixXd prior_cov = 1e-4 * Eigen::MatrixXd::Identity(6,6);
-    CeresSE3PriorFactorPtr x0_prior = boost::make_shared<CeresSE3PriorFactor>(x0, Pose3::Identity(), prior_cov);
+    CeresSE3PriorFactorPtr x0_prior = util::allocate_aligned<CeresSE3PriorFactor>(x0, Pose3::Identity(), prior_cov);
 
     CeresFactorGraph graph;
 
@@ -158,10 +164,10 @@ TEST(CeresBasicTests, testBetweenFactor_SimpleCase)
     // Between factor between x0 and x1
     Eigen::MatrixXd between_cov = 1e-1 * Eigen::MatrixXd::Identity(6,6);
     Pose3 between;
-    between.rotation() << 0, 0, 0, 1;
+    between.rotation().coeffs() << 0, 0, 0, 1;
     between.translation() << 1, 1, 1;
 
-    CeresBetweenFactorPtr fac = boost::make_shared<CeresBetweenFactor>(x0,x1,between,between_cov);
+    CeresBetweenFactorPtr fac = util::allocate_aligned<CeresBetweenFactor>(x0,x1,between,between_cov);
 
     graph.addFactor(fac);
 
@@ -170,116 +176,104 @@ TEST(CeresBasicTests, testBetweenFactor_SimpleCase)
     EXPECT_TRUE(x1->translation().isApprox(between.translation(), 1e-8));
 }
 
-TEST(CeresBasicTests, testBetweenCostTerm_Result)
-{
-    math::Quaternion q1, q2;
-    Eigen::Vector3d p1, p2;
+// TEST(CeresBasicTests, testBetweenCostTerm_Result)
+// {
+//     Eigen::Quaterniond q1, q2;
+//     Eigen::Vector3d p1, p2;
 
-    q1 << -.1, 0.6, -0.58, 0.34;
-    p1 << 1, -3.5, 0.25;
+//     q1.coeffs() << -.1, 0.6, -0.58, 0.34;
+//     p1 << 1, -3.5, 0.25;
 
-    // q2 << 0, 0, 0, 1;
-    q2 << 0.4, 0.75, -0.31, -0.15;
-    p2 << -4.8, -0.5, -7;
+//     // q2 << 0, 0, 0, 1;
+//     q2.coeffs() << 0.4, 0.75, -0.31, -0.15;
+//     p2 << -4.8, -0.5, -7;
 
-    q1.normalize();
-    q2.normalize();
+//     q1.normalize();
+//     q2.normalize();
 
-    Eigen::Quaterniond q1e = Eigen::Map<Eigen::Quaterniond>(q1.data());
-    Eigen::Quaterniond q2e = Eigen::Map<Eigen::Quaterniond>(q2.data());
+//     Eigen::VectorXd residual(6);
 
-    Eigen::VectorXd residual(6);
+//     Pose3 identity_pose = Pose3::Identity();
 
-    Pose3 identity_pose = Pose3::Identity();
+//     ceres::CostFunction* cost = BetweenCostTerm::Create(identity_pose, 1 * Eigen::MatrixXd::Identity(6,6));
 
-    ceres::CostFunction* cost = BetweenCostTerm::Create(identity_pose, 1 * Eigen::MatrixXd::Identity(6,6));
+//     double *parameters[] = {q1.coeffs().data(),
+//                     p1.data(),
+//                     q2.coeffs().data(),
+//                     p2.data()};
 
-    double *parameters[] = {q1.data(),
-                    p1.data(),
-                    q2.data(),
-                    p2.data()};
+//     std::vector<const ceres::LocalParameterization*> parameterizations;
+//     parameterizations.push_back(new ceres::EigenQuaternionParameterization);
+//     parameterizations.push_back(NULL);
+//     parameterizations.push_back(new ceres::EigenQuaternionParameterization);
+//     parameterizations.push_back(NULL);
 
-    std::vector<const ceres::LocalParameterization*> parameterizations;
-    parameterizations.push_back(new QuaternionLocalParameterization);
-    parameterizations.push_back(NULL);
-    parameterizations.push_back(new QuaternionLocalParameterization);
-    parameterizations.push_back(NULL);
+//     ceres::NumericDiffOptions opts;
 
-    ceres::NumericDiffOptions opts;
+//     ceres::GradientChecker checker(cost, &parameterizations, opts);
 
-    ceres::GradientChecker checker(cost, &parameterizations, opts);
+//     ceres::GradientChecker::ProbeResults results;
 
-    ceres::GradientChecker::ProbeResults results;
-
-    EXPECT_TRUE(checker.Probe(parameters, 1e-3, &results));
+//     EXPECT_TRUE(checker.Probe(parameters, 1e-3, &results));
     
-    std::cout << "CHECKER: " << results.error_log << std::endl;
+//     // std::cout << "CHECKER: " << results.error_log << std::endl;
 
-    math::Quaternion q12 = math::quat_mul(math::quat_inv(q1), q2);
-    Eigen::Quaterniond q12e = q1e.conjugate() * q2e;
+//     Eigen::Quaterniond q12 = q1.conjugate() * q2;
 
-    std::cout << "q12:\n" << q12.transpose()  << std::endl;
-    std::cout << "EIGEN q12 conj:\n " << q12e.vec().transpose() << " " << q12e.w() << std::endl;
+//     Eigen::Vector3d x;
+//     x << 1.5, -2.5, 6;
 
-    std::cout << "qidentity*qa2inv:\n" << math::quat_mul(math::identity_quaternion(),math::quat_inv(q12)) << std::endl;
+//     // std::cout << "EIGEN" << std::endl;
+//     // std::cout << "(q1*q2)*x = " << ((q1*q2)*x).transpose() << std::endl;
+//     // std::cout << "q1 * (q2*x) = " << (q1 * (q2*x)).transpose() << std::endl;
 
-    Eigen::Vector3d x;
-    x << 1.5, -2.5, 6;
+//     // std::cout << "EIGEN inv:" << std::endl;
+//     // std::cout << "(q1*q2)*x = " << ((q1.conjugate()*q2.conjugate())*x).transpose() << std::endl;
+//     // std::cout << "q1 * (q2*x) = " << (q1.conjugate() * (q2.conjugate()*x)).transpose() << std::endl;
 
-    std::cout << "EIGEN" << std::endl;
-    std::cout << "(q1*q2)*x = " << ((q1e*q2e)*x).transpose() << std::endl;
-    std::cout << "q1 * (q2*x) = " << (q1e * (q2e*x)).transpose() << std::endl;
 
-    std::cout << "EIGEN inv:" << std::endl;
-    std::cout << "(q1*q2)*x = " << ((q1e.conjugate()*q2e.conjugate())*x).transpose() << std::endl;
-    std::cout << "q1 * (q2*x) = " << (q1e.conjugate() * (q2e.conjugate()*x)).transpose() << std::endl;
+//     // cost.Evaluate(q1.data(),
+//     //                 p1.data(),
+//     //                 q2.data(),
+//     //                 p2.data(),
+//     //                 residual.data(), NULL);
 
-    std::cout << "ME" << std::endl;
-    std::cout << "(q1*q2)*x = " << (math::quat2rot(math::quat_mul(q1,q2))*x).transpose() << std::endl;
-    std::cout << "q1 * (q2*x) = " << (math::quat2rot(q1) * (math::quat2rot(q2)*x)).transpose() << std::endl;
+//     // cost.Evaluate(parameters, residual.data(), NULL);
 
-    // cost.Evaluate(q1.data(),
-    //                 p1.data(),
-    //                 q2.data(),
-    //                 p2.data(),
-    //                 residual.data(), NULL);
+//     // std::cout << "between residual:\n" << residual << std::endl;
 
-    // cost.Evaluate(parameters, residual.data(), NULL);
+//     // compare to gtsam
+//     // Eigen::Map<Eigen::Quaterniond> q1_e(q1.data());
+//     // Eigen::Map<Eigen::Quaterniond> q2_e(q2.data());
 
-    // std::cout << "between residual:\n" << residual << std::endl;
+//     // gtsam::Pose3 x1(gtsam::Rot3(q1_e), p1);
+//     // gtsam::Pose3 x2(gtsam::Rot3(q2_e), p2);
 
-    // compare to gtsam
-    // Eigen::Map<Eigen::Quaterniond> q1_e(q1.data());
-    // Eigen::Map<Eigen::Quaterniond> q2_e(q2.data());
+//     // // std::cout << "GTSAM pose1: " << x1 << "\n pose2:\n" << x2 << std::endl;
 
-    // gtsam::Pose3 x1(gtsam::Rot3(q1_e), p1);
-    // gtsam::Pose3 x2(gtsam::Rot3(q2_e), p2);
+//     // gtsam::Pose3 between_gt = x1.between(x2);
 
-    // // std::cout << "GTSAM pose1: " << x1 << "\n pose2:\n" << x2 << std::endl;
+//     // Pose3 x1_ours(q1,p1);
+//     // Pose3 x2_ours(q2,p2);
+//     // Pose3 between_ours = x1_ours.between(x2_ours);
 
-    // gtsam::Pose3 between_gt = x1.between(x2);
+//     // EXPECT_TRUE(residual.head<3>().isApprox(2.0 * between_gt.rotation().toQuaternion().vec(), 1e-4));
 
-    // Pose3 x1_ours(q1,p1);
-    // Pose3 x2_ours(q2,p2);
-    // Pose3 between_ours = x1_ours.between(x2_ours);
+//     // std::cout << "gtsam between: \n" << between_gt.rotation().toQuaternion().vec() << "\n" << between_gt.translation() << std::endl;
 
-    // EXPECT_TRUE(residual.head<3>().isApprox(2.0 * between_gt.rotation().toQuaternion().vec(), 1e-4));
+//     // std::cout << "Ours between:\n" << between_ours.rotation() << "\n" << between_ours.translation() << std::endl;
 
-    // std::cout << "gtsam between: \n" << between_gt.rotation().toQuaternion().vec() << "\n" << between_gt.translation() << std::endl;
-
-    // std::cout << "Ours between:\n" << between_ours.rotation() << "\n" << between_ours.translation() << std::endl;
-
-    EXPECT_TRUE(true);
-}
+//     EXPECT_TRUE(true);
+// }
 
 // Simple between factor test case
 TEST(CeresBasicTests, testBetweenFactor_SimpleCase2)
 {
-    SE3NodePtr x0 = boost::make_shared<SE3Node>(sym::X(0));
-    SE3NodePtr x1 = boost::make_shared<SE3Node>(sym::X(1));
+    SE3NodePtr x0 = util::allocate_aligned<SE3Node>(sym::X(0));
+    SE3NodePtr x1 = util::allocate_aligned<SE3Node>(sym::X(1));
 
     x0->pose().translation() << 1, -3.5, 0.25;
-    x0->pose().rotation() << -.1, 0.69, -0.58, 0.34;
+    x0->pose().rotation().coeffs() << -.1, 0.69, -0.58, 0.34;
     // x0->pose().rotation() << 0, 0, 0, 1;
     x0->pose().rotation().normalize();
 
@@ -288,7 +282,7 @@ TEST(CeresBasicTests, testBetweenFactor_SimpleCase2)
     // Anchor x0
     Eigen::MatrixXd prior_cov = 1e-4 * Eigen::MatrixXd::Identity(6,6);
     Pose3 x0_prior = x0->pose();
-    CeresSE3PriorFactorPtr x0_prior_fac = boost::make_shared<CeresSE3PriorFactor>(x0, x0_prior, prior_cov);
+    CeresSE3PriorFactorPtr x0_prior_fac = util::allocate_aligned<CeresSE3PriorFactor>(x0, x0_prior, prior_cov);
 
     CeresFactorGraph graph;
 
@@ -299,11 +293,11 @@ TEST(CeresBasicTests, testBetweenFactor_SimpleCase2)
     // Between factor between x0 and x1
     Eigen::MatrixXd between_cov = 1e-2 * Eigen::MatrixXd::Identity(6,6);
     Pose3 between;
-    between.rotation() << 0.4, 0.75, -0.31, 0.15;
+    between.rotation().coeffs() << 0.4, 0.75, -0.31, 0.15;
     between.rotation().normalize();
     between.translation() << -4.8, -0.35, -7;
 
-    CeresBetweenFactorPtr fac = boost::make_shared<CeresBetweenFactor>(x0,x1,between,between_cov);
+    CeresBetweenFactorPtr fac = util::allocate_aligned<CeresBetweenFactor>(x0,x1,between,between_cov);
 
     graph.addFactor(fac);
 
@@ -312,19 +306,24 @@ TEST(CeresBasicTests, testBetweenFactor_SimpleCase2)
     // Compute "truth" answer with simple multiplication
     Pose3 truth_x1 = x0_prior.compose(between);
 
-    std::cout << "X1 trans:\n" << x1->translation() << std::endl;
-    std::cout << "X1 truth trans: \n" << truth_x1.translation() << std::endl;
+    // std::cout << "X1 trans:\n" << x1->translation() << std::endl;
+    // std::cout << "X1 truth trans: \n" << truth_x1.translation() << std::endl;
 
-    std::cout << "X1 rot:\n" << x1->rotation() << std::endl;
-    std::cout << "X1 truth rot: \n" << truth_x1.rotation() << std::endl;
+    // std::cout << "X1 rot:\n" << x1->rotation().coeffs() << std::endl;
+    // std::cout << "X1 truth rot: \n" << truth_x1.rotation().coeffs() << std::endl;
+    // std::cout << "Angular distance: " << x1->rotation().angularDistance(truth_x1.rotation()) << std::endl;
+    // EXPECT_TRUE(x1->rotation().isApprox(truth_x1.rotation(), 1e-3));
 
     EXPECT_TRUE(x1->translation().isApprox(truth_x1.translation(), 1e-3));
-    EXPECT_TRUE(x1->rotation().isApprox(truth_x1.rotation(), 1e-3));
+
+
+    EXPECT_NEAR(x1->rotation().angularDistance(truth_x1.rotation()), 0, 1e-6);
+    
 }
 
 TEST(CeresBasicTests, testBetweenSolve_g2o_Sphere2500)
 {
-    std::unordered_map<gtsam::Key, SE3NodePtr> nodes;
+    std::unordered_map<Key, SE3NodePtr> nodes;
     std::vector<CeresFactorPtr> factors;
     std::string filename("/home/sean/code/SESync/data/sphere2500.g2o");
 
@@ -346,7 +345,8 @@ TEST(CeresBasicTests, testBetweenSolve_g2o_Sphere2500)
 
     graph.setFirstNodeConstant();
 
-    graph.solve(true);
+    // graph.solve(true);
+    graph.solve();
 
     outputPoses("optimized_poses.txt", nodes);
 

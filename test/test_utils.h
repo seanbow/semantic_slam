@@ -20,14 +20,12 @@ SE3NodePtr readVertex(std::ifstream* infile)
 {
     int id;
     Eigen::Vector3d t;
-    math::Quaternion q;
-    *infile >> id >> t(0) >> t(1) >> t(2) >> q(0) >> q(1) >> q(2) >> q(3);
-
-    q = math::quat_inv(q);
+    Eigen::Quaterniond q;
+    *infile >> id >> t(0) >> t(1) >> t(2) >> q.x() >> q.y() >> q.z() >> q.w();
 
     // std::cout << "Read vertex " << id << std::endl;
 
-    SE3NodePtr node = boost::make_shared<SE3Node>(gtsam::Symbol('x', id));
+    SE3NodePtr node = util::allocate_aligned<SE3Node>(Symbol('x', id));
     node->pose().translation() = t;
     node->pose().rotation() = q;
     node->pose().rotation().normalize();
@@ -35,18 +33,17 @@ SE3NodePtr readVertex(std::ifstream* infile)
     return node;
 }
 
-CeresFactorPtr readFactor(std::ifstream* infile, const std::unordered_map<gtsam::Key, SE3NodePtr>& nodes)
+CeresFactorPtr readFactor(std::ifstream* infile, const std::unordered_map<Key, SE3NodePtr>& nodes)
 {
     int id1, id2;
-    math::Quaternion q;
+    Eigen::Quaterniond q;
     Eigen::Vector3d p;
     Eigen::MatrixXd information = Eigen::MatrixXd::Zero(6,6);
 
     *infile >> id1 >> id2;
 
-    *infile >> p(0) >> p(1) >> p(2) >> q(0) >> q(1) >> q(2) >> q(3);
+    *infile >> p(0) >> p(1) >> p(2) >> q.x() >> q.y() >> q.z() >> q.w();
     q.normalize();
-    q = math::quat_inv(q);
     Pose3 between(q,p);
 
     for (int i = 0; i < 6 && infile->good(); ++i) {
@@ -70,9 +67,9 @@ CeresFactorPtr readFactor(std::ifstream* infile, const std::unordered_map<gtsam:
 
     // std::cout << " Read edge " << id1 << " -> " << id2 << std::endl;
 
-    gtsam::Symbol sym1('x', id1);
-    gtsam::Symbol sym2('x', id2);
-    CeresBetweenFactorPtr factor= boost::make_shared<CeresBetweenFactor>(nodes.at(sym1.key()), 
+    Symbol sym1('x', id1);
+    Symbol sym2('x', id2);
+    CeresBetweenFactorPtr factor = util::allocate_aligned<CeresBetweenFactor>(nodes.at(sym1.key()), 
                                                                         nodes.at(sym2.key()),
                                                                         between, 
                                                                         cov);
@@ -81,7 +78,7 @@ CeresFactorPtr readFactor(std::ifstream* infile, const std::unordered_map<gtsam:
 }
 
 bool readG2oFile(const std::string& filename,
-                   std::unordered_map<gtsam::Key, SE3NodePtr>& nodes,
+                   std::unordered_map<Key, SE3NodePtr>& nodes,
                    std::vector<CeresFactorPtr>& factors)
 {
     nodes.clear();
@@ -107,7 +104,7 @@ bool readG2oFile(const std::string& filename,
 }
 
 // Output the poses to the file with format: id x y z q_x q_y q_z q_w.
-bool outputPoses(const std::string& filename, const std::unordered_map<gtsam::Key, SE3NodePtr>& poses) {
+bool outputPoses(const std::string& filename, const std::unordered_map<Key, SE3NodePtr>& poses) {
     std::fstream outfile;
     outfile.open(filename.c_str(), std::istream::out);
     if (!outfile) {
@@ -127,12 +124,12 @@ bool outputPoses(const std::string& filename, const std::unordered_map<gtsam::Ke
 
     for (auto& pose : poses_vec) {
         const Eigen::Vector3d& p = pose->translation();
-        const math::Quaternion& q = pose->rotation();
+        const Eigen::Quaterniond& q = pose->rotation();
 
         outfile << pose->index() << " " << p(0) << " " 
                 << p(1) << " "  << p(2) << " "  
-                << q(0) << " "  << q(1) << " "  
-                << q(2) << " "  << q(3) << '\n';
+                << q.x() << " "  << q.y() << " "  
+                << q.z() << " "  << q.w() << '\n';
     }
 
     return true;

@@ -20,7 +20,7 @@ public:
 
     bool solve(bool verbose=false);
 
-    std::vector<gtsam::Key> keys();
+    std::vector<Key> keys();
 
     const ceres::Problem& problem() const { return *problem_; }
 
@@ -29,7 +29,7 @@ public:
 private:
     boost::shared_ptr<ceres::Problem> problem_;
 
-    std::unordered_map<gtsam::Key, CeresNodePtr> nodes_;
+    std::unordered_map<Key, CeresNodePtr> nodes_;
     std::vector<CeresFactorPtr> factors_;
 
     ceres::Solver::Options solver_options_;
@@ -40,13 +40,14 @@ CeresFactorGraph::CeresFactorGraph()
     problem_ = boost::make_shared<ceres::Problem>(); 
 
     // solver_options_.linear_solver_type = ceres::DENSE_SCHUR; // todo
+    // solver_options_.linear_solver_type = ceres::DENSE_QR; // todo
     // solver_options_.minimizer_progress_to_stdout = true;
 }
 
 bool CeresFactorGraph::setFirstNodeConstant()
 {
     if (nodes_.size() == 0) return false;
-    auto node = nodes_.find(gtsam::Symbol('x', 0));
+    auto node = nodes_.find(Symbol('x', 0));
     if (node == nodes_.end()) {
         std::cout << "Node X0 not in nodes" << std::endl;
         return false;
@@ -82,9 +83,9 @@ void CeresFactorGraph::addFactor(CeresFactorPtr factor)
     factor->addToProblem(problem_);
 }
 
-std::vector<gtsam::Key> 
+std::vector<Key> 
 CeresFactorGraph::keys() {
-    std::vector<gtsam::Key> result;
+    std::vector<Key> result;
     result.reserve(nodes_.size());
     for (auto& node : nodes_) {
         result.push_back(node.first);
