@@ -1,21 +1,25 @@
 #include "semantic_slam/FactorGraph.h"
 
-#include <gtsam/slam/PriorFactor.h>
-
+// #include <gtsam/slam/PriorFactor.h>
+#include "semantic_slam/SE3Node.h"
+#include "semantic_slam/VectorNode.h"
+#include "semantic_slam/CeresVectorPriorFactor.h"
 #include <gtest/gtest.h>
 
-namespace sym = gtsam::symbol_shorthand;
+namespace sym = symbol_shorthand;
+
+using NodeType = VectorNode<Eigen::Vector2d>;
 
 class FactorGraphTests : public ::testing::Test
 {
 protected:
   void SetUp() {
-    std::vector<NodeInfoPtr> nodes;
+    std::vector<CeresNodePtr> nodes;
     double value = 0;
 
     for (int i = 2; i <= 5; ++i) {
-      nodes.emplace_back(NodeInfo::Create(sym::C(i), ros::Time(i)));
-      graph.addNode(nodes.back(), value);
+      nodes.emplace_back(util::allocate_aligned<NodeType>(sym::C(i), ros::Time(i)));
+      graph.addNode(nodes.back());
     }
 
   }
@@ -32,7 +36,7 @@ TEST_F(FactorGraphTests, testNumNodes_CheckEqual)
 
 TEST_F(FactorGraphTests, testAddNode_CheckExistsTrue)
 {
-    auto result = graph.findNodeBySymbol(sym::C(3));
+    auto result = graph.getNode(sym::C(3));
     
     EXPECT_TRUE(result);
     EXPECT_EQ(result->symbol(), sym::C(3));
@@ -40,7 +44,7 @@ TEST_F(FactorGraphTests, testAddNode_CheckExistsTrue)
 
 TEST_F(FactorGraphTests, testAddNode_CheckExistsFalse)
 {
-    auto result = graph.findNodeBySymbol(sym::C(6));
+    auto result = graph.getNode(sym::C(6));
     
     EXPECT_FALSE(result);
 }
@@ -118,28 +122,37 @@ TEST(FactorGraphTest, testFindLastNode_EmptyGraph)
 TEST(FactorGraphTest, testSolve_SimplePriorFactor)
 {
   FactorGraph graph2;
-  gtsam::Symbol symb = sym::X(0);
-  double value = -1;
+  Symbol symb = sym::X(0);
 
-  NodeInfoPtr node = NodeInfo::Create(symb);
+  Vector2dNodePtr node = util::allocate_aligned<VectorNode<Eigen::Vector2d>>(symb);
+  node->vector() << 0, 0;
 
-  graph2.addNode(node, value);
+  graph2.addNode(node);
 
-  auto noise_model = gtsam::noiseModel::Isotropic::Sigma(1,1);
+  Eigen::Vector2d prior;
+  prior << 2, -4;
+  Eigen::Matrix2d cov = Eigen::Matrix2d::Identity();
 
-  auto fac = util::allocate_aligned<gtsam::PriorFactor<double>>(symb, 0, noise_model);
-  FactorInfoPtr fac_info = FactorInfo::Create(FactorType::PRIOR, fac);
+  auto fac = util::allocate_aligned<CeresVector2dPriorFactor>(node, prior, cov);
 
-  graph2.addFactor(fac_info);
+//   auto noise_model = gtsam::noiseModel::Isotropic::Sigma(1,1);
+//   Eigen::Matrix
 
-  bool opt_succeeded = graph2.solve();
+//   auto fac = util::allocate_aligned<gtsam::PriorFactor<double>>(symb, 0, noise_model);
+//   FactorInfoPtr fac_info = FactorInfo::Create(FactorType::PRIOR, fac);
 
-  double result;
-  bool get_result_succeeded = graph2.getEstimate(symb, result);
+  graph2.addFactor(fac);
 
-  EXPECT_TRUE(opt_succeeded);
-  EXPECT_TRUE(get_result_succeeded);
-  EXPECT_NEAR(result, 0.0, 1e-8);
+  graph2.solve(false);
+
+//   bool opt_succeeded = graph2.solve();
+
+//   double result;
+//   bool get_result_succeeded = graph2.getEstimate(symb, result);
+
+//   EXPECT_TRUE(opt_succeeded);
+//   EXPECT_TRUE(get_result_succeeded);
+  EXPECT_TRUE(node->vector().isApprox(prior, 1e-8));
 }
 
 // Run all the tests that were declared with TEST()

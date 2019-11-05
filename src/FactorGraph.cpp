@@ -1,30 +1,30 @@
 #include "semantic_slam/FactorGraph.h"
 
-#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+// #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 
 FactorGraph::FactorGraph()
   : modified_(false)
 {
-    graph_ = boost::make_shared<gtsam::NonlinearFactorGraph>();
-    values_ = boost::make_shared<gtsam::Values>();
+    graph_ = util::allocate_aligned<CeresFactorGraph>();
+    // values_ = boost::make_shared<gtsam::Values>();
 }
 
 
-void FactorGraph::addFactor(FactorInfoPtr fac)
+void FactorGraph::addFactor(CeresFactorPtr fac)
 {
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
         factors_.push_back(fac);
-        graph_->push_back(fac->factor());
+        graph_->addFactor(fac);
     }
 
     // do *not* set modified here -- let the calling handler set it themselves
     // so they can finish their full set of modifications first
 }
 
-NodeInfoPtr
-FactorGraph::findNodeBySymbol(gtsam::Symbol sym)
+CeresNodePtr
+FactorGraph::getNode(Symbol sym)
 {
     for (auto& node : nodes_) {
         if (node->symbol() == sym) {
@@ -35,8 +35,10 @@ FactorGraph::findNodeBySymbol(gtsam::Symbol sym)
     return nullptr;
 }
 
-bool FactorGraph::solve()
+bool FactorGraph::solve(bool verbose)
 {
+    graph_->solve(verbose);
+    /*
     gtsam::LevenbergMarquardtParams lm_params;
     // lm_params.setVerbosityLM("SUMMARY");
     // lm_params.setVerbosityLM("DAMPED");
@@ -62,6 +64,7 @@ bool FactorGraph::solve()
         ROS_WARN_STREAM(e.what());
         // should we return false here?? probably not
     }
+    */
 
     modified_ = false;
 
@@ -69,20 +72,20 @@ bool FactorGraph::solve()
 
 }
 
-bool FactorGraph::marginalCovariance(gtsam::Key key, Eigen::MatrixXd& cov)
-{
-    try {
-        std::lock_guard<std::mutex> lock(mutex_);
-        cov = marginals_->marginalCovariance(key);
-        return true;
-    } catch (std::exception& e) {
-        ROS_WARN_STREAM("Failed to get covariance.");
-        ROS_WARN_STREAM(e.what());
-        return false;
-    }
-}
+// bool FactorGraph::marginalCovariance(gtsam::Key key, Eigen::MatrixXd& cov)
+// {
+//     try {
+//         std::lock_guard<std::mutex> lock(mutex_);
+//         cov = marginals_->marginalCovariance(key);
+//         return true;
+//     } catch (std::exception& e) {
+//         ROS_WARN_STREAM("Failed to get covariance.");
+//         ROS_WARN_STREAM(e.what());
+//         return false;
+//     }
+// }
 
-NodeInfoPtr
+CeresNodePtr
 FactorGraph::findLastNodeBeforeTime(unsigned char symbol_chr, ros::Time time)
 {
     if (nodes_.size() == 0) return nullptr;
@@ -108,7 +111,7 @@ FactorGraph::findLastNodeBeforeTime(unsigned char symbol_chr, ros::Time time)
 }
 
 
-NodeInfoPtr
+CeresNodePtr
 FactorGraph::findFirstNodeAfterTime(unsigned char symbol_chr, ros::Time time)
 {
     if (nodes_.size() == 0) return nullptr;
@@ -133,10 +136,10 @@ FactorGraph::findFirstNodeAfterTime(unsigned char symbol_chr, ros::Time time)
     else return nullptr;
 }
 
-NodeInfoPtr
+CeresNodePtr
 FactorGraph::findLastNode(unsigned char symbol_chr)
 {
-    NodeInfoPtr result = nullptr;
+    CeresNodePtr result = nullptr;
 
     ros::Time last_time = ros::Time(0);
 

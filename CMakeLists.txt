@@ -139,16 +139,16 @@ target_link_libraries(FactorGraph
     Eigen3::Eigen
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
-    gtsam
+    # gtsam
 )
 
 add_library(Utils src/Utils.cpp)
 
-add_library(OdometryHandler src/OdometryHandler.cpp)
+# add_library(OdometryHandler src/OdometryHandler.cpp)
 
-add_library(PosePresenter src/PosePresenter.cpp)
+# add_library(PosePresenter src/PosePresenter.cpp)
 
-add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
+# add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
 
 add_library(Key src/Key.cpp)
 add_library(Symbol src/Symbol.cpp)
@@ -167,17 +167,17 @@ set(BASE_LIBS
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(semantic_slam_node src/semantic_slam_node.cpp)
-target_link_libraries(semantic_slam_node
-    ${catkin_LIBRARIES}
-    # ${GTSAM_LIBRARIES}
-    ${Boost_LIBRARIES}
-    FactorGraph
-    OdometryHandler
-    PosePresenter
-    TrajectoryPresenter
-    ${BASE_LIBS}
-)
+# add_executable(semantic_slam_node src/semantic_slam_node.cpp)
+# target_link_libraries(semantic_slam_node
+#     ${catkin_LIBRARIES}
+#     # ${GTSAM_LIBRARIES}
+#     ${Boost_LIBRARIES}
+#     FactorGraph
+#     OdometryHandler
+#     PosePresenter
+#     TrajectoryPresenter
+#     ${BASE_LIBS}
+# )
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -245,6 +245,8 @@ target_link_libraries(semantic_slam_node
 catkin_add_gtest(testFactorGraph test/testFactorGraph.cpp)
 target_link_libraries(testFactorGraph 
     FactorGraph
+    ${CERES_LIBRARIES}
+    ${BASE_LIBS}
 )
 
 catkin_add_gtest(testCeresBasics test/testCeresBasics.cpp)
