@@ -11,12 +11,14 @@ public:
 
     virtual void addToProblem(boost::shared_ptr<ceres::Problem> problem) = 0;
 
-    gtsam::Symbol symbol() { return gtsam::Symbol(key_); }
-    unsigned char chr() { return gtsam::Symbol(key_).chr(); }
-    size_t index() { return gtsam::Symbol(key_).index(); }
-    gtsam::Key key() { return key_; }
+    gtsam::Symbol symbol() const { return gtsam::Symbol(key_); }
+    unsigned char chr() const { return gtsam::Symbol(key_).chr(); }
+    size_t index() const { return gtsam::Symbol(key_).index(); }
+    gtsam::Key key() const { return key_; }
 
-    boost::optional<ros::Time> time() { return time_; }
+    boost::optional<ros::Time> time() const { return time_; }
+
+    std::vector<double*> parameter_blocks() { return parameter_blocks_; }
 
     using Ptr = boost::shared_ptr<CeresNode>;
 
@@ -24,7 +26,8 @@ protected:
 
     CeresNode(gtsam::Key key, boost::optional<ros::Time> time=boost::none);
 
-private:
+    std::vector<double*> parameter_blocks_;
+
     gtsam::Key key_;
     boost::optional<ros::Time> time_;
 };

@@ -24,12 +24,12 @@ public:
 
 bool QuaternionLocalParameterization::Plus(const double* x, const double* delta, double* x_plus_delta) const
 {
-  math::Quaterniond dq;
+  math::Quaternion dq;
   dq << 0.5 * delta[0], 0.5 * delta[1], 0.5 * delta[2], 1.0;
   dq.normalize();
 
-  Eigen::Map<const math::Quaterniond> q(x);
-  Eigen::Map<math::Quaterniond> result(x_plus_delta);
+  Eigen::Map<const math::Quaternion> q(x);
+  Eigen::Map<math::Quaternion> result(x_plus_delta);
 
   result = math::quat_mul(dq, q);
 
@@ -38,7 +38,7 @@ bool QuaternionLocalParameterization::Plus(const double* x, const double* delta,
 
 bool QuaternionLocalParameterization::ComputeJacobian(const double* x, double* jacobian) const
 {
-  Eigen::Map<const math::Quaterniond> q(x);
+  Eigen::Map<const math::Quaternion> q(x);
   Eigen::Map<Jacobian> J(jacobian);
 
   // Jacobian of Plus(q, dtheta) at dtheta = 0

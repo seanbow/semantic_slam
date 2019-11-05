@@ -19,8 +19,8 @@ public:
     const Pose3& pose() const { return pose_; }
     Pose3& pose() { return pose_; }
 
-    const math::Quaterniond& rotation() const { return pose_.rotation(); }
-    math::Quaterniond& rotation() { return pose_.rotation(); }
+    const math::Quaternion& rotation() const { return pose_.rotation(); }
+    math::Quaternion& rotation() { return pose_.rotation(); }
 
     const Eigen::Vector3d& translation() const { return pose_.translation(); }
     Eigen::Vector3d& translation() { return pose_.translation(); }
@@ -39,6 +39,8 @@ using SE3NodePtr = SE3Node::Ptr;
 SE3Node::SE3Node(gtsam::Symbol sym, boost::optional<ros::Time> time)
     : CeresNode(sym, time)
 {
+    parameter_blocks_.push_back(pose_.rotation_data());
+    parameter_blocks_.push_back(pose_.translation_data());
 }
 
 void
@@ -48,6 +50,7 @@ SE3Node::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 
     // ceres::Problem takes ownership of the new parameterization
     problem->SetParameterization(pose_.rotation_data(), new QuaternionLocalParameterization);
+    // problem->SetParameterization(pose_.rotation_data(), new ceres::EigenQuaternionParameterization);
 
     problem->AddParameterBlock(pose_.translation_data(), 3);
 }

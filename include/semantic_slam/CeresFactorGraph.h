@@ -7,6 +7,8 @@
 #include "semantic_slam/CeresNode.h"
 #include "semantic_slam/CeresFactor.h"
 
+#include <unordered_map>
+
 class CeresFactorGraph
 {
 public:
@@ -16,16 +18,18 @@ public:
 
     void addFactor(CeresFactorPtr factor);
 
-    bool solve();
+    bool solve(bool verbose=false);
 
     std::vector<gtsam::Key> keys();
 
     const ceres::Problem& problem() const { return *problem_; }
 
+    bool setFirstNodeConstant();
+
 private:
     boost::shared_ptr<ceres::Problem> problem_;
 
-    std::vector<CeresNodePtr> nodes_;
+    std::unordered_map<gtsam::Key, CeresNodePtr> nodes_;
     std::vector<CeresFactorPtr> factors_;
 
     ceres::Solver::Options solver_options_;
@@ -39,17 +43,36 @@ CeresFactorGraph::CeresFactorGraph()
     // solver_options_.minimizer_progress_to_stdout = true;
 }
 
-bool CeresFactorGraph::solve()
+bool CeresFactorGraph::setFirstNodeConstant()
+{
+    if (nodes_.size() == 0) return false;
+    auto node = nodes_.find(gtsam::Symbol('x', 0));
+    if (node == nodes_.end()) {
+        std::cout << "Node X0 not in nodes" << std::endl;
+        return false;
+    }
+    for (double* block : node->second->parameter_blocks()) {
+        problem_->SetParameterBlockConstant(block);
+    }
+    return true;
+}
+
+bool CeresFactorGraph::solve(bool verbose)
 {
     ceres::Solver::Summary summary;
     ceres::Solve(solver_options_, problem_.get(), &summary);
 
-    // std::cout << summary.FullReport() << std::endl;
+    if (verbose)
+        std::cout << summary.FullReport() << std::endl;
 }
 
 void CeresFactorGraph::addNode(CeresNodePtr node)
 {
-    nodes_.push_back(node);
+    if (nodes_.find(node->key()) != nodes_.end()) {
+        throw std::runtime_error("Node already exists in factor graph");
+    }
+    nodes_[node->key()] = node;
+
     node->addToProblem(problem_);
 }
 
@@ -64,7 +87,7 @@ CeresFactorGraph::keys() {
     std::vector<gtsam::Key> result;
     result.reserve(nodes_.size());
     for (auto& node : nodes_) {
-        result.push_back(node->key());
+        result.push_back(node.first);
     }
     return result;
 }

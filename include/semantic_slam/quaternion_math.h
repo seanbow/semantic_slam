@@ -95,6 +95,14 @@ quat_mul(const Quaternion& q1, const Quaternion& q2)
   //   Q1_MATR(3, 2) = -q1(2);
   //   Q1_MATR(3, 3) = q1(3);
   //   Quaternion q = Q1_MATR * q2;
+
+    // From Eigen
+//   Quaternion q;
+//   q << q1(3) * q2(0) + q1(0) * q2(3) + q1(1) * q2(2) - q1(2) * q2(1),
+//        q1(3) * q2(1) + q1(1) * q2(3) + q1(2) * q2(0) - q1(0) * q2(2),
+//        q1(3) * q2(2) + q1(2) * q2(3) + q1(0) * q2(1) - q1(1) * q2(0),
+//        q1(3) * q2(3) - q1(0) * q2(0) - q1(1) * q2(1) - q1(2) * q2(2);
+  
   Quaternion q = quat_L_mat(q1) * q2;
   if (q(3) < 0) {
     q = -q;
@@ -107,46 +115,48 @@ quat_mul(const Quaternion& q1, const Quaternion& q2)
 inline Eigen::Matrix<double, 3, 3>
 quat2rot(Quaternion q)
 {
-  //   Eigen::Matrix<double, 3, 3> A;
-  //   A(0, 0) = q(0) * q(0) - q(1) * q(1) - q(2) * q(2) + q(3) * q(3);
-  //   A(0, 1) = 2 * (q(0) * q(1) + q(2) * q(3));
-  //   A(0, 2) = 2 * (q(0) * q(2) - q(1) * q(3));
+    Eigen::Matrix<double, 3, 3> A;
+    A(0, 0) = q(0) * q(0) - q(1) * q(1) - q(2) * q(2) + q(3) * q(3);
+    A(0, 1) = 2 * (q(0) * q(1) + q(2) * q(3));
+    A(0, 2) = 2 * (q(0) * q(2) - q(1) * q(3));
 
-  //   A(1, 0) = 2 * (q(0) * q(1) - q(2) * q(3));
-  //   A(1, 1) = -q(0) * q(0) + q(1) * q(1) - q(2) * q(2) + q(3) * q(3);
-  //   A(1, 2) = 2 * (q(1) * q(2) + q(0) * q(3));
+    A(1, 0) = 2 * (q(0) * q(1) - q(2) * q(3));
+    A(1, 1) = -q(0) * q(0) + q(1) * q(1) - q(2) * q(2) + q(3) * q(3);
+    A(1, 2) = 2 * (q(1) * q(2) + q(0) * q(3));
 
-  //   A(2, 0) = 2 * (q(0) * q(2) + q(1) * q(3));
-  //   A(2, 1) = 2 * (q(1) * q(2) - q(0) * q(3));
-  //   A(2, 2) = -q(0) * q(0) - q(1) * q(1) + q(2) * q(2) + q(3) * q(3);
-  //   return A;
+    A(2, 0) = 2 * (q(0) * q(2) + q(1) * q(3));
+    A(2, 1) = 2 * (q(1) * q(2) - q(0) * q(3));
+    A(2, 2) = -q(0) * q(0) - q(1) * q(1) + q(2) * q(2) + q(3) * q(3);
+    return A;
 
-  Eigen::Matrix3d res;
+//   Eigen::Matrix3d res;
 
-  const double tx = 2 * q(0);
-  const double ty = 2 * q(1);
-  const double tz = 2 * q(2);
-  const double twx = tx * q(3);
-  const double twy = ty * q(3);
-  const double twz = tz * q(3);
-  const double txx = tx * q(0);
-  const double txy = ty * q(0);
-  const double txz = tz * q(0);
-  const double tyy = ty * q(1);
-  const double tyz = tz * q(1);
-  const double tzz = tz * q(2);
+//   const double tx = 2 * q(0);
+//   const double ty = 2 * q(1);
+//   const double tz = 2 * q(2);
+//   const double twx = tx * q(3);
+//   const double twy = ty * q(3);
+//   const double twz = tz * q(3);
+//   const double txx = tx * q(0);
+//   const double txy = ty * q(0);
+//   const double txz = tz * q(0);
+//   const double tyy = ty * q(1);
+//   const double tyz = tz * q(1);
+//   const double tzz = tz * q(2);
 
-  res.coeffRef(0, 0) = 1 - (tyy + tzz);
-  res.coeffRef(0, 1) = txy - twz;
-  res.coeffRef(0, 2) = txz + twy;
-  res.coeffRef(1, 0) = txy + twz;
-  res.coeffRef(1, 1) = 1 - (txx + tzz);
-  res.coeffRef(1, 2) = tyz - twx;
-  res.coeffRef(2, 0) = txz - twy;
-  res.coeffRef(2, 1) = tyz + twx;
-  res.coeffRef(2, 2) = 1 - (txx + tyy);
+//   res.coeffRef(0, 0) = 1 - (tyy + tzz);
+//   res.coeffRef(0, 1) = txy - twz;
+//   res.coeffRef(0, 2) = txz + twy;
 
-  return res;
+//   res.coeffRef(1, 0) = txy + twz;
+//   res.coeffRef(1, 1) = 1 - (txx + tzz);
+//   res.coeffRef(1, 2) = tyz - twx;
+
+//   res.coeffRef(2, 0) = txz - twy;
+//   res.coeffRef(2, 1) = tyz + twx;
+//   res.coeffRef(2, 2) = 1 - (txx + tyy);
+
+//   return res;
 }
 //
 //  rot2quat
@@ -201,6 +211,14 @@ quat_inv(const Quaternion& x)
   return out;
 }
 
+inline Eigen::Matrix4d
+Dquat_inv(const Quaternion& q)
+{
+    Eigen::Matrix4d Dquat_inversion = -Eigen::Matrix4d::Identity();
+    Dquat_inversion(3, 3) = 1.0;
+    return Dquat_inversion;
+}
+
 // 4x4 Jacobian of q1 * q2 w.r.t. q1
 inline Eigen::Matrix4d
 Dquat_mul_dq1(const Quaternion& q1, const Quaternion& q2)
@@ -234,35 +252,35 @@ Dpoint_transform_dq(const Quaternion& q, const Eigen::Vector3d& p)
   Eigen::Matrix<double, 3, 4> D;
 
   // Computed in mathematica
-  D(0, 0) = 2 * (p(1) * q(1) + p(2) * q(2));
-  D(0, 1) = 2 * (p(1) * q(0) - 2 * p(0) * q(1) + p(2) * q(3));
-  D(0, 2) = 2 * p(2) * q(0) - 4 * p(0) * q(2) - 2 * p(1) * q(3);
-  D(0, 3) = 2 * p(2) * q(1) - 2 * p(1) * q(2);
+    D << 2*(p(0)*q(0) + p(1)*q(1) + p(2)*q(2)),
+        -2*(-(p(1)*q(0)) + p(0)*q(1) + p(2)*q(3)),
+        2*(p(2)*q(0) - p(0)*q(2) + p(1)*q(3)),
+        2*(-(p(2)*q(1)) + p(1)*q(2) + p(0)*q(3)),
 
-  D(1, 0) = -4 * p(1) * q(0) + 2 * p(0) * q(1) - 2 * p(2) * q(3);
-  D(1, 1) = 2 * (p(0) * q(0) + p(2) * q(2));
-  D(1, 2) = 2 * (p(2) * q(1) - 2 * p(1) * q(2) + p(0) * q(3));
-  D(1, 3) = -2 * p(2) * q(0) + 2 * p(0) * q(2);
+        2*(-(p(1)*q(0)) + p(0)*q(1) + p(2)*q(3)),
+        2*(p(0)*q(0) + p(1)*q(1) + p(2)*q(2)),
+        -2*(-(p(2)*q(1)) + p(1)*q(2) + p(0)*q(3)),
+        2*(p(2)*q(0) - p(0)*q(2) + p(1)*q(3)),
 
-  D(2, 0) = 2 * (-2 * p(2) * q(0) + p(0) * q(2) + p(1) * q(3));
-  D(2, 1) = -4 * p(2) * q(1) + 2 * p(1) * q(2) - 2 * p(0) * q(3);
-  D(2, 2) = 2 * (p(0) * q(0) + p(1) * q(1));
-  D(2, 3) = 2 * p(1) * q(0) - 2 * p(0) * q(1);
+        -2*(p(2)*q(0) - p(0)*q(2) + p(1)*q(3)),
+        2*(-(p(2)*q(1)) + p(1)*q(2) + p(0)*q(3)),
+        2*(p(0)*q(0) + p(1)*q(1) + p(2)*q(2)),
+        2*(-(p(1)*q(0)) + p(0)*q(1) + p(2)*q(3));
 
-  //   2 * p(0) * q(0) + 2 * p(1) * q(1) + 2 * p(2) * q(2);
-  //   D(0, 1) = 2 * p(1) * q(0) - 2 * p(0) * q(1) - 2 * p(2) * q(3);
-  //   D(0, 2) = 2 * p(2) * q(0) - 2 * p(0) * q(2) + 2 * p(1) * q(3);
-  //   D(0, 3) = -2 * p(2) * q(1) + 2 * p(1) * q(2) + 2 * p(0) * q(3);
-
-  //   D(1, 0) = -2 * p(1) * q(0) + 2 * p(0) * q(1) + 2 * p(2) * q(3);
-  //   D(1, 1) = 2 * p(0) * q(0) + 2 * p(1) * q(1) + 2 * p(2) * q(2);
-  //   D(1, 2) = 2 * p(2) * q(1) - 2 * p(1) * q(2) - 2 * p(0) * q(3);
-  //   D(1, 3) = 2 * p(2) * q(0) - 2 * p(0) * q(2) + 2 * p(1) * q(3);
-
-  //   D(2, 0) = -2 * p(2) * q(0) + 2 * p(0) * q(2) - 2 * p(1) * q(3);
-  //   D(2, 1) = -2 * p(2) * q(1) + 2 * p(1) * q(2) + 2 * p(0) * q(3);
-  //   D(2, 2) = 2 * p(0) * q(0) + 2 * p(1) * q(1) + 2 * p(2) * q(2);
-  //   D(2, 3) = -2 * p(1) * q(0) + 2 * p(0) * q(1) + 2 * p(2) * q(3);
+  // Computed in mathematica
+  // HAMILTON CONVENTIONS. wrong.
+    // D << 2*(p(1)*q(1) + p(2)*q(2)),
+    //     2*(p(1)*q(0) - 2*p(0)*q(1) + p(2)*q(3)),
+    //     2*p(2)*q(0) - 4*p(0)*q(2) - 2*p(1)*q(3),
+    //     2*p(2)*q(1) - 2*p(1)*q(2),
+    //     -4*p(1)*q(0) + 2*p(0)*q(1) - 2*p(2)*q(3),
+    //     2*(p(0)*q(0) + p(2)*q(2)),
+    //     2*(p(2)*q(1) - 2*p(1)*q(2) + p(0)*q(3)),
+    //     -2*p(2)*q(0) + 2*p(0)*q(2),
+    //     2*(-2*p(2)*q(0) + p(0)*q(2) + p(1)*q(3)),
+    //     -4*p(2)*q(1) + 2*p(1)*q(2) - 2*p(0)*q(3),
+    //     2*(p(0)*q(0) + p(1)*q(1)),
+    //     2*p(1)*q(0) - 2*p(0)*q(1);
 
   return D;
 }
@@ -273,36 +291,35 @@ Dpoint_transform_transpose_dq(const Quaternion& q, const Eigen::Vector3d& p)
 {
   Eigen::Matrix<double, 3, 4> D;
 
+    D << 2*(p(0)*q(0) + p(1)*q(1) + p(2)*q(2)),
+        2*(p(1)*q(0) - p(0)*q(1) + p(2)*q(3)),
+        -2*(-(p(2)*q(0)) + p(0)*q(2) + p(1)*q(3)),
+        2*(p(2)*q(1) - p(1)*q(2) + p(0)*q(3)),
+
+        -2*(p(1)*q(0) - p(0)*q(1) + p(2)*q(3)),
+        2*(p(0)*q(0) + p(1)*q(1) + p(2)*q(2)),
+        2*(p(2)*q(1) - p(1)*q(2) + p(0)*q(3)),
+        2*(-(p(2)*q(0)) + p(0)*q(2) + p(1)*q(3)),
+
+        2*(-(p(2)*q(0)) + p(0)*q(2) + p(1)*q(3)),
+        -2*(p(2)*q(1) - p(1)*q(2) + p(0)*q(3)),
+        2*(p(0)*q(0) + p(1)*q(1) + p(2)*q(2)),
+        2*(p(1)*q(0) - p(0)*q(1) + p(2)*q(3));
+
   // Computed in mathematica
-  D(0, 0) = 2 * (p(1) * q(1) + p(2) * q(2));
-  D(0, 1) = 2 * p(1) * q(0) - 4 * p(0) * q(1) - 2 * p(2) * q(3);
-  D(0, 2) = 2 * (p(2) * q(0) - 2 * p(0) * q(2) + p(1) * q(3));
-  D(0, 3) = -2 * p(2) * q(1) + 2 * p(1) * q(2);
-
-  D(1, 0) = 2 * (-2 * p(1) * q(0) + p(0) * q(1) + p(2) * q(3));
-  D(1, 1) = 2 * (p(0) * q(0) + p(2) * q(2));
-  D(1, 2) = 2 * p(2) * q(1) - 4 * p(1) * q(2) - 2 * p(0) * q(3);
-  D(1, 3) = 2 * p(2) * q(0) - 2 * p(0) * q(2);
-
-  D(2, 0) = -4 * p(2) * q(0) + 2 * p(0) * q(2) - 2 * p(1) * q(3);
-  D(2, 1) = 2 * (-2 * p(2) * q(1) + p(1) * q(2) + p(0) * q(3));
-  D(2, 2) = 2 * (p(0) * q(0) + p(1) * q(1));
-  D(2, 3) = -2 * p(1) * q(0) + 2 * p(0) * q(1);
-
-  //  2 * (p(0) * q(0) + p(1) * q(1) + p(2) * q(2));
-  //   D(0, 1) = 2 * (p(1) * q(0) - p(0) * q(1) + p(2) * q(3));
-  //   D(0, 2) = -2 * (-p(2) * q(0) + p(0) * q(2) + p(1) * q(3));
-  //   D(0, 3) = 2 * (p(2) * q(1) - p(1) * q(2) + p(0) * q(3));
-
-  //   D(1, 0) = -2 * (p(1) * q(0) - p(0) * q(1) + p(2) * q(3));
-  //   D(1, 1) = 2 * (p(0) * q(0) + p(1) * q(1) + p(2) * q(2));
-  //   D(1, 2) = 2 * (p(2) * q(1) - p(1) * q(2) + p(0) * q(3));
-  //   D(1, 3) = 2 * (-p(2) * q(0) + p(0) * q(2) + p(1) * q(3));
-
-  //   D(2, 0) = 2 * (-p(2) * q(0) + p(0) * q(2) + p(1) * q(3));
-  //   D(2, 1) = -2 * (p(2) * q(1) - p(1) * q(2) + p(0) * q(3));
-  //   D(2, 2) = 2 * (p(0) * q(0) + p(1) * q(1) + p(2) * q(2));
-  //   D(2, 3) = 2 * (p(1) * q(0) - p(0) * q(1) + p(2) * q(3));
+  // HAMILTON CONVENTIONS. wrong.
+// D << 2*(p(1)*q(1) + p(2)*q(2)),
+//     2*p(1)*q(0) - 4*p(0)*q(1) - 2*p(2)*q(3),
+//     2*(p(2)*q(0) - 2*p(0)*q(2) + p(1)*q(3)),
+//     -2*p(2)*q(1) + 2*p(1)*q(2),
+//     2*(-2*p(1)*q(0) + p(0)*q(1) + p(2)*q(3)),
+//     2*(p(0)*q(0) + p(2)*q(2)),
+//     2*p(2)*q(1) - 4*p(1)*q(2) - 2*p(0)*q(3),
+//     2*p(2)*q(0) - 2*p(0)*q(2),
+//     -4*p(2)*q(0) + 2*p(0)*q(2) - 2*p(1)*q(3),
+//     2*(-2*p(2)*q(1) + p(1)*q(2) + p(0)*q(3)),
+//     2*(p(0)*q(0) + p(1)*q(1)),
+//     -2*p(1)*q(0) + 2*p(0)*q(1);
 
   return D;
 }

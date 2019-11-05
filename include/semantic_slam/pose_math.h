@@ -8,12 +8,12 @@ class Pose3
 {
 public:
   Pose3();
-  Pose3(math::Quaterniond q, Eigen::Vector3d p);
+  Pose3(math::Quaternion q, Eigen::Vector3d p);
 
   static Pose3 Identity();
 
-  const math::Quaterniond& rotation() const { return q_; }
-  math::Quaterniond& rotation() { return q_; }
+  const math::Quaternion& rotation() const { return q_; }
+  math::Quaternion& rotation() { return q_; }
 
   const Eigen::Vector3d& translation() const { return p_; }
   Eigen::Vector3d& translation() { return p_; }
@@ -48,7 +48,7 @@ public:
                 boost::optional<Eigen::MatrixXd&> Hpose2 = boost::none) const;
 
 private:
-  math::Quaterniond q_;
+  math::Quaternion q_;
   Eigen::Vector3d p_;
 
 public:
@@ -61,7 +61,7 @@ Pose3::Pose3()
 {
 }
 
-Pose3::Pose3(math::Quaterniond q, Eigen::Vector3d p)
+Pose3::Pose3(math::Quaternion q, Eigen::Vector3d p)
   : q_(q)
   , p_(p)
 {
@@ -101,7 +101,7 @@ Pose3
 Pose3::compose(const Pose3& other, boost::optional<Eigen::MatrixXd&> H1,
                boost::optional<Eigen::MatrixXd&> H2) const
 {
-  const math::Quaterniond& q2 = other.rotation();
+  const math::Quaternion& q2 = other.rotation();
   const Eigen::Vector3d& p2 = other.translation();
   Pose3 new_pose(math::quat_mul(q_, q2), p_ + math::quat2rot(q_) * p2);
 
@@ -198,21 +198,62 @@ Pose3::between(const Pose3& other,
                boost::optional<Eigen::MatrixXd&> Hpose1,
                boost::optional<Eigen::MatrixXd&> Hpose2) const
 {
-    math::Quaterniond dq = math::quat_mul( math::quat_inv(q_), other.rotation() );
-    Eigen::Vector3d dp = math::quat2rot(q_).transpose() * (other.translation() - p_);
+    /* HAMILTON */
+    // math::Quaternion q_inv = math::quat_inv(q_);
+    // math::Quaternion dq = math::quat_mul( q_inv, other.rotation() );
+    // Eigen::Vector3d dp = math::quat2rot(q_).transpose() * (other.translation() - p_);
+    // Pose3 result(dq, dp);
+
+    // if (Hpose1) {
+    //     *Hpose1 = Eigen::MatrixXd(7, 7);
+
+    //     Eigen::Matrix4d Dquat_inversion = math::Dquat_inv(q_);
+    //     Eigen::Matrix4d Dq_dq1 = math::Dquat_mul_dq1(q_inv,other.rotation()) * Dquat_inversion;
+
+    //     Eigen::Matrix<double, 4, 3> Dq_dp1 = Eigen::Matrix<double,4,3>::Zero();
+
+    //     Eigen::Matrix<double, 3, 4> Dp_dq1 = math::Dpoint_transform_transpose_dq(q_, other.translation() - p_);
+    //     // Eigen::Matrix<double, 3, 4> Dp_dq1 = math::Dpoint_transform_dq(q_inv, other.translation() - p_) * math::Dquat_inv(q_);
+    //     Eigen::Matrix3d Dp_dp1 = -math::quat2rot(q_).transpose();
+
+    //     Hpose1->block<4,4>(0,0) = Dq_dq1;
+    //     Hpose1->block<4,3>(0,4) = Dq_dp1;
+    //     Hpose1->block<3,4>(4,0) = Dp_dq1;
+    //     Hpose1->block<3,3>(4,4) = Dp_dp1;
+    // }
+
+    // if (Hpose2) {
+    //     *Hpose2 = Eigen::MatrixXd(7,7);
+
+    //     Eigen::Matrix4d Dq_dq2 = math::Dquat_mul_dq2(math::quat_inv(q_), other.rotation());
+    //     Eigen::Matrix<double,4,3> Dq_dp2 = Eigen::Matrix<double,4,3>::Zero();
+    //     Eigen::Matrix<double,3,4> Dp_dq2 = Eigen::Matrix<double,3,4>::Zero();
+    //     Eigen::Matrix3d Dp_dp2 = math::quat2rot(q_).transpose();
+
+    //     Hpose2->block<4,4>(0,0) = Dq_dq2;
+    //     Hpose2->block<4,3>(0,4) = Dq_dp2;
+    //     Hpose2->block<3,4>(4,0) = Dp_dq2;
+    //     Hpose2->block<3,3>(4,4) = Dp_dp2;
+    // }
+
+
+    /* JPL */
+    math::Quaternion q_inv = math::quat_inv(q_);
+    math::Quaternion dq = math::quat_mul( other.rotation(), q_inv );
+    Eigen::Vector3d dp = math::quat2rot(q_) * (other.translation() - p_);
     Pose3 result(dq, dp);
 
     if (Hpose1) {
         *Hpose1 = Eigen::MatrixXd(7, 7);
 
-        Eigen::Matrix4d Dquat_inversion = -Eigen::Matrix4d::Identity();
-        Dquat_inversion(3, 3) = 1.0;
-        Eigen::Matrix4d Dq_dq1 = math::Dquat_mul_dq1(q_,other.rotation()) * Dquat_inversion;
+        Eigen::Matrix4d Dquat_inversion = math::Dquat_inv(q_);
+        Eigen::Matrix4d Dq_dq1 = math::Dquat_mul_dq2(other.rotation(), q_inv) * Dquat_inversion;
 
         Eigen::Matrix<double, 4, 3> Dq_dp1 = Eigen::Matrix<double,4,3>::Zero();
 
-        Eigen::Matrix<double, 3, 4> Dp_dq1 = math::Dpoint_transform_transpose_dq(q_, other.translation() - p_);
-        Eigen::Matrix3d Dp_dp1 = -math::quat2rot(q_).transpose();
+        Eigen::Matrix<double, 3, 4> Dp_dq1 = math::Dpoint_transform_dq(q_, other.translation() - p_);
+        // Eigen::Matrix<double, 3, 4> Dp_dq1 = math::Dpoint_transform_dq(q_inv, other.translation() - p_) * math::Dquat_inv(q_);
+        Eigen::Matrix3d Dp_dp1 = -math::quat2rot(q_);
 
         Hpose1->block<4,4>(0,0) = Dq_dq1;
         Hpose1->block<4,3>(0,4) = Dq_dp1;
@@ -223,10 +264,10 @@ Pose3::between(const Pose3& other,
     if (Hpose2) {
         *Hpose2 = Eigen::MatrixXd(7,7);
 
-        Eigen::Matrix4d Dq_dq2 = math::Dquat_mul_dq2(math::quat_inv(q_), other.rotation());
+        Eigen::Matrix4d Dq_dq2 = math::Dquat_mul_dq1(other.rotation(), math::quat_inv(q_));
         Eigen::Matrix<double,4,3> Dq_dp2 = Eigen::Matrix<double,4,3>::Zero();
         Eigen::Matrix<double,3,4> Dp_dq2 = Eigen::Matrix<double,3,4>::Zero();
-        Eigen::Matrix3d Dp_dp2 = math::quat2rot(q_).transpose();
+        Eigen::Matrix3d Dp_dp2 = math::quat2rot(q_);
 
         Hpose2->block<4,4>(0,0) = Dq_dq2;
         Hpose2->block<4,3>(0,4) = Dq_dp2;

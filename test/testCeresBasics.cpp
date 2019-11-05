@@ -1,11 +1,14 @@
 #include "semantic_slam/SE3Node.h"
 #include <ceres/ceres.h>
+#include <ceres/gradient_checker.h>
 
 #include <gtest/gtest.h>
 
 #include "semantic_slam/CeresFactorGraph.h"
 #include "semantic_slam/CeresSE3PriorFactor.h"
 #include "semantic_slam/CeresBetweenFactor.h"
+
+#include "test_utils.h"
 
 namespace sym = gtsam::symbol_shorthand;
 
@@ -61,7 +64,7 @@ TEST(CeresBasicTests, testAddNodeToGraph_CheckKeys)
 
     EXPECT_TRUE(problem.NumParameters() == 14);
     EXPECT_TRUE(problem.HasParameterBlock(node1->pose().rotation_data()));
-    EXPECT_TRUE(keys[0] == node0->key());
+    EXPECT_TRUE(std::find(keys.begin(), keys.end(), node0->key()) != keys.end());
 }
 
 TEST(CeresBasicTests, testAddFactor_checkExistsInProblem)
@@ -169,47 +172,102 @@ TEST(CeresBasicTests, testBetweenFactor_SimpleCase)
 
 TEST(CeresBasicTests, testBetweenCostTerm_Result)
 {
-    math::Quaterniond q1, q2;
+    math::Quaternion q1, q2;
     Eigen::Vector3d p1, p2;
 
-    q1 << -.1, 0.69, -0.58, 0.34;
+    q1 << -.1, 0.6, -0.58, 0.34;
     p1 << 1, -3.5, 0.25;
 
-    q2 << 0.4, 0.75, -0.31, 0.15;
-    p2 << -4.8, -0.35, -7;
+    // q2 << 0, 0, 0, 1;
+    q2 << 0.4, 0.75, -0.31, -0.15;
+    p2 << -4.8, -0.5, -7;
+
+    q1.normalize();
+    q2.normalize();
+
+    Eigen::Quaterniond q1e = Eigen::Map<Eigen::Quaterniond>(q1.data());
+    Eigen::Quaterniond q2e = Eigen::Map<Eigen::Quaterniond>(q2.data());
 
     Eigen::VectorXd residual(6);
 
     Pose3 identity_pose = Pose3::Identity();
 
-    BetweenCostTerm cost(identity_pose, Eigen::MatrixXd::Identity(6,6));
+    ceres::CostFunction* cost = BetweenCostTerm::Create(identity_pose, 1 * Eigen::MatrixXd::Identity(6,6));
 
-    cost(q1.data(),
-         p1.data(),
-         q2.data(),
-         p2.data(),
-         residual.data());
+    double *parameters[] = {q1.data(),
+                    p1.data(),
+                    q2.data(),
+                    p2.data()};
 
-    std::cout << "between residual:\n" << residual << std::endl;
+    std::vector<const ceres::LocalParameterization*> parameterizations;
+    parameterizations.push_back(new QuaternionLocalParameterization);
+    parameterizations.push_back(NULL);
+    parameterizations.push_back(new QuaternionLocalParameterization);
+    parameterizations.push_back(NULL);
+
+    ceres::NumericDiffOptions opts;
+
+    ceres::GradientChecker checker(cost, &parameterizations, opts);
+
+    ceres::GradientChecker::ProbeResults results;
+
+    EXPECT_TRUE(checker.Probe(parameters, 1e-3, &results));
+    
+    std::cout << "CHECKER: " << results.error_log << std::endl;
+
+    math::Quaternion q12 = math::quat_mul(math::quat_inv(q1), q2);
+    Eigen::Quaterniond q12e = q1e.conjugate() * q2e;
+
+    std::cout << "q12:\n" << q12.transpose()  << std::endl;
+    std::cout << "EIGEN q12 conj:\n " << q12e.vec().transpose() << " " << q12e.w() << std::endl;
+
+    std::cout << "qidentity*qa2inv:\n" << math::quat_mul(math::identity_quaternion(),math::quat_inv(q12)) << std::endl;
+
+    Eigen::Vector3d x;
+    x << 1.5, -2.5, 6;
+
+    std::cout << "EIGEN" << std::endl;
+    std::cout << "(q1*q2)*x = " << ((q1e*q2e)*x).transpose() << std::endl;
+    std::cout << "q1 * (q2*x) = " << (q1e * (q2e*x)).transpose() << std::endl;
+
+    std::cout << "EIGEN inv:" << std::endl;
+    std::cout << "(q1*q2)*x = " << ((q1e.conjugate()*q2e.conjugate())*x).transpose() << std::endl;
+    std::cout << "q1 * (q2*x) = " << (q1e.conjugate() * (q2e.conjugate()*x)).transpose() << std::endl;
+
+    std::cout << "ME" << std::endl;
+    std::cout << "(q1*q2)*x = " << (math::quat2rot(math::quat_mul(q1,q2))*x).transpose() << std::endl;
+    std::cout << "q1 * (q2*x) = " << (math::quat2rot(q1) * (math::quat2rot(q2)*x)).transpose() << std::endl;
+
+    // cost.Evaluate(q1.data(),
+    //                 p1.data(),
+    //                 q2.data(),
+    //                 p2.data(),
+    //                 residual.data(), NULL);
+
+    // cost.Evaluate(parameters, residual.data(), NULL);
+
+    // std::cout << "between residual:\n" << residual << std::endl;
 
     // compare to gtsam
-    Eigen::Map<Eigen::Quaterniond> q1_e(q1.data());
-    Eigen::Map<Eigen::Quaterniond> q2_e(q2.data());
+    // Eigen::Map<Eigen::Quaterniond> q1_e(q1.data());
+    // Eigen::Map<Eigen::Quaterniond> q2_e(q2.data());
 
-    gtsam::Pose3 x1(gtsam::Rot3(q1_e), p1);
-    gtsam::Pose3 x2(gtsam::Rot3(q2_e), p2);
+    // gtsam::Pose3 x1(gtsam::Rot3(q1_e), p1);
+    // gtsam::Pose3 x2(gtsam::Rot3(q2_e), p2);
 
-    std::cout << "GTSAM pose1: " << x1 << "\n pose2:\n" << x2 << std::endl;
+    // // std::cout << "GTSAM pose1: " << x1 << "\n pose2:\n" << x2 << std::endl;
 
-    gtsam::Pose3 between_gt = x1.between(x2);
+    // gtsam::Pose3 between_gt = x1.between(x2);
 
-    Pose3 x1_ours(q1,p1);
-    Pose3 x2_ours(q2,p2);
-    Pose3 between_ours = x1_ours.between(x2_ours);
+    // Pose3 x1_ours(q1,p1);
+    // Pose3 x2_ours(q2,p2);
+    // Pose3 between_ours = x1_ours.between(x2_ours);
 
-    std::cout << "gtsam between: \n" << between_gt << std::endl;
+    // EXPECT_TRUE(residual.head<3>().isApprox(2.0 * between_gt.rotation().toQuaternion().vec(), 1e-4));
 
-    std::cout << "Ours between:\n" << between_ours.rotation() << "\n" << between_ours.translation() << std::endl;
+    // std::cout << "gtsam between: \n" << between_gt.rotation().toQuaternion().vec() << "\n" << between_gt.translation() << std::endl;
+
+    // std::cout << "Ours between:\n" << between_ours.rotation() << "\n" << between_ours.translation() << std::endl;
 
     EXPECT_TRUE(true);
 }
@@ -252,7 +310,7 @@ TEST(CeresBasicTests, testBetweenFactor_SimpleCase2)
     graph.solve();
 
     // Compute "truth" answer with simple multiplication
-    Pose3 truth_x1 = x0_prior * between;
+    Pose3 truth_x1 = x0_prior.compose(between);
 
     std::cout << "X1 trans:\n" << x1->translation() << std::endl;
     std::cout << "X1 truth trans: \n" << truth_x1.translation() << std::endl;
@@ -260,10 +318,40 @@ TEST(CeresBasicTests, testBetweenFactor_SimpleCase2)
     std::cout << "X1 rot:\n" << x1->rotation() << std::endl;
     std::cout << "X1 truth rot: \n" << truth_x1.rotation() << std::endl;
 
-    EXPECT_TRUE(x1->translation().isApprox(truth_x1.translation(), 1e-6));
-    EXPECT_TRUE(x1->rotation().isApprox(truth_x1.rotation(), 1e-6));
+    EXPECT_TRUE(x1->translation().isApprox(truth_x1.translation(), 1e-3));
+    EXPECT_TRUE(x1->rotation().isApprox(truth_x1.rotation(), 1e-3));
 }
 
+TEST(CeresBasicTests, testBetweenSolve_g2o_Sphere2500)
+{
+    std::unordered_map<gtsam::Key, SE3NodePtr> nodes;
+    std::vector<CeresFactorPtr> factors;
+    std::string filename("/home/sean/code/SESync/data/sphere2500.g2o");
+
+    readG2oFile(filename, nodes, factors);
+
+    std::cout << "g2o file has " << nodes.size() << " nodes and " << factors.size() << " factors." << std::endl;
+
+    outputPoses("initial_poses.txt", nodes);
+
+    CeresFactorGraph graph;
+
+    for (auto& node_pair : nodes) {
+        graph.addNode(node_pair.second);
+    }
+
+    for (auto& factor : factors) {
+        graph.addFactor(factor);
+    }
+
+    graph.setFirstNodeConstant();
+
+    graph.solve(true);
+
+    outputPoses("optimized_poses.txt", nodes);
+
+    EXPECT_TRUE(true);
+}
 
 // Run all the tests that were declared with TEST()
 int main(int argc, char **argv){
