@@ -1,7 +1,9 @@
 #include "semantic_slam/TrajectoryPresenter.h"
 
-#include <gtsam/geometry/Point3.h>
-#include <gtsam/geometry/Quaternion.h>
+// #include <gtsam/geometry/Point3.h>
+// #include <gtsam/geometry/Quaternion.h>
+#include "semantic_slam/pose_math.h"
+#include "semantic_slam/SE3Node.h"
 #include <visualization_msgs/Marker.h>
 
 void TrajectoryPresenter::setup()
@@ -12,7 +14,7 @@ void TrajectoryPresenter::setup()
 void TrajectoryPresenter::present()
 {
     // Find the last odometry node N and assume that all in [0,N] exist
-    NodeInfoPtr node = graph_->findLastNode('x');
+    SE3NodePtr node = graph_->findLastNode<SE3Node>('x');
     size_t last_index = node->index();
     
     
@@ -46,18 +48,16 @@ void TrajectoryPresenter::present()
 
     // create vertices for each pose
     for (size_t i = 0; i < last_index; ++i) {
-        gtsam::Pose3 pose;
+        auto node = graph_->getNode<SE3Node>(Symbol('x', i));
 
-        bool got_estimate = graph_->getEstimate(gtsam::Symbol('x', i), pose);
+        if (!node) continue;
 
-        if (!got_estimate) continue;
-
-        gtsam::Point3 p = pose.translation();
+        Eigen::Vector3d p = node->pose().translation();
 
         geometry_msgs::Point p_msg;
-        p_msg.x = p.x();
-        p_msg.y = p.y();
-        p_msg.z = Z_SCALE * p.z();
+        p_msg.x = p(0);
+        p_msg.y = p(1);
+        p_msg.z = Z_SCALE * p(2);
 
         traj.points.push_back(p_msg);
     }

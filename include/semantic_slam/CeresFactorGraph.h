@@ -24,7 +24,7 @@ public:
 
     const ceres::Problem& problem() const { return *problem_; }
 
-    bool setFirstNodeConstant();
+    bool setNodeConstant(CeresNodePtr node);
 
 private:
     boost::shared_ptr<ceres::Problem> problem_;
@@ -44,17 +44,9 @@ CeresFactorGraph::CeresFactorGraph()
     // solver_options_.minimizer_progress_to_stdout = true;
 }
 
-bool CeresFactorGraph::setFirstNodeConstant()
+bool CeresFactorGraph::setNodeConstant(CeresNodePtr node)
 {
-    if (nodes_.size() == 0) return false;
-    auto node = nodes_.find(Symbol('x', 0));
-    if (node == nodes_.end()) {
-        std::cout << "Node X0 not in nodes" << std::endl;
-        return false;
-    }
-    for (double* block : node->second->parameter_blocks()) {
-        problem_->SetParameterBlockConstant(block);
-    }
+    node->setParametersConstant(problem_);
     return true;
 }
 

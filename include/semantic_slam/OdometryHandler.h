@@ -2,11 +2,12 @@
 
 #include "semantic_slam/Common.h"
 #include "semantic_slam/Handler.h"
+#include "semantic_slam/pose_math.h"
 
 #include <nav_msgs/Odometry.h>
 #include <mutex>
 #include <deque>
-#include <gtsam/geometry/Pose3.h>
+// #include <gtsam/geometry/Pose3.h>
 
 class OdometryHandler : public Handler
 {
@@ -17,7 +18,7 @@ public:
 
     void msgCallback(const nav_msgs::Odometry::ConstPtr& msg);
 
-    gtsam::Pose3 msgToPose3(const nav_msgs::Odometry& msg);
+    Pose3 msgToPose3(const nav_msgs::Odometry& msg);
 
     // inherit constructor
     using Handler::Handler;
@@ -29,7 +30,7 @@ private:
 
     std::mutex mutex_;
 
-    gtsam::Pose3 last_odom_;
+    Pose3 last_odom_;
     ros::Time last_time_;
     
     size_t received_msgs_;

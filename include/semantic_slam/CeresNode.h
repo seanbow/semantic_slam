@@ -11,6 +11,7 @@ class CeresNode {
 public:
 
     virtual void addToProblem(boost::shared_ptr<ceres::Problem> problem) = 0;
+    virtual void setParametersConstant(boost::shared_ptr<ceres::Problem> problem);
 
     Symbol symbol() const { return Symbol(key_); }
     unsigned char chr() const { return Symbol(key_).chr(); }
@@ -40,4 +41,9 @@ CeresNode::CeresNode(Key key, boost::optional<ros::Time> time)
       time_(time)
 {
     
+}
+
+void CeresNode::setParametersConstant(boost::shared_ptr<ceres::Problem> problem)
+{
+    throw std::logic_error("error: unimplemented.");
 }

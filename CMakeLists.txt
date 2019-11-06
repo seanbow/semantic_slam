@@ -2,18 +2,18 @@ cmake_minimum_required(VERSION 3.0)
 project(semantic_slam)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++14 -g3 -O3 -march=native)
+add_compile_options(-std=c++14 -g3 -O3)# -march=native)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED
     roscpp
-    gtsam
+    # gtsam
     rosfmt
 )
 
-find_package(GTSAM REQUIRED)
+# find_package(GTSAM REQUIRED)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
@@ -144,11 +144,14 @@ target_link_libraries(FactorGraph
 
 add_library(Utils src/Utils.cpp)
 
-# add_library(OdometryHandler src/OdometryHandler.cpp)
+add_library(OdometryHandler src/OdometryHandler.cpp)
+target_link_libraries(OdometryHandler
+  ${CERES_LIBRARIES}
+)
 
-# add_library(PosePresenter src/PosePresenter.cpp)
+add_library(PosePresenter src/PosePresenter.cpp)
 
-# add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
+add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
 
 add_library(Key src/Key.cpp)
 add_library(Symbol src/Symbol.cpp)
@@ -167,17 +170,18 @@ set(BASE_LIBS
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(semantic_slam_node src/semantic_slam_node.cpp)
-# target_link_libraries(semantic_slam_node
-#     ${catkin_LIBRARIES}
-#     # ${GTSAM_LIBRARIES}
-#     ${Boost_LIBRARIES}
-#     FactorGraph
-#     OdometryHandler
-#     PosePresenter
-#     TrajectoryPresenter
-#     ${BASE_LIBS}
-# )
+add_executable(semantic_slam_node src/semantic_slam_node.cpp)
+target_link_libraries(semantic_slam_node
+    ${catkin_LIBRARIES}
+    # ${GTSAM_LIBRARIES}
+    ${Boost_LIBRARIES}
+    ${CERES_LIBRARIES}
+    FactorGraph
+    OdometryHandler
+    PosePresenter
+    TrajectoryPresenter
+    ${BASE_LIBS}
+)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

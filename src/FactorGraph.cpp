@@ -23,16 +23,8 @@ void FactorGraph::addFactor(CeresFactorPtr fac)
     // so they can finish their full set of modifications first
 }
 
-CeresNodePtr
-FactorGraph::getNode(Symbol sym)
-{
-    for (auto& node : nodes_) {
-        if (node->symbol() == sym) {
-            return node;
-        }
-    }
-
-    return nullptr;
+void FactorGraph::setNodeConstant(CeresNodePtr node) {
+    graph_->setNodeConstant(node);
 }
 
 bool FactorGraph::solve(bool verbose)
@@ -134,25 +126,4 @@ FactorGraph::findFirstNodeAfterTime(unsigned char symbol_chr, ros::Time time)
 
     if (found) return nodes_[node_index];
     else return nullptr;
-}
-
-CeresNodePtr
-FactorGraph::findLastNode(unsigned char symbol_chr)
-{
-    CeresNodePtr result = nullptr;
-
-    ros::Time last_time = ros::Time(0);
-
-    for (auto& node : nodes_) {
-        if (node->chr() != symbol_chr) continue;
-
-        if (!node->time()) continue;
-
-        if (node->time() > last_time) {
-            last_time = *node->time();
-            result = node;
-        }
-    }
-
-    return result;
 }

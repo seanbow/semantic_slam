@@ -26,14 +26,19 @@ public:
 
     void addNode(CeresNodePtr node);
 
-    CeresNodePtr getNode(Symbol sym);
+    void setNodeConstant(CeresNodePtr node);
+
+    template <typename NodeType=CeresNode>
+    boost::shared_ptr<NodeType> getNode(Symbol sym);
 
     CeresNodePtr findLastNodeBeforeTime(unsigned char symbol_chr, ros::Time time);
     CeresNodePtr findFirstNodeAfterTime(unsigned char symbol_chr, ros::Time time);
-    CeresNodePtr findLastNode(unsigned char symbol_chr);
 
-    template <typename T>
-    bool getEstimate(Symbol sym, T& value);
+    template <typename NodeType=CeresNode>
+    boost::shared_ptr<NodeType> findLastNode(unsigned char symbol_chr);
+
+    // template <typename T>
+    // bool getEstimate(Symbol sym, T& value);
 
     // bool marginalCovariance(Key key, Eigen::MatrixXd& cov);
 
@@ -73,6 +78,19 @@ private:
 //     return true;
 // }
 
+template <typename NodeType>
+boost::shared_ptr<NodeType>
+FactorGraph::getNode(Symbol sym)
+{
+    for (auto& node : nodes_) {
+        if (node->symbol() == sym) {
+            return boost::dynamic_pointer_cast<NodeType>(node);
+        }
+    }
+
+    return nullptr;
+}
+
 void FactorGraph::addNode(CeresNodePtr node)
 {
     // Make sure we don't already have a node with this symbol
@@ -89,4 +107,26 @@ void FactorGraph::addNode(CeresNodePtr node)
         nodes_.push_back(node);
         // values_->insert(node->symbol(), initial_estimate);
     }
+}
+
+template <typename NodeType>
+boost::shared_ptr<NodeType> 
+FactorGraph::findLastNode(unsigned char symbol_chr)
+{
+    CeresNodePtr result = nullptr;
+
+    ros::Time last_time = ros::Time(0);
+
+    for (auto& node : nodes_) {
+        if (node->chr() != symbol_chr) continue;
+
+        if (!node->time()) continue;
+
+        if (node->time() > last_time) {
+            last_time = *node->time();
+            result = node;
+        }
+    }
+
+    return boost::dynamic_pointer_cast<NodeType>(result);
 }

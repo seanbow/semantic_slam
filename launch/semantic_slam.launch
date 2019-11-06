@@ -98,7 +98,7 @@
 
     <node pkg="rosbag" type="play" name="rosbag_player" output="log" 
         args="--clock /mnt/data/turtlebot/2019-10-23-13-16-11.bag
-              --delay 10" />
+              --delay 2" />
 
     <node pkg="rviz" type="rviz" name="rviz" args="-d $(find semslam)/rviz/test.rviz" />
 

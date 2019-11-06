@@ -17,6 +17,8 @@ public:
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
+    void setParametersConstant(boost::shared_ptr<ceres::Problem> problem);
+
     const Pose3& pose() const { return pose_; }
     Pose3& pose() { return pose_; }
 
@@ -54,4 +56,10 @@ SE3Node::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     problem->SetParameterization(pose_.rotation_data(), new ceres::EigenQuaternionParameterization);
 
     problem->AddParameterBlock(pose_.translation_data(), 3);
+}
+
+void SE3Node::setParametersConstant(boost::shared_ptr<ceres::Problem> problem)
+{
+    problem->SetParameterBlockConstant(pose_.rotation_data());
+    problem->SetParameterBlockConstant(pose_.translation_data());
 }

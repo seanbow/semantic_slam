@@ -47,6 +47,8 @@ public:
                 boost::optional<Eigen::MatrixXd&> Hpose1 = boost::none,
                 boost::optional<Eigen::MatrixXd&> Hpose2 = boost::none) const;
 
+  friend std::ostream &operator<<(std::ostream &os, const Pose3& p);
+
 private:
   Eigen::Quaterniond q_;
   Eigen::Vector3d p_;
@@ -231,4 +233,13 @@ Pose3::between(const Pose3& other,
     }
 
     return result;
+}
+
+std::ostream &operator<<(std::ostream &os, const Pose3& pose) {
+  const Eigen::Quaterniond& q = pose.rotation();
+  os << "q: [" << q.x() << ", " << q.y() << ", " << q.z() << ", " << q.w() << "];\n";
+
+  const Eigen::Vector3d& t = pose.translation();
+  os << "t: [" << t(0) << ", " << t(1) << ", " << t(2) << "]\';\n";
+  return os;
 }
