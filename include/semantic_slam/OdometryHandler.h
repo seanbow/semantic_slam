@@ -7,6 +7,7 @@
 #include <nav_msgs/Odometry.h>
 #include <mutex>
 #include <deque>
+#include <unordered_map>
 // #include <gtsam/geometry/Pose3.h>
 
 class OdometryHandler : public Handler
@@ -20,6 +21,12 @@ public:
 
     Pose3 msgToPose3(const nav_msgs::Odometry& msg);
 
+    bool isOdometry() { return true; }
+
+    CeresNodePtr getSpineNode(ros::Time time);
+
+    CeresNodePtr attachSpineNode(ros::Time time);
+
     // inherit constructor
     using Handler::Handler;
 
@@ -27,6 +34,8 @@ private:
     ros::Subscriber subscriber_;
 
 	std::deque<nav_msgs::Odometry> msg_queue_;
+
+    aligned_unordered_map<Key, Pose3> node_odom_;
 
     std::mutex mutex_;
 
@@ -37,6 +46,6 @@ private:
     size_t last_msg_seq_;
 
     unsigned char node_chr_;
-    ros::Duration node_period_;
+    ros::Duration max_node_period_;
 
 };

@@ -11,16 +11,21 @@ class CeresNode {
 public:
 
     virtual void addToProblem(boost::shared_ptr<ceres::Problem> problem) = 0;
-    virtual void setParametersConstant(boost::shared_ptr<ceres::Problem> problem);
 
     Symbol symbol() const { return Symbol(key_); }
     unsigned char chr() const { return Symbol(key_).chr(); }
     size_t index() const { return Symbol(key_).index(); }
     Key key() const { return key_; }
 
+    virtual size_t dim() const = 0;
+    virtual size_t local_dim() const = 0;
+
     boost::optional<ros::Time> time() const { return time_; }
 
-    std::vector<double*> parameter_blocks() { return parameter_blocks_; }
+    const std::vector<double*>& parameter_blocks() const { return parameter_blocks_; }
+    const std::vector<size_t>& parameter_block_sizes() const { return parameter_block_sizes_; }
+    const std::vector<size_t>& parameter_block_local_sizes() const { return parameter_block_local_sizes_; }
+    const std::vector<ceres::LocalParameterization*> local_parameterizations() const { return local_parameterizations_; }
 
     using Ptr = boost::shared_ptr<CeresNode>;
 
@@ -29,6 +34,9 @@ protected:
     CeresNode(Key key, boost::optional<ros::Time> time=boost::none);
 
     std::vector<double*> parameter_blocks_;
+    std::vector<size_t> parameter_block_sizes_;
+    std::vector<size_t> parameter_block_local_sizes_;
+    std::vector<ceres::LocalParameterization*> local_parameterizations_;
 
     Key key_;
     boost::optional<ros::Time> time_;
@@ -41,9 +49,4 @@ CeresNode::CeresNode(Key key, boost::optional<ros::Time> time)
       time_(time)
 {
     
-}
-
-void CeresNode::setParametersConstant(boost::shared_ptr<ceres::Problem> problem)
-{
-    throw std::logic_error("error: unimplemented.");
 }

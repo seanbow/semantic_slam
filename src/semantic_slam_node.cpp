@@ -2,88 +2,175 @@
 
 #include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/Handler.h"
+#include "semantic_slam/ObjectHandler.h"
 #include "semantic_slam/OdometryHandler.h"
 #include "semantic_slam/PosePresenter.h"
 #include "semantic_slam/TrajectoryPresenter.h"
+
+#include <rosfmt/rosfmt.h>
+#include <fmt/ostream.h>
 
 #include <mutex>
 #include <condition_variable>
 #include <csignal>
 #include <iostream>
+#include <chrono>
 
 namespace {
     std::function<void(int)> shutdown_handler;
     void signal_handler(int signal) { shutdown_handler(signal); }
 }
 
-int main(int argc, char *argv[])
-{
-    ros::init(argc, argv, "semslam");
-    ros::NodeHandle nh;
-    ros::NodeHandle pnh("~");
+class FactorGraphSupervisor {
+public:
+    FactorGraphSupervisor();
 
-    boost::shared_ptr<FactorGraph> graph(new FactorGraph);
+    void addHandler(boost::shared_ptr<Handler> handler);
+    void addPresenter(boost::shared_ptr<Presenter> presenter);
+
+    void emplaceHandler(Handler* handler);
+    void emplacePresenter(Presenter* presenter);
+    
+    void start();
+    void stop();
+
+private:
+    ros::NodeHandle nh_;
+    ros::NodeHandle pnh_;
+
+    ros::AsyncSpinner msg_spinner_;
+
+    boost::shared_ptr<FactorGraph> graph_;
 
     // Handlers notify us that they modified the graph via a condition variable notify
     // TODO this seems messy
-    std::mutex mutex;
-    boost::shared_ptr<std::condition_variable> cv = boost::make_shared<std::condition_variable>();
+    boost::shared_ptr<std::mutex> graph_mutex_;
+    boost::shared_ptr<std::condition_variable> graph_cv_;
 
-    std::vector<boost::shared_ptr<Handler>> handlers;
+    std::vector<boost::shared_ptr<Handler>> handlers_;
+    std::vector<boost::shared_ptr<Presenter>> presenters_;
 
-    handlers.emplace_back(new OdometryHandler(graph, cv));
+    boost::shared_ptr<Handler> odom_handler_;
+    
+    bool running_;
+};
 
-    for (auto& h : handlers) {
+FactorGraphSupervisor::FactorGraphSupervisor()
+    : pnh_("~"),
+      msg_spinner_(1),
+      graph_(new FactorGraph),
+      running_(false)
+{
+    graph_mutex_ = boost::make_shared<std::mutex>();
+    graph_cv_ = boost::make_shared<std::condition_variable>();
+}
+
+void
+FactorGraphSupervisor::addHandler(boost::shared_ptr<Handler> handler) {
+    handlers_.push_back(handler);
+    handler->setGraph(graph_);
+    // handler->setCv(graph_cv_);
+
+    if (handler->isOdometry()) {
+        odom_handler_ = handler;
+        for (auto& h : handlers_) h->setOdometryHandler(handler);
+    }
+
+    if (odom_handler_) handler->setOdometryHandler(odom_handler_);
+}
+
+void FactorGraphSupervisor::emplaceHandler(Handler* handler) {
+    addHandler(boost::shared_ptr<Handler>(handler));
+}
+
+void
+FactorGraphSupervisor::addPresenter(boost::shared_ptr<Presenter> presenter) {
+    presenters_.push_back(presenter);
+    presenter->setGraph(graph_);
+}
+
+void FactorGraphSupervisor::emplacePresenter(Presenter* presenter) {
+    addPresenter(boost::shared_ptr<Presenter>(presenter));
+}
+
+void FactorGraphSupervisor::stop()
+{
+    msg_spinner_.stop();
+    running_ = false;
+    graph_cv_->notify_all();
+}
+
+void FactorGraphSupervisor::start()
+{
+    for (auto& h : handlers_) {
         h->setup();
     }
 
-    std::vector<boost::shared_ptr<Presenter>> presenters;
-
-    presenters.emplace_back(new PosePresenter(graph, cv));
-    presenters.emplace_back(new TrajectoryPresenter(graph, cv));
-
-    for (auto& p : presenters) {
+    for (auto& p : presenters_) {
         p->setup();
     }
 
     // Start message handling threads
-    ros::AsyncSpinner spinner(1);
-    spinner.start();
+    msg_spinner_.start();
+
+    running_ = true;
+
+    while (ros::ok() && running_) {
+        // Process the graph when one of our handlers modifies it
+        // std::unique_lock<std::mutex> lock(*graph_mutex_);
+
+        // cv->wait(lock, [&]() { return graph->modified(); });
+        // graph_cv_->wait(lock);
+
+        for (auto& h : handlers_) {
+            h->update();
+        }
+
+        if (graph_->modified()) {
+            auto t1 = std::chrono::high_resolution_clock::now();
+            bool solve_succeeded = graph_->solve(false);
+            auto t2 = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+            if (solve_succeeded) {
+                ROS_INFO_STREAM(fmt::format("Solved {} nodes and {} edges in {:.2f} ms.",
+                                            graph_->num_nodes(), graph_->num_factors(), duration.count()/1000.0));
+                for (auto& p : presenters_) p->present();
+            } else {
+                ROS_INFO_STREAM("Graph solve failed");
+                // return 1;
+            }
+        }
+    }
+
+    msg_spinner_.stop();
+}
+
+int main(int argc, char *argv[])
+{
+    ros::init(argc, argv, "semslam");
+    
+    FactorGraphSupervisor supervisor;
+
+    supervisor.emplaceHandler(new OdometryHandler);
+    supervisor.emplaceHandler(new ObjectHandler);
+
+    supervisor.emplacePresenter(new PosePresenter);
+    supervisor.emplacePresenter(new TrajectoryPresenter);
 
     // install a signal handler so we can stop the cv waiting on CTRL+C
     shutdown_handler = [&](int signal) { 
         std::cout << " Shutting down " << std::endl;
+        supervisor.stop();
         ros::shutdown();
-        cv->notify_all(); 
         // why doesn't this work to shut it down damnit
         // have to do this --
         exit(1);
     };
 
-    std::signal(SIGINT, signal_handler);
+    // std::signal(SIGINT, signal_handler);
 
+    supervisor.start();
 
-    while (ros::ok()) {
-        // Process the graph when one of our handlers modifies it
-        std::unique_lock<std::mutex> lock(mutex);
-
-        // cv->wait(lock, [&]() { return graph->modified(); });
-        cv->wait(lock);
-
-        for (auto& h : handlers) {
-            h->update();
-        }
-
-        // ROS_INFO_STREAM("Notified!");
-
-        bool solve_succeeded = graph->solve();
-
-        if (solve_succeeded) {
-            ROS_INFO_STREAM("Solve succeeded");
-            for (auto& p : presenters) p->present();
-        } else {
-            ROS_INFO_STREAM("Solve failed");
-            return 1;
-        }
-    }
+    supervisor.stop();
 }

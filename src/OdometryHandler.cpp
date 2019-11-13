@@ -5,6 +5,8 @@
 #include "semantic_slam/CeresSE3PriorFactor.h"
 #include "semantic_slam/CeresBetweenFactor.h"
 
+#include <string>
+
 
 using namespace std::string_literals;
 
@@ -12,7 +14,7 @@ void OdometryHandler::setup()
 {
     ROS_INFO("Starting odometry handler.");
     std::string odometry_topic;
-    pnh_.param("odom_topic", odometry_topic, "/odom"s);
+    pnh_.param("odom_topic", odometry_topic, "/zed/zed_node/odom"s);
 
     ROS_INFO_STREAM("Subscribing to topic " << odometry_topic);
 
@@ -22,7 +24,7 @@ void OdometryHandler::setup()
 
     node_chr_ = 'x';
 
-    node_period_ = ros::Duration(0.1); // seconds
+    max_node_period_ = ros::Duration(0.5); // seconds
 }
 
 void OdometryHandler::msgCallback(const nav_msgs::Odometry::ConstPtr& msg)
@@ -41,7 +43,7 @@ void OdometryHandler::msgCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
     last_msg_seq_ = msg->header.seq;
 
-    cv_->notify_all();
+    // cv_->notify_all();
 }
 
 Pose3 OdometryHandler::msgToPose3(const nav_msgs::Odometry& msg)
@@ -61,157 +63,158 @@ Pose3 OdometryHandler::msgToPose3(const nav_msgs::Odometry& msg)
     return G_p;
 }
 
-void OdometryHandler::update() {
+CeresNodePtr OdometryHandler::getSpineNode(ros::Time time)
+{
+    auto node = graph_->findFirstNodeAfterTime(node_chr_, time);
 
-    if (msg_queue_.empty()) return;    
-    
+    // TODO check that the time is close, whether we should add one before it, etc
+
+    if (node) {
+        return node;
+    } else {
+        return attachSpineNode(time);
+    }
+}
+
+CeresNodePtr OdometryHandler::attachSpineNode(ros::Time time)
+{
+    // Integrate up to time and attach a node corresponding to it
+
+    // check size() < 2 instead of !empty(). if we just checked 
+    // empty, it may be that we get pop a message just before `time` and the queue
+    // becomes empty, yet the next message we receive will be after `time`. can't
+    // check for this case unless we have both "straddling" messages present here
+    if (msg_queue_.size() < 2) return nullptr;
+
     SE3NodePtr last_odom_node = graph_->findLastNode<SE3Node>(node_chr_);
 
-    bool is_first_node;
-    Symbol symbol;
+    if (!last_odom_node) {
+        // No odometry "spine" exists yet -- create a first node and anchor 
+        // it at the origin.
 
-    if (last_odom_node) {
-        is_first_node = false;
-        symbol = Symbol(node_chr_, last_odom_node->index() + 1);
-    } else {
-        is_first_node = true;
-        symbol = Symbol(node_chr_, 0);
+        Pose3 origin = Pose3::Identity();
+
+        Symbol origin_symbol = Symbol(node_chr_, 0);
+        node_odom_[origin_symbol.key()] = origin; // TODO is this safe to assume odom origin = actual origin
+
+        last_odom_node = util::allocate_aligned<SE3Node>(origin_symbol, msg_queue_.front().header.stamp);
+        last_odom_node->pose() = origin;
+
+        graph_->addNode(last_odom_node);
+        graph_->setNodeConstant(last_odom_node);
+
+        // TODO figure out best values for origin anchoring factor noise
+        // double sigma_p = .01;
+        // double sigma_q = .001;
+        // Eigen::VectorXd sigmas(6);
+        // sigmas << sigma_q, sigma_q, sigma_q, sigma_p, sigma_p, sigma_p;
+        // Eigen::MatrixXd anchor_cov = sigmas.array().pow(2).matrix().asDiagonal();
+        // auto fac = util::allocate_aligned<CeresSE3PriorFactor>(last_odom_node, origin, anchor_cov);
+        // graph_->addFactor(fac);
+
+        ROS_INFO_STREAM("Added first node " << DefaultKeyFormatter(origin_symbol) 
+                            << " to graph, origin = " << origin);
     }
 
-    auto msg = msg_queue_.front();
+    // Proceed with odometry integration & new node creation
+    Symbol symbol = Symbol(node_chr_, last_odom_node->index() + 1);
+
+    nav_msgs::Odometry msg = msg_queue_.front();
+
+    bool good_msg = false;
 
     {
         std::lock_guard<std::mutex> guard(mutex_);
         msg_queue_.pop_front();
 
-        if (!is_first_node) {
-            // wait until we have waited enough time since the last odometry node we added
-            while (!msg_queue_.empty() && msg.header.stamp - last_time_ < node_period_) {
-                msg = msg_queue_.front();
-                msg_queue_.pop_front();
-            }
+        // TODO interpolation if `time` is between message times
+        while (msg_queue_.size() >= 2 && msg_queue_.front().header.stamp <= time) {
+            msg = msg_queue_.front();
+            msg_queue_.pop_front();
+        }
 
-            // check that we got the right message not that we just expended the queue
-            if (msg.header.stamp - last_time_ < node_period_) {
-                return;
-            }
+        if (!msg_queue_.empty() && msg_queue_.front().header.stamp > time) {
+            msg = msg_queue_.front();
+            msg_queue_.pop_front();
+            good_msg = true;
         }
     }
+
+    if (!good_msg) {
+        // don't have odometry messages up to the requested time yet
+        return nullptr;
+    }
+
 
     last_time_ = msg.header.stamp;
 
     Pose3 G_p_now = msgToPose3(msg);
+    node_odom_[symbol.key()] = G_p_now;
 
-    if (is_first_node) {
-        // anchor origin and return
-        Pose3 origin = Pose3::Identity();
+    Pose3 relp = node_odom_[last_odom_node->key()].between(G_p_now);
 
-        // TODO figure out best values for origin anchoring factor noise
-        double sigma_p = .01;
-        double sigma_q = .001;
-        Eigen::VectorXd sigmas(6);
-        sigmas << sigma_q, sigma_q, sigma_q, sigma_p, sigma_p, sigma_p;
+    // TODO use more accurate relative covariance information...
+    // Eigen::Matrix6d cov;
+    double sigma_p = 0.02;
+    double sigma_q = 0.0025;
+    Eigen::VectorXd sigmas(6);
+    sigmas << sigma_q, sigma_q, sigma_q, sigma_p, sigma_p, sigma_p;
+    Eigen::MatrixXd cov = sigmas.array().pow(2).matrix().asDiagonal();
 
-        Eigen::MatrixXd anchor_cov = sigmas.array().pow(2).matrix().asDiagonal();
+    // Node that here for the initial estimate, we don't want to use the current odometry estimate.
+    // We just want to use the odometry *delta* and update the previous optimized estimate
+    Pose3 prev_state = last_odom_node->pose();
+    Pose3 current_estimate = prev_state * relp;
 
-        auto origin_node = util::allocate_aligned<SE3Node>(symbol, msg.header.stamp);
-        origin_node->pose() = origin;
+    auto node = util::allocate_aligned<SE3Node>(symbol, msg.header.stamp);
+    node->pose() = current_estimate;
 
-        graph_->addNode(origin_node);
-        graph_->setNodeConstant(origin_node);
 
-        // auto fac = util::allocate_aligned<CeresSE3PriorFactor>(origin_node, origin, anchor_cov);
-        // graph_->addFactor(fac);
+    auto fac = util::allocate_aligned<CeresBetweenFactor>(last_odom_node,
+                                                            node,
+                                                            relp,
+                                                            cov);
 
-        ROS_INFO_STREAM("Added first node " << DefaultKeyFormatter(symbol) 
-                            << " to graph, origin = " << origin);
-
-    } else {
-        // create a between constraint between the subsequent odometry nodes
-        Pose3 relp = last_odom_.between(G_p_now);
-
-        // TODO use more accurate relative covariance information...
-        // Eigen::Matrix6d cov;
-        double sigma_p = 0.01;
-        double sigma_q = 0.001;
-        Eigen::VectorXd sigmas(6);
-        sigmas << sigma_q, sigma_q, sigma_q, sigma_p, sigma_p, sigma_p;
-        Eigen::MatrixXd cov = sigmas.array().pow(2).matrix().asDiagonal();
-
-        // auto odometry_noise = gtsam::noiseModel::Diagonal::Sigmas(sigmas);
-
-        // auto gtsam_fac = util::allocate_aligned<gtsam::BetweenFactor<gtsam::Pose3>>(last_odom_node->symbol(),
-        //                                                                             symbol,
-        //                                                                             relp,
-        //                                                                             odometry_noise);
-        // auto fac_info = FactorInfo::Create(FactorType::ODOMETRY, gtsam_fac, symbol.index());
-        // auto node = NodeInfo::Create(symbol, msg.header.stamp);
-
-        // Node that here for the initial estimate, we don't want to use the current odometry estimate.
-        // We just want to use the odometry *delta* and update the previous optimized estimate
-        Pose3 prev_state = last_odom_node->pose();
-        Pose3 current_estimate = relp * prev_state;
-
-        auto node = util::allocate_aligned<SE3Node>(symbol, msg.header.stamp);
-        node->pose() = current_estimate;
-
-        graph_->addNode(node);
-
-        auto fac = util::allocate_aligned<CeresBetweenFactor>(last_odom_node,
-                                                              node,
-                                                              relp,
-                                                              cov);
-
-        graph_->addFactor(fac);
-
-        // gtsam::Pose3 prev_state, current_estimate;
-        // bool succeeded = graph_->getEstimate(last_odom_node->symbol(), prev_state);
-
-        // if (!succeeded) {
-        //     ROS_ERROR_STREAM("Failed to get state estimate for node " 
-        //                         << gtsam::DefaultKeyFormatter(last_odom_node->symbol()));
-        //     current_estimate = G_p_now; // fallback to odometry
-        // } else {
-        //     current_estimate = relp * prev_state;
-        // }
-
-        // graph_->addNode(node, current_estimate);
-        // graph_->addFactor(fac_info);
-
-        ROS_INFO_STREAM("Added new odometry node " << DefaultKeyFormatter(symbol));
-        // ROS_INFO_STREAM("Added between factor, between " << gtsam::DefaultKeyFormatter(last_odom_node->symbol())
-        //                     << " and " << gtsam::DefaultKeyFormatter(symbol) << ", = \n" << relp);
-    }
-
+    graph_->addNode(node);
+    graph_->addFactor(fac);
     graph_->setModified();
 
-    last_odom_ = G_p_now;
+    // ROS_INFO_STREAM("Added new odometry node " << DefaultKeyFormatter(symbol));
 
-    // gtsam::Pose3 between = last_odom_.between(G_p_now);
+    ROS_INFO_STREAM("Added spine node " << DefaultKeyFormatter(symbol) << " at time = " 
+            << *node->time() << " (requested t = " << time << ")");
 
-    // ROS_INFO_STREAM("Between = " << between);
-	// // gtsam::noiseModel::Gaussian::shared_ptr cov = gtsam::noiseModel::Gaussian::Covariance(relpose_covariance_);
 
-    // gtsam::NonlinearFactorGraph G;
-    // gtsam::Values values;
+    return node;
+}
 
-    // gtsam::Pose3 last_pose_est = graph_->calculateEstimate<gtsam::Pose3>(sym::X(pose_id - 1));
+void OdometryHandler::update() {
+    // Update the spine if our messages are exceeding our max period without a node
+    nav_msgs::Odometry last_msg;
+    {
+        std::lock_guard<std::mutex> guard(mutex_);
+        if (msg_queue_.size() < 2) return;
+        last_msg = msg_queue_.back();
+    }
 
-    // gtsam::Pose3 relp = last_pose_.between(G_p_now);
+    // ROS_INFO_STREAM("Msg queue size: " << msg_queue_.size());
 
-    // values.insert(sym::X(pose_id), relp * last_pose_est);
+    SE3NodePtr last_odom_node = graph_->findLastNode<SE3Node>(node_chr_);
 
-    // auto fac = util::allocate_aligned<gtsam::BetweenFactor<gtsam::Pose3>>(sym::X(pose_id - 1), 
-    //                                                                         sym::X(pose_id), 
-    //                                                                         relp, 
-    //                                                                         cov);
 
-    // auto fac_info = boost::make_shared<FactorInfo>(FactorType::ODOMETRY, pose_id, fac);
+    if (!last_odom_node) {
+        // No "spine" yet -- add if the time spanned by the messages currently in the queue 
+        // is greater than the max period
+        ros::Duration queue_time = last_msg.header.stamp - msg_queue_.front().header.stamp;
+        if (queue_time > max_node_period_) {
+            // attachSpineNode(msg_queue_.front().header.stamp + max_node_period_);
+        }
+    } else {
+        ros::Duration time_since_node = last_msg.header.stamp - *last_odom_node->time();
 
-    // graph_->isamUpdate({fac_info}, values);
+        if (time_since_node > max_node_period_) {
+            // attachSpineNode(*last_odom_node->time() + max_node_period_);
+        }
+    }
 
-    // last_time_ = next_time;
-    // last_pose_ = G_p_now;
-
-    // return isam.calculateEstimate();
 }

@@ -47,6 +47,10 @@ public:
                 boost::optional<Eigen::MatrixXd&> Hpose1 = boost::none,
                 boost::optional<Eigen::MatrixXd&> Hpose2 = boost::none) const;
 
+  double x() const { return translation()[0]; }
+  double y() const { return translation()[1]; }
+  double z() const { return translation()[2]; }
+
   friend std::ostream &operator<<(std::ostream &os, const Pose3& p);
 
 private:

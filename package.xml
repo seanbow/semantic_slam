@@ -52,6 +52,9 @@
 
   <depend>gtsam</depend>
   <depend>rosfmt</depend>
+  <depend>object_pose_interface_msgs</depend>
+  <depend>darknet_ros_msgs</depend>
+  <depend>roslib</depend>
 
   <exec_depend>rviz_plugin_covariance</exec_depend>
 

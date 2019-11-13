@@ -51,6 +51,15 @@ boost::shared_ptr<T> allocate_aligned(Args&& ... args) {
 
 } // namespace util
 
+ros::Duration abs_duration(ros::Duration d)
+{
+  if (d.sec < 0 || (d.sec == 0 && d.nsec < 0)) {
+    return -d;
+  } else {
+    return d;
+  }
+}
+
 
 // void appendToValues(gtsam::Values& v, const gtsam::Values& v_other) {
 //   for(gtsam::Values::const_iterator key_value = v_other.begin(); key_value != v_other.end(); ++key_value) {
@@ -78,14 +87,6 @@ T computeMedian(std::vector<T> vec) {
   return median;
 }
 
-Eigen::Matrix3d skewsymm(const Eigen::Vector3d& x) {
-    Eigen::Matrix3d S;
-    S <<   0,  -x(2), x(1),
-          x(2),  0,  -x(0),
-         -x(1), x(0),  0;
-    return S;
-}
-
 /**
  * Computes the jacobians of the projection of a global point onto a camera.
  * Inputs: 
@@ -100,33 +101,14 @@ Eigen::Matrix3d skewsymm(const Eigen::Vector3d& x) {
 Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Eigen::Matrix3d& G_R_I,
                                           const Eigen::Vector3d& G_t_I,
                                           const Eigen::Matrix3d& I_R_C,
-                                          const Eigen::Vector3d& G_l)
-{
-  Eigen::Matrix3d G_R_C = G_R_I * I_R_C;
+                                          const Eigen::Vector3d& G_l);
 
-  // assume G_t_I = G_t_C TODO
-
-  Eigen::Vector3d C_p = G_R_C.transpose() * (G_l - G_t_I);
-
-  Eigen::Matrix<double, 2, 3> Hcam;
-  Hcam(0,0) = 1 / C_p(2);
-  Hcam(1,1) = 1 / C_p(2);
-  Hcam(0,1) = 0;
-  Hcam(1,0) = 0;
-  Hcam(0,2) = -C_p(0) / (C_p(2)*C_p(2));
-  Hcam(1,2) = -C_p(1) / (C_p(2)*C_p(2));
-
-  Eigen::Matrix3d Hq = I_R_C.transpose() * skewsymm(G_R_I.transpose() * (G_l - G_t_I));
-  Eigen::Matrix3d Hp = -G_R_C.transpose();
-  Eigen::Matrix3d Hl = G_R_C.transpose();
-
-  Eigen::Matrix<double, 2, 9> H;
-
-  H.block<2,3>(0,0) = Hcam * Hl;
-  H.block<2,3>(0,3) = Hcam * Hq;
-  H.block<2,3>(0,6) = Hcam * Hp;
-
-  return H;
+Eigen::Matrix3d skewsymm(const Eigen::Vector3d& x) {
+    Eigen::Matrix3d S;
+    S <<   0,  -x(2), x(1),
+          x(2),  0,  -x(0),
+         -x(1), x(0),  0;
+    return S;
 }
 
 // bool rotationsApproxEqual(const gtsam::Rot3& a, const gtsam::Rot3& b, double threshold) {

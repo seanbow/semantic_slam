@@ -2,45 +2,24 @@
 
 #include "semantic_slam/Common.h"
 
-#include <ros/ros.h>
+#include <ceres/ceres.h>
 
-#include <boost/shared_ptr.hpp>
-#include <boost/optional.hpp>
-// #include <gtsam/nonlinear/NonlinearFactorGraph.h>
-// #include <gtsam/nonlinear/Marginals.h>
-#include <fmt/format.h>
-#include <condition_variable>
-
-#include "semantic_slam/Symbol.h"
-#include "semantic_slam/CeresFactorGraph.h"
 #include "semantic_slam/CeresNode.h"
 #include "semantic_slam/CeresFactor.h"
-// #include "semantic_slam/FactorInfo.h"
-// #include "semantic_slam/NodeInfo.h"
 
-class FactorGraph {
+#include <unordered_map>
+#include <mutex>
+#include <rosfmt/rosfmt.h>
+
+class FactorGraph
+{
 public:
     FactorGraph();
 
-    void addFactor(CeresFactorPtr fac);
-
     void addNode(CeresNodePtr node);
 
-    void setNodeConstant(CeresNodePtr node);
-
-    template <typename NodeType=CeresNode>
-    boost::shared_ptr<NodeType> getNode(Symbol sym);
-
-    CeresNodePtr findLastNodeBeforeTime(unsigned char symbol_chr, ros::Time time);
-    CeresNodePtr findFirstNodeAfterTime(unsigned char symbol_chr, ros::Time time);
-
-    template <typename NodeType=CeresNode>
-    boost::shared_ptr<NodeType> findLastNode(unsigned char symbol_chr);
-
-    // template <typename T>
-    // bool getEstimate(Symbol sym, T& value);
-
-    // bool marginalCovariance(Key key, Eigen::MatrixXd& cov);
+    void addFactor(CeresFactorPtr factor);
+    void addFactors(std::vector<CeresFactorPtr> factors);
 
     bool solve(bool verbose=false);
 
@@ -51,62 +30,60 @@ public:
 
     bool modified() { return modified_; }
 
-private:
-    boost::shared_ptr<CeresFactorGraph> graph_;
+    bool setNodeConstant(CeresNodePtr node);
 
+    template <typename NodeType=CeresNode>
+    boost::shared_ptr<NodeType> getNode(Symbol sym) const;
+
+    bool computeMarginalCovariance(const std::vector<Key>& keys);
+    bool computeMarginalCovariance(const std::vector<CeresNodePtr>& nodes);
+
+    Eigen::MatrixXd getMarginalCovariance(const Key& key1, const Key& key2) const;
+    Eigen::MatrixXd getMarginalCovariance(CeresNodePtr node1, CeresNodePtr node2) const;
+
+    CeresNodePtr findLastNodeBeforeTime(unsigned char symbol_chr, ros::Time time);
+    CeresNodePtr findFirstNodeAfterTime(unsigned char symbol_chr, ros::Time time);
+    CeresNodePtr findNearestNode(unsigned char symbol_chr, ros::Time time);
+
+    template <typename NodeType=CeresNode>
+    boost::shared_ptr<NodeType> findLastNode(unsigned char symbol_chr);
+
+    std::vector<Key> keys();
+
+    const ceres::Problem& problem() const { return *problem_; }
+
+private:
+    boost::shared_ptr<ceres::Problem> problem_;
+
+    std::unordered_map<Key, CeresNodePtr> nodes_;
     std::vector<CeresFactorPtr> factors_;
-    std::vector<CeresNodePtr> nodes_;
 
     bool modified_; //< Whether or not the graph has been modified since the last solving
 
+    ceres::Solver::Options solver_options_;
+
+    ceres::Covariance::Options covariance_options_;
+    boost::shared_ptr<ceres::Covariance> covariance_;
+
     std::mutex mutex_;
-
-    // boost::shared_ptr<gtsam::Marginals> marginals_;
 };
-
-// template <typename T>
-// bool FactorGraph::getEstimate(Symbol sym, T& value) {
-//     if (values_->find(sym) == values_->end()) {
-//         return false;
-//     }
-
-//     // if (modified_) {
-//     //     ROS_WARN("Getting value from modified factor graph before solution.");
-//     // }
-
-//     value = values_->at<T>(sym);
-//     return true;
-// }
 
 template <typename NodeType>
 boost::shared_ptr<NodeType>
-FactorGraph::getNode(Symbol sym)
+FactorGraph::getNode(Symbol sym) const
 {
-    for (auto& node : nodes_) {
-        if (node->symbol() == sym) {
-            return boost::dynamic_pointer_cast<NodeType>(node);
-        }
-    }
+    auto node = nodes_.find(sym.key());
 
-    return nullptr;
-}
+    if (node == nodes_.end()) return nullptr;
+    else if (node->second) return boost::dynamic_pointer_cast<NodeType>(node->second);
+    else return nullptr;
 
-void FactorGraph::addNode(CeresNodePtr node)
-{
-    // Make sure we don't already have a node with this symbol
-    auto existing_node = getNode(node->symbol());
-    if (existing_node) {
-        throw std::runtime_error(
-                fmt::format("Tried to add already existing node with symbol {} to graph",
-                            DefaultKeyFormatter(node->key())));
-    }
-
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        graph_->addNode(node);
-        nodes_.push_back(node);
-        // values_->insert(node->symbol(), initial_estimate);
-    }
+    // for (auto& key_node : nodes_) {
+    //     if (key_node.second->symbol() == sym) {
+    //         return boost::dynamic_pointer_cast<NodeType>(key_node.second);
+    //     }
+    // }
+    // return nullptr;
 }
 
 template <typename NodeType>
@@ -117,14 +94,14 @@ FactorGraph::findLastNode(unsigned char symbol_chr)
 
     ros::Time last_time = ros::Time(0);
 
-    for (auto& node : nodes_) {
-        if (node->chr() != symbol_chr) continue;
+    for (auto& key_node : nodes_) {
+        if (key_node.second->chr() != symbol_chr) continue;
 
-        if (!node->time()) continue;
+        if (!key_node.second->time()) continue;
 
-        if (node->time() > last_time) {
-            last_time = *node->time();
-            result = node;
+        if (key_node.second->time() > last_time) {
+            last_time = *key_node.second->time();
+            result = key_node.second;
         }
     }
 

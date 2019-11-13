@@ -23,9 +23,11 @@ void PosePresenter::present()
 
     Eigen::MatrixXd cov;
     // TODO!!!
-    bool got_cov = true;
-    cov = 0.1 * Eigen::MatrixXd::Identity(6,6);
+    // bool got_cov = true;
+    // cov = 0.1 * Eigen::MatrixXd::Identity(6,6);
     // bool got_cov = graph_->marginalCovariance(node->symbol(), cov);
+    bool got_cov = graph_->computeMarginalCovariance({node});
+    cov = graph_->getMarginalCovariance(node, nullptr);
 
     if (!got_cov) return;
 

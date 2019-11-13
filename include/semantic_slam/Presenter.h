@@ -8,26 +8,24 @@
 class Presenter {
 public:
 
-    Presenter(boost::shared_ptr<FactorGraph> graph, boost::shared_ptr<std::condition_variable> cv);
+    Presenter();
 
     virtual ~Presenter() { };
 
     virtual void setup() = 0;
     virtual void present() = 0;
 
+    void setGraph(boost::shared_ptr<FactorGraph> graph) { graph_ = graph; }
+
 protected:
     boost::shared_ptr<FactorGraph> graph_;
 
     ros::NodeHandle nh_;
     ros::NodeHandle pnh_;
-
-    boost::shared_ptr<std::condition_variable> cv_;
 };
 
-Presenter::Presenter(boost::shared_ptr<FactorGraph> graph, boost::shared_ptr<std::condition_variable> cv)
-    : graph_(graph),
-      nh_(),
-      pnh_("~"),
-      cv_(cv)
+Presenter::Presenter()
+    : nh_(),
+      pnh_("~")
 {
 }

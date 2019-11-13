@@ -19,6 +19,9 @@ public:
 
     void setParametersConstant(boost::shared_ptr<ceres::Problem> problem);
 
+    size_t dim() const { return 7; }
+    size_t local_dim() const { return 6; }
+
     const Pose3& pose() const { return pose_; }
     Pose3& pose() { return pose_; }
 
@@ -43,7 +46,14 @@ SE3Node::SE3Node(Symbol sym, boost::optional<ros::Time> time)
     : CeresNode(sym, time)
 {
     parameter_blocks_.push_back(pose_.rotation_data());
+    parameter_block_sizes_.push_back(4);
+    parameter_block_local_sizes_.push_back(3);
+    local_parameterizations_.push_back(new ceres::EigenQuaternionParameterization);
+
     parameter_blocks_.push_back(pose_.translation_data());
+    parameter_block_sizes_.push_back(3);
+    parameter_block_local_sizes_.push_back(3);
+    local_parameterizations_.push_back(nullptr);
 }
 
 void
@@ -56,10 +66,4 @@ SE3Node::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     problem->SetParameterization(pose_.rotation_data(), new ceres::EigenQuaternionParameterization);
 
     problem->AddParameterBlock(pose_.translation_data(), 3);
-}
-
-void SE3Node::setParametersConstant(boost::shared_ptr<ceres::Problem> problem)
-{
-    problem->SetParameterBlockConstant(pose_.rotation_data());
-    problem->SetParameterBlockConstant(pose_.translation_data());
 }

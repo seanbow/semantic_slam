@@ -2,15 +2,20 @@ cmake_minimum_required(VERSION 3.0)
 project(semantic_slam)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++14 -g3 -O3)# -march=native)
+set(CMAKE_CXX_STANDARD 14)
+
+add_compile_options(-g3 -O3)# -march=native)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED
     roscpp
+    roslib
     # gtsam
     rosfmt
+    object_pose_interface_msgs
+    darknet_ros_msgs
 )
 
 # find_package(GTSAM REQUIRED)
@@ -144,8 +149,52 @@ target_link_libraries(FactorGraph
 
 add_library(Utils src/Utils.cpp)
 
+add_library(Key src/Key.cpp)
+add_library(Symbol src/Symbol.cpp)
+add_library(CameraCalibration src/CameraCalibration.cpp)
+
+# add_library(StructureFactor src/keypoints/gtsam/StructureFactor.cpp)
+# add_library(StructureProjectionFactor src/keypoints/gtsam/StructureProjectionFactor.cpp)
+
+# add_executable(test_structure_factor src/test_structure_factor.cpp)
+# target_link_libraries(test_structure_factor
+#     ${catkin_LIBRARIES}
+#     StructureFactor
+#     Utils
+#     # gtsam
+# )
+
+set(BASE_LIBS 
+    Utils
+    Key
+    Symbol
+    CameraCalibration
+)
+
+set(CERES_FACTORS
+  CeresProjectionFactor
+  CeresBetweenFactor
+  CeresStructureFactor
+)
+
+add_library(CeresProjectionFactor src/CeresProjectionFactor.cpp)
+target_link_libraries(CeresProjectionFactor
+  ${CERES_LIBRARIES}
+)
+
+add_library(CeresBetweenFactor src/CeresBetweenFactor.cpp)
+target_link_libraries(CeresBetweenFactor
+  ${CERES_LIBRARIES}
+)
+
+add_library(CeresStructureFactor src/CeresStructureFactor.cpp)
+target_link_libraries(CeresStructureFactor
+  ${CERES_LIBRARIES}
+)
+
 add_library(OdometryHandler src/OdometryHandler.cpp)
 target_link_libraries(OdometryHandler
+  CeresBetweenFactor
   ${CERES_LIBRARIES}
 )
 
@@ -153,14 +202,40 @@ add_library(PosePresenter src/PosePresenter.cpp)
 
 add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
 
-add_library(Key src/Key.cpp)
-add_library(Symbol src/Symbol.cpp)
+add_library(EstimatedObject src/keypoints/EstimatedObject.cpp)
 
-set(BASE_LIBS 
-    Utils
-    Key
-    Symbol
+add_library(EstimatedKeypoint src/keypoints/EstimatedKeypoint.cpp)
+target_link_libraries(EstimatedKeypoint
+    ${BASE_LIBS}
+    ${CERES_FACTORS}
 )
+
+add_library(munkres src/munkres.cpp)
+
+add_library(MLDataAssociator src/MLDataAssociator.cpp)
+target_link_libraries(MLDataAssociator
+  munkres
+)
+
+add_library(geometry src/keypoints/geometry.cpp)
+# target_link_libraries(geometry 
+#   gtsam
+# )
+
+add_library(ObjectHandler src/ObjectHandler.cpp)
+target_link_libraries(ObjectHandler
+  geometry
+  EstimatedObject
+  EstimatedKeypoint
+  StructureOptimizationProblem
+  MLDataAssociator
+  ${CERES_LIBRARIES}
+  ${BASE_LIBS}
+)
+
+
+add_library(StructureOptimizationProblem src/keypoints/StructureOptimizationProblem.cpp)
+
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -170,6 +245,16 @@ set(BASE_LIBS
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
+# add_executable(test_geometry src/test_geometry.cpp)
+# target_link_libraries(test_geometry
+#     ${catkin_LIBRARIES}
+#     Utils
+#     # gtsam
+#     geometry
+#     ${CERES_LIBRARIES}
+#     ${BASE_LIBS}
+# )
+
 add_executable(semantic_slam_node src/semantic_slam_node.cpp)
 target_link_libraries(semantic_slam_node
     ${catkin_LIBRARIES}
@@ -178,6 +263,7 @@ target_link_libraries(semantic_slam_node
     ${CERES_LIBRARIES}
     FactorGraph
     OdometryHandler
+    ObjectHandler
     PosePresenter
     TrajectoryPresenter
     ${BASE_LIBS}

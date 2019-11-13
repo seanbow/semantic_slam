@@ -1,0 +1,108 @@
+## Camera intrinsics
+cam_model: Pinhole
+cam_height: 720
+cam_width: 1280
+cam_fx: 679.6778564453125
+cam_fy: 679.6778564453125
+cam_cx: 637.9580078125
+cam_cy: 354.5067138671875
+cam_d0: 0.0
+cam_d1: 0.0
+cam_d2: 0.0
+cam_d3: 0.0
+
+## IMU info / calibration
+
+### Extrinsics
+
+I_p_C: [0.0, 0.03, 0.0]
+I_q_C: [-0.500, 0.500, -0.500, 0.500]
+
+### Intrinsics
+
+imu_dt: -0.03065117695773597
+
+### Additive noise
+w_sigma: [1.0e-4, 1.0e-4, 1.0e-4] # rad/sqrt(sec)
+a_sigma: [0.03, 0.03, 0.03] # m/sec^(3/2)
+
+### Bias random walk driving noise
+w_bias_sigma: [1.745329251994330e-04,1.745329251994330e-04,1.745329251994330e-04] # rad/sec^(3/2)
+a_bias_sigma: [0.01, 0.01, 0.01] # m/sec^(5/2)
+
+
+## Feature_tracker parameters
+ransac_iterations: 150      # number of iterations in essential matrix estimating ransac loop
+feature_spacing: 10         # minimum pixel distance between extracted features. i.e. an upper bound of sorts on feature density
+feature_type: "HARRIS"      # type of features to extract. "HARRIS", "GFTT", "FAST", etc
+feature_quality: 0.0001     # default 0.01
+max_features_per_im: 300    # maximum number of features to keep per image
+keyframe_spacing: 10        # keep every nth image frame as a keyframe
+sqrt_samp_thresh: 0.02      # Threshold on inliers in sampson error, higher = more permissive
+klt_window_size: 19         # 25
+klt_track_quality: 1.0e-8   # lower = more permissive
+klt_pyramid_levels: 8
+
+
+## Semslam parameters
+
+### Geometric feature parameters
+cam_sigma: 4
+reproj_err_threshold: 4
+
+### Semantic measurement parameters
+# keypoint_msmt_sigma: 10                 # keypoint measurement sigma (pixels)
+keypoint_initialization_depth_sigma: 2  # meters
+
+min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph
+min_landmark_observations: 4           # minimum number of observations needed for a keypoint before estimating depth and including in optimization
+
+### Semantic object optimization parameters
+structure_regularization_factor: 10     # lambda in structure optimization term lambda * ||c||^2
+robust_estimator_parameter: 5
+include_objects_in_graph: false
+
+# Error in the structure factor due to misalignment is defined as 
+# || L - R*S - t ||_W
+# where W = (1/structure_error_coefficient) * I
+# i.e. this is an inverse "noise" like value where higher = more penalty for 
+# deviations from the calculated object structure
+structure_error_coefficient: 500
+
+keypoint_activation_threshold: 0.40     # threshold above which to consider a keypoint observed
+
+camera_range: 10                        # meters
+
+mahal_thresh_assign: 4                  # Mahalanobis distance below which to assign data (MLDataAssociator)
+mahal_thresh_init: 12                   # Mahalanobis distance above which to assign new mapped landmarks (MLDataAssociator)
+
+max_new_factor_error: 300
+
+landmark_merge_threshold: 1.0           # threshold on between-landmark bhattacharyya distance below which to merge landmarks
+probability_landmark_new: 0.10          # fixed (initialization) probability that a measurement corresponds to a new landmark (ProbabilisticDataAssociator)
+
+constraint_weight_threshold: 0.8        # if the weight of a constraint (i.e., an object measurement) is less than this do not incorporate the keypoint measurements corresponding to this object
+new_landmark_weight_threshold: 0.9      # if the weight of the last column in the weights matrix for a measurement is greater than this value, add a new object to the estimated_objects_ vector
+
+## Object classes
+model_names: ["gascan", "chair", "pelican", "tableclosed", "cart", "ladder"]
+model_directory: "/home/kodlab/catkin_ws/src/object_pose_detection/semslam/semslam/models/objects/"
+
+## State initialization & priors
+w_bias_init: [-3.5745e-4, -1.8558e-4, -9.3802e-4]
+w_bias_init_sigma: [1.0e-5, 1.0e-5, 1.0e-5]
+
+## General - we really only need to specify w_bias_init to get good performance
+a_bias_init: [0, 0, 0]
+a_bias_init_sigma: [1.0e-4, 1.0e-4, 1.0e-4]
+
+gravity: [0, 0, -9.81]
+
+init_p: [0, 0, 0]
+init_p_sigma: [1.0e-7, 1.0e-7, 1.0e-7]
+
+init_q: [0, 0, 0, 1]
+init_q_sigma: [0.02, 0.02, 0.02]
+
+init_v: [0,0,0]
+init_v_sigma: [.01, .01, .01]

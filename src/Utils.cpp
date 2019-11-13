@@ -1,7 +1,7 @@
 // math utilities
 
 #include <ros/ros.h>
-#include <gtsam/geometry/Pose3.h>
+// #include <gtsam/geometry/Pose3.h>
 #include <Eigen/Geometry>
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
@@ -77,16 +77,16 @@ void FromROSMsg(const geometry_msgs::PoseWithCovariance& msg,
     boostArrayToEigen<6,6>(msg.covariance, covariance);
 }
 
-void FromROSMsg(const geometry_msgs::PoseWithCovariance& msg,
-                gtsam::Pose3& pose,
-                Eigen::Matrix<double, 6, 6>& covariance) {
-    Eigen::Vector3d position;
-    Eigen::Quaterniond orientation;
+// void FromROSMsg(const geometry_msgs::PoseWithCovariance& msg,
+//                 gtsam::Pose3& pose,
+//                 Eigen::Matrix<double, 6, 6>& covariance) {
+//     Eigen::Vector3d position;
+//     Eigen::Quaterniond orientation;
 
-    FromROSMsg(msg, position, orientation, covariance);
+//     FromROSMsg(msg, position, orientation, covariance);
 
-    pose = gtsam::Pose3(gtsam::Rot3(orientation.toRotationMatrix()), gtsam::Point3(position));
-}
+//     pose = gtsam::Pose3(gtsam::Rot3(orientation.toRotationMatrix()), gtsam::Point3(position));
+// }
 
 void FromROSMsg(const sensor_msgs::Imu& msg,
                 Eigen::Vector3d& omega,
@@ -106,4 +106,36 @@ void FromROSMsg(const sensor_msgs::Imu& msg,
     boostArrayToEigen<3,3>(msg.angular_velocity_covariance, omega_cov);
     boostArrayToEigen<3,3>(msg.linear_acceleration_covariance, accel_cov);
 
+}
+
+Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Eigen::Matrix3d& G_R_I,
+                                          const Eigen::Vector3d& G_t_I,
+                                          const Eigen::Matrix3d& I_R_C,
+                                          const Eigen::Vector3d& G_l)
+{
+  Eigen::Matrix3d G_R_C = G_R_I * I_R_C;
+
+  // assume G_t_I = G_t_C TODO
+
+  Eigen::Vector3d C_p = G_R_C.transpose() * (G_l - G_t_I);
+
+  Eigen::Matrix<double, 2, 3> Hcam;
+  Hcam(0,0) = 1 / C_p(2);
+  Hcam(1,1) = 1 / C_p(2);
+  Hcam(0,1) = 0;
+  Hcam(1,0) = 0;
+  Hcam(0,2) = -C_p(0) / (C_p(2)*C_p(2));
+  Hcam(1,2) = -C_p(1) / (C_p(2)*C_p(2));
+
+  Eigen::Matrix3d Hq = I_R_C.transpose() * skewsymm(G_R_I.transpose() * (G_l - G_t_I));
+  Eigen::Matrix3d Hp = -G_R_C.transpose();
+  Eigen::Matrix3d Hl = G_R_C.transpose();
+
+  Eigen::Matrix<double, 2, 9> H;
+
+  H.block<2,3>(0,0) = Hcam * Hl;
+  H.block<2,3>(0,3) = Hcam * Hq;
+  H.block<2,3>(0,6) = Hcam * Hp;
+
+  return H;
 }
