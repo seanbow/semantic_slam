@@ -60,7 +60,7 @@ min_landmark_observations: 4           # minimum number of observations needed f
 ### Semantic object optimization parameters
 structure_regularization_factor: 10     # lambda in structure optimization term lambda * ||c||^2
 robust_estimator_parameter: 1.5
-include_objects_in_graph: false
+include_objects_in_graph: true
 
 # Error in the structure factor due to misalignment is defined as 
 # || L - R*S - t ||_W

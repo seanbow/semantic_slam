@@ -533,7 +533,7 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
   }
 
   // TEST TODO
-  if (!params_.include_objects_in_graph) {
+  if (!params_.include_objects_in_graph || !in_graph_) {
     optimizeStructure();
   }
 }

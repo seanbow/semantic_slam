@@ -56,6 +56,7 @@ VectorNode<Dim>::VectorNode(Symbol sym, boost::optional<ros::Time> time, size_t 
 
     parameter_blocks_.push_back(vector_.data());
     parameter_block_sizes_.push_back(vector_.size());
+    parameter_block_local_sizes_.push_back(vector_.size());
     local_parameterizations_.push_back(nullptr);
 }
 
