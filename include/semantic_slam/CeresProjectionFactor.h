@@ -21,10 +21,9 @@ public:
                           int tag = 0);
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
+    void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
 private:
-    ceres::CostFunction* cf_;
-
     SE3NodePtr camera_node_;
     Vector3dNodePtr landmark_node_;
 

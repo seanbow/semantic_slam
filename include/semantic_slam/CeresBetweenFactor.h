@@ -12,13 +12,12 @@ public:
     CeresBetweenFactor(SE3NodePtr node1, SE3NodePtr node2, Pose3 between, Eigen::MatrixXd covariance, int tag=0);
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
+    void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
     using This = CeresBetweenFactor;
     using Ptr = boost::shared_ptr<This>;
 
 private: 
-    ceres::CostFunction* cf_;
-
     SE3NodePtr node1_;
     SE3NodePtr node2_;
 

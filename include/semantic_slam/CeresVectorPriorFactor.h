@@ -16,12 +16,14 @@ public:
                            int tag=0);
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
+    void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
     using This = CeresVectorPriorFactor<Vector>;
     using Ptr = boost::shared_ptr<This>;
 
 private:
     ceres::CostFunction* cf_;
+    ceres::ResidualBlockId residual_id_;
 
     VectorNodePtr<Vector> node_;
 };
@@ -44,7 +46,13 @@ CeresVectorPriorFactor<Vector>::CeresVectorPriorFactor(VectorNodePtr<Vector> nod
 template <typename Vector>
 void CeresVectorPriorFactor<Vector>::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
-    problem->AddResidualBlock(cf_, NULL, node_->vector().data());
+    residual_id_ = problem->AddResidualBlock(cf_, NULL, node_->vector().data());
+}
+
+template <typename Vector>
+void CeresVectorPriorFactor<Vector>::addToProblem(boost::shared_ptr<ceres::Problem> problem)
+{
+    problem->RemoveResidualBlock(residual_id_);
 }
 
 using CeresVector2dPriorFactor = CeresVectorPriorFactor<Eigen::Vector2d>;

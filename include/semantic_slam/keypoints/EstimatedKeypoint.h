@@ -165,7 +165,7 @@ private:
 
   // uint64_t last_seen_;
 
-  std::vector<CeresProjectionFactorPtr> projection_factors_;
+  std::vector<CeresFactorPtr> projection_factors_;
 //   std::vector<std::pair<FactorInfo, gtsam::NonlinearFactor::shared_ptr>> projection_factors_;
   std::vector<double> measurement_weights_;
 

@@ -320,6 +320,26 @@ struct RosParamType<float> {
   using type = double;
 };
 
+/*
+ * For a vector of items {p1, p2, ..., pn}, produces a vector
+ * of all pairwise combination of these items, 
+ * {(p1,p1), (p1, p2), ..., (p1, pn), (p2, p1), ..., (pn, pn)}
+ */
+template <typename T>
+std::vector<std::pair<T, T>>
+produceAllPairs(const std::vector<T>& items)
+{
+  std::vector<std::pair<T,T>> result;
+
+  for (size_t i = 0; i < items.size(); ++i) {
+    for (size_t j = i; j < items.size(); ++j) {
+      result.push_back( std::make_pair(items[i], items[j]) );
+    }
+  }
+
+  return result;
+}
+
 template <typename T> 
 bool getRosParam(const ros::NodeHandle& nh, 
                  const std::string& name, 

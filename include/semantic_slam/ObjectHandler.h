@@ -34,6 +34,7 @@ public:
 
     bool loadParameters();
 
+    void visualizeObjectMeshes() const;
     void visualizeObjects() const;
 
 private:
@@ -78,4 +79,7 @@ private:
                        const std::vector<size_t>& object_index);
 
     ros::Publisher vis_pub_;
+
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };

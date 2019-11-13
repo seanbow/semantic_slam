@@ -48,4 +48,7 @@ private:
     unsigned char node_chr_;
     ros::Duration max_node_period_;
 
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+
 };

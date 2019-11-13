@@ -181,8 +181,8 @@ CeresNodePtr OdometryHandler::attachSpineNode(ros::Time time)
 
     // ROS_INFO_STREAM("Added new odometry node " << DefaultKeyFormatter(symbol));
 
-    ROS_INFO_STREAM("Added spine node " << DefaultKeyFormatter(symbol) << " at time = " 
-            << *node->time() << " (requested t = " << time << ")");
+    // ROS_INFO_STREAM("Added spine node " << DefaultKeyFormatter(symbol) << " at time = " 
+    //         << *node->time() << " (requested t = " << time << ")");
 
 
     return node;

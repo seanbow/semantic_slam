@@ -70,6 +70,34 @@ void FactorGraph::addFactors(std::vector<CeresFactorPtr> factors)
     }
 }
 
+void FactorGraph::removeNode(CeresNodePtr node)
+{
+    bool found = false;
+    for (auto it = nodes_.begin(); it != nodes_.end(); ++it) {
+        if (node->key() == it->second->key()) {
+            nodes_.erase(it);
+            found = true;
+            break;
+        }
+    }
+
+    node->removeFromProblem(problem_);
+}
+
+void FactorGraph::removeFactor(CeresFactorPtr factor)
+{
+    bool found = false;
+    for (auto it = factors_.begin(); it != factors_.end(); ++it) {
+        if (*(*it) == *factor) {
+            factors_.erase(it);
+            found = true;
+            break;
+        }
+    }
+
+    factor->removeFromProblem(problem_);
+}
+
 std::vector<Key> 
 FactorGraph::keys() {
     std::vector<Key> result;
@@ -94,24 +122,33 @@ bool FactorGraph::computeMarginalCovariance(const std::vector<Key>& keys)
 
 bool FactorGraph::computeMarginalCovariance(const std::vector<CeresNodePtr>& nodes)
 {
-    std::vector<std::pair<const double*, const double*>> cov_blocks;
-
-    for (size_t node_i = 0; node_i < nodes.size(); ++node_i) {
-        for (size_t block_i = 0; block_i < nodes[node_i]->parameter_blocks().size(); ++block_i) {
-
-            for (size_t node_j = node_i; node_j < nodes.size(); ++node_j) {
-                // If node_j == node_i, want block_j index to start at block_i. 
-                // Else, want it to start at 0.
-                size_t block_j = node_j == node_i ? block_i : 0;
-                for (; block_j < nodes[node_j]->parameter_blocks().size(); ++block_j) {
-                    cov_blocks.push_back(std::make_pair(nodes[node_i]->parameter_blocks()[block_i],
-                                                        nodes[node_j]->parameter_blocks()[block_j]));
-                }
-            }
-        }
+    std::vector<const double*> blocks;
+    for (const CeresNodePtr& node : nodes) {
+        blocks.insert(blocks.end(), node->parameter_blocks().begin(), node->parameter_blocks().end());
     }
 
-    return covariance_->Compute(cov_blocks, problem_.get());
+    std::vector<std::pair<const double*, const double*>> block_pairs = produceAllPairs(blocks);
+
+    return covariance_->Compute(block_pairs, problem_.get());
+
+    // std::vector<std::pair<const double*, const double*>> cov_blocks;
+
+    // for (size_t node_i = 0; node_i < nodes.size(); ++node_i) {
+    //     for (size_t block_i = 0; block_i < nodes[node_i]->parameter_blocks().size(); ++block_i) {
+
+    //         for (size_t node_j = node_i; node_j < nodes.size(); ++node_j) {
+    //             // If node_j == node_i, want block_j index to start at block_i. 
+    //             // Else, want it to start at 0.
+    //             size_t block_j = node_j == node_i ? block_i : 0;
+    //             for (; block_j < nodes[node_j]->parameter_blocks().size(); ++block_j) {
+    //                 cov_blocks.push_back(std::make_pair(nodes[node_i]->parameter_blocks()[block_i],
+    //                                                     nodes[node_j]->parameter_blocks()[block_j]));
+    //             }
+    //         }
+    //     }
+    // // }
+
+    // return covariance_->Compute(cov_blocks, problem_.get());
 }
 
 

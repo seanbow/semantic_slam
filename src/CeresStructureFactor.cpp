@@ -32,5 +32,10 @@ void CeresStructureFactor::addToProblem(boost::shared_ptr<ceres::Problem> proble
         blocks.push_back(coefficient_node_->vector().data());
     }
 
-    problem->AddResidualBlock(cf_, NULL, blocks);
+    residual_id_ = problem->AddResidualBlock(cf_, NULL, blocks);
+}
+
+void CeresStructureFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
+{
+    problem->RemoveResidualBlock(residual_id_);
 }

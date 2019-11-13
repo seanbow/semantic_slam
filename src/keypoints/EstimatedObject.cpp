@@ -257,7 +257,7 @@ EstimatedObject::optimizeStructure()
   Pose3 body_T_camera(I_T_C_.rotation(),
                       I_T_C_.translation());
 
-  structure_problem_ = boost::make_shared<StructureOptimizationProblem>(model_, *camera_calibration_,
+  structure_problem_ = util::allocate_aligned<StructureOptimizationProblem>(model_, *camera_calibration_,
                                                     body_T_camera, weights, params_);
 
   Pose3 initial_object_pose = graph_pose_node_->pose();
@@ -290,7 +290,7 @@ EstimatedObject::optimizeStructure()
     structure_problem_->addCameraPose(Symbol(obj_msmt.observed_key).index(), 
                                       cam_pose, 
                                       prior_noise_vec.asDiagonal(),
-                                      false);
+                                      true);
   }
 
   for (auto& kp : keypoints_) {
@@ -358,12 +358,25 @@ EstimatedObject::getPlx(Key l_key, Key x_key)
   // cov.block<3,3>(6,6) = 0.05 * Eigen::Matrix3d::Identity();
   // return cov;
 
+  size_t kp_match_index = findKeypointByKey(l_key);
+  const auto& kp = keypoints_[kp_match_index];
+
+  if (params_.include_objects_in_graph && in_graph_) {
+    // TODO should we recompute this every time or do it one batch??
+      auto kp_node = kp->graph_node();
+      auto camera_node = graph_->getNode<SE3Node>(x_key);
+
+      if (graph_->computeMarginalCovariance({kp_node, camera_node})) {
+        return graph_->getMarginalCovariance(kp_node, camera_node);
+      } else {
+        ROS_WARN_STREAM(fmt::format("Error: covariance calculation for object {} failed.", id()));
+      }
+
+  } 
+
   if (!structure_problem_) {
     throw std::logic_error("Tried to extract covariance information before structure optimization.");
   }
-
-  size_t kp_match_index = findKeypointByKey(l_key);
-  const auto& kp = keypoints_[kp_match_index];
 
   Symbol x_symbol(x_key);
 
@@ -636,9 +649,11 @@ EstimatedObject::tryAddSelfToGraph(const ObjectMeasurement& msmt)
 
     modified_ = true;
 
-    // graph_->addNode(graph_pose_node_);
-    // if (k_ > 0) graph_->addNode(graph_coefficient_node_);
-    // graph_->addFactor(structure_factor_);
+    if (params_.include_objects_in_graph) {
+      graph_->addNode(graph_pose_node_);
+      if (k_ > 0) graph_->addNode(graph_coefficient_node_);
+      graph_->addFactor(structure_factor_);
+    }
 
     in_graph_ = true;
     // pose_added_to_graph_ = msmt.pose_id;
@@ -662,7 +677,9 @@ EstimatedObject::removeFromEstimation()
   }
 
   if (params_.include_objects_in_graph) {
-    throw std::logic_error("not implemented");
+    graph_->removeNode(graph_pose_node_);
+    graph_->removeNode(graph_coefficient_node_);
+    graph_->removeFactor(structure_factor_);
   }
 
   // graph_->isamUpdate({}, gtsam::Values(), getFactorIndicesForRemoval());

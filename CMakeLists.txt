@@ -4,7 +4,7 @@ project(semantic_slam)
 ## Compile as C++11, supported in ROS Kinetic and newer
 set(CMAKE_CXX_STANDARD 14)
 
-add_compile_options(-g3 -O3)# -march=native)
+add_compile_options(-g3 -O3 -march=native)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)

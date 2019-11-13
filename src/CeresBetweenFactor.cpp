@@ -16,10 +16,16 @@ CeresBetweenFactor::CeresBetweenFactor(SE3NodePtr node1,
 void
 CeresBetweenFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
-    problem->AddResidualBlock(cf_, 
-                              NULL, 
-                              node1_->pose().rotation_data(), 
-                              node1_->pose().translation_data(),
-                              node2_->pose().rotation_data(),
-                              node2_->pose().translation_data());
+    residual_id_ = problem->AddResidualBlock(cf_, 
+                                            NULL, 
+                                            node1_->pose().rotation_data(), 
+                                            node1_->pose().translation_data(),
+                                            node2_->pose().rotation_data(),
+                                            node2_->pose().translation_data());
+}
+
+void
+CeresBetweenFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
+{
+    problem->RemoveResidualBlock(residual_id_);
 }

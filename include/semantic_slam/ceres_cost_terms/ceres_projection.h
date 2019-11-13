@@ -29,6 +29,9 @@ private:
   Eigen::Quaterniond body_q_camera_;
   Eigen::Vector3d body_p_camera_;
   CameraCalibration camera_calibration_;
+
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
 ProjectionCostTerm::ProjectionCostTerm(const Eigen::Vector2d &measured, const Eigen::Matrix2d &msmt_covariance,

@@ -96,7 +96,7 @@ void EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt, double w
 
   Eigen::Vector2d noise_vec = Eigen::Vector2d::Constant(msmt.pixel_sigma);
   auto camera_node = graph_->getNode<SE3Node>(msmt.measured_key);
-  CeresProjectionFactorPtr proj_factor = boost::make_shared<CeresProjectionFactor>(
+  CeresProjectionFactorPtr proj_factor = util::allocate_aligned<CeresProjectionFactor>(
       camera_node,
       graph_node_,
       msmt.pixel_measurement,
@@ -176,16 +176,12 @@ void EstimatedKeypoint::removeFromEstimation()
 
   if (params_.include_objects_in_graph)
   {
-    throw std::logic_error("not implemented");
+    for (auto factor : projection_factors_) {
+      graph_->removeFactor(factor);
+    }
+
+    graph_->removeNode(graph_node_);
   }
-  // we only manage our projection factors
-  // gtsam::FactorIndices indices_to_remove;
-  // for (auto& fac : projection_factors_) {
-  //     if (fac->in_graph) {
-  //         indices_to_remove.push_back(fac->index);
-  //         fac->in_graph = false;
-  //     }
-  // }
 
   in_graph_ = false;
 }
@@ -439,10 +435,12 @@ void EstimatedKeypoint::addToGraphForced()
 
   is_bad_ = false;
 
-  // proceed to add to graph as normal
-  // graph_->addNode(graph_node_);
-  // graph_->addFactors(projection_factors_);
-
+  if (params_.include_objects_in_graph) {
+    // proceed to add to graph as normal
+    graph_->addNode(graph_node_);
+    graph_->addFactors(projection_factors_);
+  }
+  
   in_graph_ = true;
 }
 
@@ -455,9 +453,11 @@ void EstimatedKeypoint::addToGraph()
   {
     ROS_INFO_STREAM("Adding keypoint " << id() << " to graph.");
 
-    // graph_->addNode(graph_node_);
-    // graph_->addFactors(projection_factors_);
-
+    if (params_.include_objects_in_graph) {
+      graph_->addNode(graph_node_);
+      graph_->addFactors(projection_factors_);
+    }
+    
     in_graph_ = true;
   }
   else

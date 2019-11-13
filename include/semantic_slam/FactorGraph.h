@@ -21,6 +21,10 @@ public:
     void addFactor(CeresFactorPtr factor);
     void addFactors(std::vector<CeresFactorPtr> factors);
 
+    void removeNode(CeresNodePtr node);
+
+    void removeFactor(CeresFactorPtr factor);
+
     bool solve(bool verbose=false);
 
     size_t num_nodes() { return nodes_.size(); }

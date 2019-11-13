@@ -22,10 +22,9 @@ public:
                          int tag=0);
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
+    void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
 private:
-    ceres::CostFunction* cf_;
-
     geometry::ObjectModelBasis model_;
 
     SE3NodePtr object_node_;

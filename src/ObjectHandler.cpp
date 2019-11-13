@@ -134,27 +134,40 @@ void ObjectHandler::update()
 
     // Start by collecting those messages that we have "spine" nodes for already in the graph
     // These vectors are in a 1-to-1 correspondence
+
     std::vector<object_pose_interface_msgs::KeypointDetections> messages;
     std::vector<CeresNodePtr> spine_nodes;
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
-        // Assume that the messages were received in chronological order, so we can stop after the first
-        // we reach that we can't attach
-        while (!msg_queue_.empty()) {
+        // try only processing one message per call
+        if (!msg_queue_.empty()) {
             auto msg = msg_queue_.front();
-
             auto spine_node = odometry_handler_->getSpineNode(msg.header.stamp);
 
             if (spine_node) {
                 messages.push_back(msg);
                 spine_nodes.push_back(spine_node);
                 msg_queue_.pop_front();
-            } else {
-                break;
             }
         }
-    
+
+
+        // Assume that the messages were received in chronological order, so we can stop after the first
+        // we reach that we can't attach
+        // while (!msg_queue_.empty()) {
+        //     auto msg = msg_queue_.front();
+
+        //     auto spine_node = odometry_handler_->getSpineNode(msg.header.stamp);
+
+        //     if (spine_node) {
+        //         messages.push_back(msg);
+        //         spine_nodes.push_back(spine_node);
+        //         msg_queue_.pop_front();
+        //     } else {
+        //         break;
+        //     }
+        // }
     }
 
     for (size_t i = 0; i < messages.size(); ++i) {
@@ -254,7 +267,7 @@ void ObjectHandler::update()
                 kp_msmt.kp_class_id = i;
 
                 // TODO what here?
-                kp_msmt.pixel_sigma = 0.05 * bbox_dim;
+                kp_msmt.pixel_sigma = 0.1 * bbox_dim;
 
                 if (kp_msmt.score > params_.keypoint_activation_threshold)
                 {
@@ -330,7 +343,7 @@ void ObjectHandler::update()
         }
     }
 
-    visualizeObjects();
+    visualizeObjectMeshes();
 }
 
 bool ObjectHandler::updateObjects(SE3Node::Ptr node,
@@ -475,6 +488,124 @@ void ObjectHandler::msgCallback(const object_pose_interface_msgs::KeypointDetect
     last_msg_seq_ = msg->header.seq;
 }
 
+void ObjectHandler::visualizeObjectMeshes() const
+{
+    // Clear screen first
+    // visualization_msgs::MarkerArray reset_markers;
+    // reset_markers.markers.resize(1);
+    // reset_markers.markers[0].header.frame_id = "map";
+    // reset_markers.markers[0].header.stamp = ros::Time::now();
+    // reset_markers.markers[0].ns = "deleteAllMarkers";
+    // reset_markers.markers[0].action = 3;
+    // vis_pub_.publish(reset_markers);    
+
+    visualization_msgs::MarkerArray object_markers;
+    visualization_msgs::Marker object_marker;
+    object_marker.type = visualization_msgs::Marker::MESH_RESOURCE;
+
+    object_marker.header.frame_id = "map";
+    object_marker.header.stamp = ros::Time::now();
+
+    double model_scale = 1;
+
+    object_marker.scale.x = model_scale;
+    object_marker.scale.y = model_scale;
+    object_marker.scale.z = model_scale;
+
+    object_marker.color.r = 0;
+    object_marker.color.g = 0;
+    object_marker.color.b = 1;
+    object_marker.color.a = 1.0f;
+
+    object_marker.ns = "objects";
+    object_marker.action = visualization_msgs::Marker::ADD;
+
+    visualization_msgs::Marker delete_marker;
+    delete_marker.header.frame_id = "map";
+    delete_marker.header.stamp = ros::Time::now();
+    delete_marker.ns = "objects";
+    delete_marker.type = visualization_msgs::Marker::MESH_RESOURCE;
+    delete_marker.action = visualization_msgs::Marker::DELETE;
+
+    size_t n_added = 0;
+
+    for (const EstimatedObject::Ptr& obj : estimated_objects_) {
+        if (obj->bad()) {
+            delete_marker.id = obj->id();
+            object_markers.markers.push_back(delete_marker);
+            continue;
+        }
+
+        // if (!obj->inGraph()) continue;
+
+        if (obj->inGraph()) {
+            // blue
+            object_marker.color.b = 1.0;
+            object_marker.color.r = 0.0;
+            object_marker.color.a = 1.0;
+        } else {
+            // red
+            object_marker.color.b = 0.0;
+            object_marker.color.r = 1.0;
+            object_marker.color.a = 0.5;
+        }
+
+
+        object_marker.action = visualization_msgs::Marker::ADD;
+        // object_text.action = visualization_msgs::Marker::ADD;
+
+        double model_scale = 1.0;
+
+        if (obj->obj_name() == "chair") {
+            model_scale = 2;
+        } else if (obj->obj_name() == "gascan") {
+            model_scale = 0.25;
+        } else if (obj->obj_name() == "cart") {
+            model_scale = 0.12;
+        } else if (obj->obj_name() == "tableclosed") {
+            model_scale = 10.0;
+        } else if (obj->obj_name() == "ladder") {
+            model_scale = 0.125;
+        } else if (obj->obj_name() == "pelican") {
+            model_scale = 0.25;
+        } 
+
+        object_marker.scale.x = model_scale;
+        object_marker.scale.y = model_scale;
+        object_marker.scale.z = model_scale;
+
+        object_marker.pose.position.x = obj->pose().x();
+        object_marker.pose.position.y = obj->pose().y();
+        object_marker.pose.position.z = obj->pose().z();
+
+        Eigen::Quaterniond q = obj->pose().rotation();
+
+        object_marker.pose.orientation.x = q.x();
+        object_marker.pose.orientation.y = q.y();
+        object_marker.pose.orientation.z = q.z();
+        object_marker.pose.orientation.w = q.w();
+
+        object_marker.mesh_resource = std::string("package://semantic_slam/models/viz_meshes/") + obj->obj_name() + ".dae";
+        // object_marker.mesh_resource = std::string("package://semslam/models/viz_meshes/car.dae");
+
+        // object_text.pose.position.x = obj->pose().translation().x();
+        // object_text.pose.position.y = obj->pose().translation().y();
+        // object_text.pose.position.z = Z_SCALE * obj->pose().translation().z() + 1.5;
+
+        object_marker.id = obj->id();
+        object_marker.text = obj->obj_name();
+
+        object_markers.markers.push_back(object_marker);
+
+
+        std::vector<int64_t> keypoint_ids = obj->getKeypointIndices();
+        // addKeypointMarkers(object_markers.markers, model_scale, obj, t);
+
+        ++n_added;
+    }
+
+    vis_pub_.publish(object_markers);
+}
 
 void ObjectHandler::visualizeObjects() const
 {

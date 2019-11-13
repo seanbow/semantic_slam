@@ -21,9 +21,15 @@ CeresProjectionFactor::CeresProjectionFactor(SE3NodePtr camera_node,
 
 void CeresProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
-    problem->AddResidualBlock(cf_, 
-                              NULL, 
-                              camera_node_->pose().rotation_data(), 
-                              camera_node_->pose().translation_data(), 
-                              landmark_node_->vector().data());
+    residual_id_ = problem->AddResidualBlock(cf_, 
+                                            NULL, 
+                                            camera_node_->pose().rotation_data(), 
+                                            camera_node_->pose().translation_data(), 
+                                            landmark_node_->vector().data());
+}
+
+
+void CeresProjectionFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
+{
+    problem->RemoveResidualBlock(residual_id_);
 }

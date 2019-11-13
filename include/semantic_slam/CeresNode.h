@@ -11,6 +11,7 @@ class CeresNode {
 public:
 
     virtual void addToProblem(boost::shared_ptr<ceres::Problem> problem) = 0;
+    virtual void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
     Symbol symbol() const { return Symbol(key_); }
     unsigned char chr() const { return Symbol(key_).chr(); }
@@ -49,4 +50,11 @@ CeresNode::CeresNode(Key key, boost::optional<ros::Time> time)
       time_(time)
 {
     
+}
+
+void CeresNode::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
+{
+    for (double* block : parameter_blocks_) {
+        problem->RemoveParameterBlock(block);
+    }
 }
