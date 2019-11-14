@@ -96,8 +96,6 @@ public:
 
   void addToGraphForced();
 
-  void update();
-
   double totalMahalanobisError() const;
   double mahalDistanceThreshold() const;
 

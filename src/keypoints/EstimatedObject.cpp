@@ -322,23 +322,6 @@ EstimatedObject::optimizeStructure()
       kp->setPosition(*structure_problem_->getKeypoint(kp->classid()));
   }
 
-  // test get keypoint marginals
-  // for (auto& kp : keypoints_) {
-  //   auto Plx = structure_problem_->getPlx(kp->classid(), measurements_.back().observed_symbol.index());
-  //   std::cout << "Plx for id " << kp->classid() << " is\n" << Plx << std::endl;
-  // }
-
-  // compute keypoint marginals!!
-  // THIS is no longer needed here -- computation done by and retrieved from the ceres optimization
-  // problem directly
-  // if (!params_.include_objects_in_graph) {
-  //   for (auto& kp : keypoints_) {
-  //     if (!kp->bad()) {
-  //       kp->setGlobalCovariance(1e-2 * Eigen::Matrix3d::Identity());
-  //     }
-  //   }
-  // }
-
   // std::cout << "Optimization result -->\n" << pose_ << std::endl;
   // std::cout << "c = " << basis_coefficients_.transpose() << std::endl;
 }
@@ -559,11 +542,6 @@ EstimatedObject::update(CeresNodePtr spur_node)
 
   if (in_graph_ && params_.include_objects_in_graph) {
     ROS_INFO_STREAM("Object " << id() << " has graph pose " << graph_pose_node_->pose());
-  }
-
-  for (EstimatedKeypoint::Ptr& kp : keypoints_) {
-    if (!kp->bad())
-      kp->update();
   }
 
   // sanityCheck(spur_node);

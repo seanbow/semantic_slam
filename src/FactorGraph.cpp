@@ -8,9 +8,17 @@ FactorGraph::FactorGraph()
 {
     problem_ = boost::make_shared<ceres::Problem>(); 
 
+    // solver_options_.trust_region_strategy_type = ceres::DOGLEG;
+    // solver_options_.dogleg_type = ceres::SUBSPACE_DOGLEG;
+
+    solver_options_.function_tolerance = 1e-4;
+    solver_options_.gradient_tolerance = 1e-8;
+
+    // solver_options_.linear_solver_type = ceres::SPARSE_SCHUR;
     // solver_options_.linear_solver_type = ceres::DENSE_SCHUR; // todo
     // solver_options_.linear_solver_type = ceres::DENSE_QR; // todo
     // solver_options_.minimizer_progress_to_stdout = true;
+    solver_options_.num_threads = 1;
 
     // set covariance options if needed...
     // covariance_options_....?

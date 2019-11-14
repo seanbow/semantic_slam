@@ -7,6 +7,7 @@
 #include "semantic_slam/CameraCalibration.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
 #include "semantic_slam/SE3Node.h"
+#include "semantic_slam/SemanticKeyframe.h"
 
 #include <object_pose_interface_msgs/KeypointDetections.h>
 
@@ -15,6 +16,8 @@
 #include <deque>
 #include <unordered_map>
 // #include <gtsam/geometry/Pose3.h>
+
+class OdometryHandler;
 
 class ObjectHandler : public Handler
 {
@@ -37,6 +40,12 @@ public:
     void visualizeObjectMeshes() const;
     void visualizeObjects() const;
 
+    bool keepFrame(ros::Time time);
+
+    void setOdometryHandler(boost::shared_ptr<OdometryHandler> odom) {
+        odometry_handler_ = odom;
+    }
+
 private:
     ros::Subscriber subscriber_;
 
@@ -57,6 +66,8 @@ private:
 
     std::vector<EstimatedObject::Ptr> estimated_objects_;
 
+    boost::shared_ptr<OdometryHandler> odometry_handler_;
+
     // A list of tracking IDs that are associated with each estimated object
     // for example if the object tracks 3 and 8 are associated with the same physical object 2,
     // we should have object_track_ids_[3] = 2 and object_track_ids_[8] = 2.
@@ -67,6 +78,7 @@ private:
 
     ObjectParams params_;
 
+    std::vector<SemanticKeyframe::Ptr> keyframes_;
 
     std::vector<bool> 
     getVisibleObjects(SE3Node::Ptr node);

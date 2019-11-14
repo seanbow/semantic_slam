@@ -52,18 +52,10 @@ void EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt, double w
   }
 
   // Check if it's reasonable
-  // TODO (ceres)
-  // auto new_factor = parent_->getProjectionFactor(msmt);
-  // gtsam::Values test_error_values;
-  // test_error_values.insert(graph_->getSolvedValues());
-  // test_error_values.insert(sym::L(id()), position());
+  // TODO check structure/consistency errors rather than just mahal distance?
 
-  // double new_error = new_factor->error(test_error_values);
-
-  // double new_error_full = 0.0, old_error = 0.0;
-
-  // // if this is the first measurement our position will have been initialized for it so any sort of
-  // // error checking is pointless
+  // if this is the first measurement our position will have been initialized for it so any sort of
+  // error checking is pointless
   if (measurements_.size() > 0) {
     double mahal_d = computeMahalanobisDistance(msmt);
     if (mahal_d > chi2inv95(2)) {
@@ -75,19 +67,6 @@ void EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt, double w
     // ROS_INFO_STREAM(fmt::format("Adding measurement of keypoint {} with mahal dist {}, score = {}", 
     //                             id(), mahal_d, msmt.score));
   }
-  //   if (mahal_d > params_.mahal_thresh_assign || new_error > params_.max_new_factor_error)
-  //   {
-  //     // if (mahal_d > chi2inv95(2) || new_error_full/old_error > 10) {
-  //     ROS_WARN_STREAM(
-  //         fmt::format("REJECTED measurement of keypoint {}, mahal = {}, err = {}.", id(), mahal_d, new_error));
-  //     return;
-  //   }
-  //   else
-  //   {
-  //     ROS_WARN_STREAM(
-  //         fmt::format("ACCEPTED measurement of keypoint {}, mahal = {}, err = {}.", id(), mahal_d, new_error));
-  //   }
-  // }
 
   measurements_.push_back(msmt);
   detection_score_sum_ += msmt.score;
@@ -110,37 +89,12 @@ void EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt, double w
   // kp->measurement_indices.push_back(measurements_.size() - 1);
   measurement_weights_.push_back(weight);
 
-  // std::pair<FactorInfo, gtsam::NonlinearFactor::shared_ptr> new_depth_pair;
-
-  // // Add depth factor?
-  // bool add_depth_factor = params_.include_depth_constraints && msmt.measured_depth > 0;
-  // if (add_depth_factor)
-  // {
-  //   double sigma = msmt.measured_depth_sigma;
-  //   auto depth_model = gtsam::noiseModel::Isotropic::Sigma(1, sigma);
-
-  //   FactorInfo depth_factor_info(KEYPOINT_OBJECTS_DEPTH_FACTOR, global_id_);
-  //   SharedDepthFactor range_fac = boost::make_shared<DepthFactor>(msmt.measured_symbol, sym::L(global_id_),
-  //                                                                 msmt.measured_depth, depth_model, I_T_C_);
-  //   gtsam::NonlinearFactor::shared_ptr range_fac_ptr = boost::static_pointer_cast<gtsam::NonlinearFactor>(range_fac);
-
-  //   new_depth_pair = std::make_pair(depth_factor_info, range_fac_ptr);
-
-  //   depth_factors_.push_back(new_depth_pair);
-
-  //   // new_depth_pair.second->print("depth factor");
-
-  //   // ROS_INFO_STREAM("Adding depth factor between " << gtsam::DefaultKeyFormatter(msmt.measured_symbol) << " and " <<
-  //   // gtsam::DefaultKeyFormatter(sym::L(global_id_)) <<
-  //   //         " with depth d = " << msmt.measured_depth << " and sigma " << msmt.measured_depth_sigma);
-  // }
-
   // TODO "safety" check / error check
   // TODO factor uniqueness check???
   if (in_graph_)
   {
     // simply add the new factor(s)
-    // graph_->addFactor(proj_factor);
+    graph_->addFactor(proj_factor);
   }
   else if (measurements_.size() >= params_.min_landmark_observations)
   {
@@ -184,10 +138,6 @@ void EstimatedKeypoint::removeFromEstimation()
   }
 
   in_graph_ = false;
-}
-
-void EstimatedKeypoint::update()
-{
 }
 
 void EstimatedKeypoint::initializePosition(const KeypointMeasurement& msmt)
@@ -457,7 +407,7 @@ void EstimatedKeypoint::addToGraph()
       graph_->addNode(graph_node_);
       graph_->addFactors(projection_factors_);
     }
-    
+
     in_graph_ = true;
   }
   else
@@ -475,18 +425,6 @@ void EstimatedKeypoint::addToGraph()
 //     }
 
 //     return 0.0;
-// }
-
-// JointMarginal EstimatedKeypoint::jointMarginalCovariance(gtsam::Key other_key) const {
-//     auto cov = joint_marginals_.find(other_key);
-
-//     // TODO invalidate this cache at some point...
-//     if (cov != joint_marginals_.end()) {
-//         return cov->second;
-//     } else {
-//         joint_marginals_.emplace(other_key, graph_->jointMarginalCovariance(sym::L(id()), other_key));
-//         return joint_marginals_.at(other_key);
-//     }
 // }
 
 std::vector<Key> EstimatedKeypoint::getObservedKeys() const

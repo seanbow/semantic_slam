@@ -21,11 +21,11 @@ public:
 
     Pose3 msgToPose3(const nav_msgs::Odometry& msg);
 
-    bool isOdometry() { return true; }
-
     CeresNodePtr getSpineNode(ros::Time time);
 
     CeresNodePtr attachSpineNode(ros::Time time);
+
+    bool getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3& T12);
 
     // inherit constructor
     using Handler::Handler;

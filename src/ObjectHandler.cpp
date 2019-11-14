@@ -1,5 +1,6 @@
 
 #include "semantic_slam/ObjectHandler.h"
+#include "semantic_slam/OdometryHandler.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/MLDataAssociator.h"
 
@@ -127,6 +128,31 @@ bool ObjectHandler::loadParameters()
     return true;
 }
 
+bool ObjectHandler::keepFrame(ros::Time time)
+{
+    if (keyframes_.empty()) return true;
+
+    auto last_keyframe = keyframes_.back();
+
+    Pose3 relpose;
+    bool got_relpose = odometry_handler_->getRelativePoseEstimate(last_keyframe->time(), time, relpose);
+
+    if (!got_relpose) {
+        ROS_WARN_STREAM("Too few odometry messages received to get keyframe relative pose");
+        return true;
+    }
+
+    double translation_threshold = 0.05;
+    double rotation_threshold = 10; // degrees
+
+    if (relpose.translation().norm() > translation_threshold ||
+        2*std::acos(relpose.rotation().w()) > rotation_threshold) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 void ObjectHandler::update()
 {
     // Iterate over each of our pending measurement messages, try to add them to the 
@@ -137,19 +163,24 @@ void ObjectHandler::update()
 
     std::vector<object_pose_interface_msgs::KeypointDetections> messages;
     std::vector<CeresNodePtr> spine_nodes;
+    bool got_msg = false;
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
         // try only processing one message per call
-        if (!msg_queue_.empty()) {
+        while (!msg_queue_.empty() && !got_msg) {
             auto msg = msg_queue_.front();
-            auto spine_node = odometry_handler_->getSpineNode(msg.header.stamp);
 
-            if (spine_node) {
-                messages.push_back(msg);
-                spine_nodes.push_back(spine_node);
-                msg_queue_.pop_front();
+            if (keepFrame(msg.header.stamp)) {
+                auto spine_node = odometry_handler_->getSpineNode(msg.header.stamp);
+                if (spine_node) {
+                    messages.push_back(msg);
+                    spine_nodes.push_back(spine_node);
+                    got_msg = true;
+                }
             }
+
+            msg_queue_.pop_front();
         }
 
 
@@ -170,12 +201,16 @@ void ObjectHandler::update()
         // }
     }
 
+    if (!got_msg) return;
+
     for (size_t i = 0; i < messages.size(); ++i) {
         auto& msg = messages[i];
         auto spine_node = boost::dynamic_pointer_cast<SE3Node>(spine_nodes[i]);
 
         // Build the ObjectMeasurement structures for all detected objects here
-        aligned_vector<ObjectMeasurement> measurements;
+        auto keyframe = util::allocate_aligned<SemanticKeyframe>(msg.header.stamp, spine_node->key());
+        keyframes_.push_back(keyframe);
+        // aligned_vector<ObjectMeasurement> measurements;
 
         for (auto detection : msg.detections) {
             auto model_it = object_models_.find(detection.obj_name);
@@ -281,20 +316,20 @@ void ObjectHandler::update()
             }
 
             if (n_keypoints_observed > 0) {
-                measurements.push_back(obj_msmt);
+                keyframe->measurements.push_back(obj_msmt);
             }
         }
 
-        if (measurements.size() > 0) {
+        if (keyframe->measurements.size() > 0) {
 
             // Create the list of measurements we need to associate.
             // Identify which measurements have been tracked from already known objects
             std::vector<size_t> measurement_index;
             std::map<size_t, size_t> known_das;
 
-            for (size_t i = 0; i < measurements.size(); ++i) 
+            for (size_t i = 0; i < keyframe->measurements.size(); ++i) 
             {
-                auto known_id_it = object_track_ids_.find(measurements[i].track_id);
+                auto known_id_it = object_track_ids_.find(keyframe->measurements[i].track_id);
                 if (known_id_it == object_track_ids_.end()) {
                     // track not known, perform actual data association
                     measurement_index.push_back(i);
@@ -326,16 +361,16 @@ void ObjectHandler::update()
                 for (size_t j = 0; j < n_visible; ++j)
                 {
                     mahals(i, j) = estimated_objects_[object_index[j]]->computeMahalanobisDistance(
-                                                                            measurements[measurement_index[i]]);
+                                                                            keyframe->measurements[measurement_index[i]]);
                 }
             }
 
-            std::cout << "Mahals:\n" << mahals << std::endl;
+            // std::cout << "Mahals:\n" << mahals << std::endl;
       
             Eigen::MatrixXd weights_matrix = MLDataAssociator(params_).computeConstraintWeights(mahals);
 
             updateObjects(spine_node, 
-                          measurements, 
+                          keyframe->measurements, 
                           measurement_index, 
                           known_das, 
                           weights_matrix, 

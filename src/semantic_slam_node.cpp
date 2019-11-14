@@ -28,7 +28,6 @@ public:
     void addHandler(boost::shared_ptr<Handler> handler);
     void addPresenter(boost::shared_ptr<Presenter> presenter);
 
-    void emplaceHandler(Handler* handler);
     void emplacePresenter(Presenter* presenter);
     
     void start();
@@ -49,8 +48,6 @@ private:
 
     std::vector<boost::shared_ptr<Handler>> handlers_;
     std::vector<boost::shared_ptr<Presenter>> presenters_;
-
-    boost::shared_ptr<Handler> odom_handler_;
     
     bool running_;
 };
@@ -70,17 +67,6 @@ FactorGraphSupervisor::addHandler(boost::shared_ptr<Handler> handler) {
     handlers_.push_back(handler);
     handler->setGraph(graph_);
     // handler->setCv(graph_cv_);
-
-    if (handler->isOdometry()) {
-        odom_handler_ = handler;
-        for (auto& h : handlers_) h->setOdometryHandler(handler);
-    }
-
-    if (odom_handler_) handler->setOdometryHandler(odom_handler_);
-}
-
-void FactorGraphSupervisor::emplaceHandler(Handler* handler) {
-    addHandler(boost::shared_ptr<Handler>(handler));
 }
 
 void
@@ -128,7 +114,7 @@ void FactorGraphSupervisor::start()
 
         if (graph_->modified()) {
             auto t1 = std::chrono::high_resolution_clock::now();
-            bool solve_succeeded = graph_->solve(false);
+            bool solve_succeeded = graph_->solve(true);
             auto t2 = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
@@ -140,6 +126,12 @@ void FactorGraphSupervisor::start()
                 ROS_INFO_STREAM("Graph solve failed");
                 // return 1;
             }
+
+            // auto tablenode = graph_->getNode<SE3Node>(Symbol('o', 1));
+            // if (tablenode) {
+            //     std::cout << "table pos = " << tablenode->pose().translation().transpose() << std::endl;
+            //     std::cout << "pointer = " << tablenode->pose().translation_data() << std::endl;
+            // }
         }
     }
 
@@ -152,8 +144,13 @@ int main(int argc, char *argv[])
     
     FactorGraphSupervisor supervisor;
 
-    supervisor.emplaceHandler(new OdometryHandler);
-    supervisor.emplaceHandler(new ObjectHandler);
+    auto odom_handler = boost::shared_ptr<OdometryHandler>(new OdometryHandler);
+
+    auto object_handler = boost::shared_ptr<ObjectHandler>(new ObjectHandler);
+    object_handler->setOdometryHandler(odom_handler);
+
+    supervisor.addHandler(odom_handler);
+    supervisor.addHandler(object_handler);
 
     supervisor.emplacePresenter(new PosePresenter);
     supervisor.emplacePresenter(new TrajectoryPresenter);
