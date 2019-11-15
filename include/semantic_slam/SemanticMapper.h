@@ -28,6 +28,8 @@ public:
 
     void setup();
 
+    void anchorOrigin();
+
     bool updateObjects();
     void tryAddObjectsToGraph();
     bool tryOptimize();
@@ -55,6 +57,17 @@ public:
     void setOdometryHandler(boost::shared_ptr<OdometryHandler> odom);
 
     void addPresenter(boost::shared_ptr<Presenter> presenter);
+
+    void prepareGraphNodes();
+    void commitGraphSolution();
+
+    // double computeMahalanobisDistance(const ObjectMeasurement& msmt,
+    //                                   const EstimatedObject::Ptr& obj);
+
+    // double computeMahalanobisDistance(const KeypointMeasurement& msmt,
+    //                                   const EstimatedKeypoint::Ptr& kp);
+
+    const std::vector<SemanticKeyframe::Ptr>& keyframes() { return keyframes_; }
 
 private:
     boost::shared_ptr<FactorGraph> graph_;
@@ -96,9 +109,9 @@ private:
     std::vector<SemanticKeyframe::Ptr> keyframes_;
 
     std::vector<bool> 
-    getVisibleObjects(SE3Node::Ptr node);
+    predictVisibleObjects(SemanticKeyframe::Ptr node);
 
-    bool updateObjects(SE3Node::Ptr node,
+    bool updateObjects(SemanticKeyframe::Ptr node,
                        const aligned_vector<ObjectMeasurement>& measurements,
                        const std::vector<size_t>& measurement_index,
                        const std::map<size_t, size_t>& known_das,

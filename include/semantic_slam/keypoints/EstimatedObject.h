@@ -14,6 +14,8 @@
 
 #include <boost/enable_shared_from_this.hpp>
 
+class SemanticKeyframe;
+class SemanticMapper;
 
 class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
 {
@@ -24,7 +26,8 @@ public:
                                      geometry::ObjectModelBasis object_model, uint64_t object_id,
                                      uint64_t first_keypoint_id, const ObjectMeasurement &msmt,
                                      const Pose3 &G_T_C, const Pose3 &I_T_C, std::string platform,
-                                     boost::shared_ptr<CameraCalibration> calibration);
+                                     boost::shared_ptr<CameraCalibration> calibration,
+                                     SemanticMapper* mapper);
 
   // double computeMeasurementLikelihood(const ObjectMeasurement& msmt) const;
   double computeMahalanobisDistance(const ObjectMeasurement &msmt) const;
@@ -47,13 +50,17 @@ public:
 
   // int64_t getWhenAddedToGraph() { if (inGraph()) return pose_added_to_graph_; else return -1; }
 
-  Pose3 pose() const;
+  Pose3& pose() { return pose_; }
+  const Pose3& pose() const { return pose_; }
 
-  void setPose(const Pose3 &pose)
-  {
-    // pose_ = pose;
-    graph_pose_node_->pose() = pose;
-  }
+  void commitGraphSolution();
+  void prepareGraphNode();
+
+  // void setPose(const Pose3 &pose)
+  // {
+  //   // pose_ = pose;
+  //   graph_pose_node_->pose() = pose;
+  // }
 
   bool inGraph() const;
 
@@ -82,15 +89,13 @@ public:
 
   // uint64_t lastSeen() const { return last_seen_; }
 
-  void setIsVisible(CeresNodePtr node)
-  {
-    last_visible_ = node->index();
-  }
+  void setIsVisible(boost::shared_ptr<SemanticKeyframe> kf);
 
   // uint64_t lastVisible() const { return last_visible_; }
 
   std::vector<int64_t> getKeypointIndices() const;
   const std::vector<EstimatedKeypoint::Ptr> &getKeypoints() const;
+  const std::vector<EstimatedKeypoint::Ptr>& keypoints() const;
 
   const aligned_vector<ObjectMeasurement> &getMeasurements() const
   {
@@ -113,6 +118,8 @@ public:
 
   Eigen::MatrixXd getPlx(Key l_key, Key x_key);
 
+  int64_t findKeypointByClass(uint64_t classid) const;
+
   // void createMarginals(const std::vector<Key>& extra_keys);
 
   // utils::ProjectionFactor::shared_ptr getProjectionFactor(const KeypointMeasurement &kp_msmt) const;
@@ -121,9 +128,8 @@ private:
   EstimatedObject(boost::shared_ptr<FactorGraph> graph, const ObjectParams &params,
                   geometry::ObjectModelBasis object_model, uint64_t object_id, uint64_t first_keypoint_id,
                   const ObjectMeasurement &msmt, const Pose3 &G_T_C, const Pose3 &I_T_C,
-                  std::string platform, boost::shared_ptr<CameraCalibration> calibration);
-
-  int64_t findKeypointByClass(uint64_t classid) const;
+                  std::string platform, boost::shared_ptr<CameraCalibration> calibration,
+                  SemanticMapper* mapper);
   int64_t findKeypointByKey(Key key) const;
 
   void initializePose(const ObjectMeasurement &msmt, const Pose3 &G_T_C);
@@ -162,7 +168,7 @@ private:
   SE3NodePtr graph_pose_node_;
   VectorXdNodePtr graph_coefficient_node_;
 
-  // Pose3 pose_;
+  Pose3 pose_;
 
   Pose3 I_T_C_;
   std::string platform_;
@@ -184,6 +190,8 @@ private:
 
   boost::shared_ptr<StructureOptimizationProblem> structure_problem_;
   std::mutex problem_mutex_;
+
+  SemanticMapper* mapper_;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

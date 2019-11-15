@@ -12,24 +12,27 @@ void PosePresenter::setup()
     pub_pose_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("pose", 10);
 }
 
-void PosePresenter::present()
+void PosePresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
+                            const std::vector<EstimatedObject::Ptr>& objects)
 {
+    if (keyframes.empty()) return;
+
     // Publish the last (most recent) pose
-    SE3NodePtr node = graph_->findLastNode<SE3Node>('x');
+    // Assume that the keyframes are ordered
+    auto keyframe = keyframes.back();
+    // SE3NodePtr node = graph_->findLastNode<SE3Node>('x');
 
-    if (!node) return;
+    Pose3 pose = keyframe->pose();
 
-    Pose3 pose = node->pose();
-
-    Eigen::MatrixXd cov;
+    Eigen::MatrixXd cov = keyframe->covariance();
     // TODO!!!
     // bool got_cov = true;
     // cov = 0.1 * Eigen::MatrixXd::Identity(6,6);
     // bool got_cov = graph_->marginalCovariance(node->symbol(), cov);
-    bool got_cov = graph_->computeMarginalCovariance({node});
-    cov = graph_->getMarginalCovariance(node, nullptr);
+    // bool got_cov = graph_->computeMarginalCovariance({node});
+    // cov = graph_->getMarginalCovariance(node, nullptr);
 
-    if (!got_cov) return;
+    // if (!got_cov) return;
 
     Eigen::Quaterniond q = pose.rotation();
     Eigen::Vector3d p = pose.translation();
@@ -38,7 +41,7 @@ void PosePresenter::present()
 
     geometry_msgs::PoseWithCovarianceStampedPtr msg_pose(new geometry_msgs::PoseWithCovarianceStamped);
     msg_pose->header.frame_id = "/map";
-    msg_pose->header.stamp = *node->time();
+    msg_pose->header.stamp = keyframe->time();
     msg_pose->pose.pose.position.x = p(0);
     msg_pose->pose.pose.position.y = p(1);
     msg_pose->pose.pose.position.z = Z_SCALE * p(2);

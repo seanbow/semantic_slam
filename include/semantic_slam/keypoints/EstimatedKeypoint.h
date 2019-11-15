@@ -8,6 +8,7 @@
 #include "semantic_slam/CeresProjectionFactor.h"
 
 class EstimatedObject;
+class SemanticMapper;
 
 class EstimatedKeypoint
 {
@@ -16,7 +17,8 @@ public:
 
     EstimatedKeypoint(boost::shared_ptr<FactorGraph> graph, const ObjectParams& params, size_t id, size_t object_id,
             size_t class_id, Pose3 I_T_C, std::string platform,
-            boost::shared_ptr<CameraCalibration> camera_calib, boost::shared_ptr<EstimatedObject> parent);
+            boost::shared_ptr<CameraCalibration> camera_calib, boost::shared_ptr<EstimatedObject> parent,
+            SemanticMapper* mapper);
 
     bool inGraph() const
     {
@@ -40,16 +42,8 @@ public:
         return is_bad_;
     }
 
-    Eigen::Vector3d position() const
-    {
-        return graph_node_->vector();
-    }
-
-    void setPosition(const Eigen::Vector3d& p)
-    {
-        // global_position_ = p;
-        graph_node_->vector() = p;
-    }
+    void commitGraphSolution();
+    void prepareGraphNode();
 
     bool triangulate(boost::optional<double&> condition_number = boost::none);
 
@@ -101,12 +95,17 @@ public:
 
   double maxMahalanobisDistance() const;
 
+  const Eigen::Vector3d& position() const { return global_position_; }
+  Eigen::Vector3d& position() { return global_position_; }
+
   const Eigen::Matrix3d& covariance() const { return global_covariance_; }
   Eigen::Matrix3d& covariance() { return global_covariance_; }
 
   void removeFromEstimation();
 
   void initializeFromMeasurement(const KeypointMeasurement& msmt);
+
+  boost::shared_ptr<EstimatedObject> parent_object() { return parent_; }
 
 private:
   void initializePosition(const KeypointMeasurement& msmt);
@@ -122,7 +121,7 @@ private:
 
   Vector3dNodePtr graph_node_;
 
-  // Eigen::Vector3d global_position_;
+  Eigen::Vector3d global_position_;
   Eigen::Matrix3d global_covariance_;
 
   bool in_graph_;
@@ -143,6 +142,8 @@ private:
   aligned_vector<KeypointMeasurement> measurements_;
 
   boost::shared_ptr<EstimatedObject> parent_;
+
+  SemanticMapper* mapper_;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

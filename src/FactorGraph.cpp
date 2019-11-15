@@ -62,6 +62,7 @@ void FactorGraph::addNode(CeresNodePtr node)
     std::lock_guard<std::mutex> lock(mutex_);
     nodes_[node->key()] = node;
     node->addToProblem(problem_);
+    modified_ = true;
 }
 
 void FactorGraph::addFactor(CeresFactorPtr factor)
@@ -69,6 +70,7 @@ void FactorGraph::addFactor(CeresFactorPtr factor)
     std::lock_guard<std::mutex> lock(mutex_);
     factors_.push_back(factor);
     factor->addToProblem(problem_);
+    modified_ = true;
 }
 
 void FactorGraph::addFactors(std::vector<CeresFactorPtr> factors)
@@ -78,6 +80,7 @@ void FactorGraph::addFactors(std::vector<CeresFactorPtr> factors)
         factors_.push_back(factor);
         factor->addToProblem(problem_);
     }
+    modified_ = true;
 }
 
 void FactorGraph::removeNode(CeresNodePtr node)
@@ -92,6 +95,8 @@ void FactorGraph::removeNode(CeresNodePtr node)
     }
 
     node->removeFromProblem(problem_);
+
+    modified_ = true;
 }
 
 void FactorGraph::removeFactor(CeresFactorPtr factor)
@@ -106,6 +111,7 @@ void FactorGraph::removeFactor(CeresFactorPtr factor)
     }
 
     factor->removeFromProblem(problem_);
+    modified_ = true;
 }
 
 std::vector<Key> 

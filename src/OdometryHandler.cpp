@@ -64,14 +64,30 @@ Pose3 OdometryHandler::msgToPose3(const nav_msgs::Odometry& msg)
     return G_p;
 }
 
+SemanticKeyframe::Ptr OdometryHandler::findNearestKeyframe(ros::Time t)
+{
+    ros::Duration shortest_duration = ros::DURATION_MAX;
+    SemanticKeyframe::Ptr kf = nullptr;
+
+    for (auto& frame : keyframes_) {
+        if (abs_duration(t - frame->time()) <= shortest_duration) {
+            shortest_duration = abs_duration(t - frame->time());
+            kf = frame;
+        }
+    }
+
+    return kf;
+}
+
 bool OdometryHandler::getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3& T12)
 {
     // Assume here that t1 is not too far ahead of nodes that are already in the graph, so:
-    auto node1 = boost::static_pointer_cast<SE3Node>(graph_->findNearestNode(node_chr_, t1));
+    // auto node1 = boost::static_pointer_cast<SE3Node>(graph_->findNearestNode(node_chr_, t1));
+    auto kf1 = findNearestKeyframe(t1);
 
-    if (!node1) return false;
+    if (!kf1) return false;
 
-    Pose3 odom1 = node_odom_[node1->key()];
+    Pose3 odom1 = kf1->odometry();
 
     // And assume now (TODO) that t2 IS too far ahead of nodes so we just have to look in the
     // message queue for its odometry information
@@ -95,21 +111,21 @@ bool OdometryHandler::getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3&
     return true;
 }
 
-CeresNodePtr OdometryHandler::getSpineNode(ros::Time time)
-{
-    auto node = graph_->findFirstNodeAfterTime(node_chr_, time);
+// CeresNodePtr OdometryHandler::getSpineNode(ros::Time time)
+// {
+//     auto node = graph_->findFirstNodeAfterTime(node_chr_, time);
 
-    // TODO check that the time is close, whether we should add one before it, etc
+//     // TODO check that the time is close, whether we should add one before it, etc
 
-    if (node) {
-        return node;
-    } else {
-        return attachSpineNode(time);
-    }
-}
+//     if (node) {
+//         return node;
+//     } else {
+//         return attachSpineNode(time);
+//     }
+// }
 
-CeresNodePtr OdometryHandler::attachSpineNode(ros::Time time)
-// SemanticKeyframe OdometryHandler::createKeyframe(ros::Time time)
+// CeresNodePtr OdometryHandler::attachSpineNode(ros::Time time)
+SemanticKeyframe::Ptr OdometryHandler::createKeyframe(ros::Time time)
 {
     // Integrate up to time and attach a node corresponding to it
 
@@ -119,40 +135,38 @@ CeresNodePtr OdometryHandler::attachSpineNode(ros::Time time)
     // check for this case unless we have both "straddling" messages present here
     if (msg_queue_.size() < 2) return nullptr;
 
-    // Symbol keyframe_symbol(node_chr_, last_keyframe_index_ + 1);
+    Symbol keyframe_symbol(node_chr_, last_keyframe_index_ + 1);
 
-    SE3NodePtr last_odom_node = graph_->findLastNode<SE3Node>(node_chr_);
+    // if (!last_odom_node) {
+    //     // No odometry "spine" exists yet -- create a first node and anchor 
+    //     // it at the origin.
 
-    if (!last_odom_node) {
-        // No odometry "spine" exists yet -- create a first node and anchor 
-        // it at the origin.
+    //     Pose3 origin = Pose3::Identity();
 
-        Pose3 origin = Pose3::Identity();
+    //     Symbol origin_symbol = Symbol(node_chr_, 0);
+    //     node_odom_[origin_symbol.key()] = origin; // TODO is this safe to assume odom origin = actual origin
 
-        Symbol origin_symbol = Symbol(node_chr_, 0);
-        node_odom_[origin_symbol.key()] = origin; // TODO is this safe to assume odom origin = actual origin
+    //     last_odom_node = util::allocate_aligned<SE3Node>(origin_symbol, msg_queue_.front().header.stamp);
+    //     last_odom_node->pose() = origin;
 
-        last_odom_node = util::allocate_aligned<SE3Node>(origin_symbol, msg_queue_.front().header.stamp);
-        last_odom_node->pose() = origin;
+    //     graph_->addNode(last_odom_node);
+    //     graph_->setNodeConstant(last_odom_node);
 
-        graph_->addNode(last_odom_node);
-        graph_->setNodeConstant(last_odom_node);
+    //     // TODO figure out best values for origin anchoring factor noise
+    //     // double sigma_p = .01;
+    //     // double sigma_q = .001;
+    //     // Eigen::VectorXd sigmas(6);
+    //     // sigmas << sigma_q, sigma_q, sigma_q, sigma_p, sigma_p, sigma_p;
+    //     // Eigen::MatrixXd anchor_cov = sigmas.array().pow(2).matrix().asDiagonal();
+    //     // auto fac = util::allocate_aligned<CeresSE3PriorFactor>(last_odom_node, origin, anchor_cov);
+    //     // graph_->addFactor(fac);
 
-        // TODO figure out best values for origin anchoring factor noise
-        // double sigma_p = .01;
-        // double sigma_q = .001;
-        // Eigen::VectorXd sigmas(6);
-        // sigmas << sigma_q, sigma_q, sigma_q, sigma_p, sigma_p, sigma_p;
-        // Eigen::MatrixXd anchor_cov = sigmas.array().pow(2).matrix().asDiagonal();
-        // auto fac = util::allocate_aligned<CeresSE3PriorFactor>(last_odom_node, origin, anchor_cov);
-        // graph_->addFactor(fac);
+    //     ROS_INFO_STREAM("Added first node " << DefaultKeyFormatter(origin_symbol) 
+    //                         << " to graph, origin = " << origin);
+    // }
 
-        ROS_INFO_STREAM("Added first node " << DefaultKeyFormatter(origin_symbol) 
-                            << " to graph, origin = " << origin);
-    }
-
-    // Proceed with odometry integration & new node creation
-    Symbol symbol = Symbol(node_chr_, last_odom_node->index() + 1);
+    // // Proceed with odometry integration & new node creation
+    // Symbol symbol = Symbol(node_chr_, last_odom_node->index() + 1);
 
     nav_msgs::Odometry msg = msg_queue_.front();
 
@@ -183,10 +197,20 @@ CeresNodePtr OdometryHandler::attachSpineNode(ros::Time time)
 
     last_time_ = msg.header.stamp;
 
-    Pose3 G_p_now = msgToPose3(msg);
-    node_odom_[symbol.key()] = G_p_now;
+    SemanticKeyframe::Ptr keyframe = util::allocate_aligned<SemanticKeyframe>(keyframe_symbol, last_time_);
+    SemanticKeyframe::Ptr last_keyframe = keyframes_.back();
+    keyframes_.push_back(keyframe);
 
-    Pose3 relp = node_odom_[last_odom_node->key()].between(G_p_now);
+    Pose3 G_p_now = msgToPose3(msg);
+    keyframe->odometry() = G_p_now;
+
+    Pose3 relp = last_keyframe->odometry().between(G_p_now);
+
+    // Node that here for the initial estimate, we don't want to use the current odometry estimate.
+    // We just want to use the odometry *delta* and update the previous optimized estimate
+    Pose3 prev_state = last_keyframe->pose();
+    keyframe->pose() = prev_state * relp;
+    keyframe->graph_node()->pose() = keyframe->pose();
 
     // TODO use more accurate relative covariance information...
     // Eigen::Matrix6d cov;
@@ -196,31 +220,34 @@ CeresNodePtr OdometryHandler::attachSpineNode(ros::Time time)
     sigmas << sigma_q, sigma_q, sigma_q, sigma_p, sigma_p, sigma_p;
     Eigen::MatrixXd cov = sigmas.array().pow(2).matrix().asDiagonal();
 
-    // Node that here for the initial estimate, we don't want to use the current odometry estimate.
-    // We just want to use the odometry *delta* and update the previous optimized estimate
-    Pose3 prev_state = last_odom_node->pose();
-    Pose3 current_estimate = prev_state * relp;
-
-    auto node = util::allocate_aligned<SE3Node>(symbol, msg.header.stamp);
-    node->pose() = current_estimate;
-
-
-    auto fac = util::allocate_aligned<CeresBetweenFactor>(last_odom_node,
-                                                            node,
+    auto fac = util::allocate_aligned<CeresBetweenFactor>(last_keyframe->graph_node(),
+                                                            keyframe->graph_node(),
                                                             relp,
                                                             cov);
 
-    graph_->addNode(node);
-    graph_->addFactor(fac);
-    graph_->setModified();
+    keyframe->spine_factor() = fac;
+
+    // graph_->addNode(node);
+    // graph_->addFactor(fac);
+    // graph_->setModified();
 
     // ROS_INFO_STREAM("Added new odometry node " << DefaultKeyFormatter(symbol));
 
     // ROS_INFO_STREAM("Added spine node " << DefaultKeyFormatter(symbol) << " at time = " 
     //         << *node->time() << " (requested t = " << time << ")");
 
+    last_keyframe_index_++;
 
-    return node;
+    return keyframe;
+}
+
+SemanticKeyframe::Ptr OdometryHandler::originKeyframe() {
+    SemanticKeyframe::Ptr kf = util::allocate_aligned<SemanticKeyframe>(Symbol(node_chr_, 0), ros::Time(0));
+
+    kf->odometry() = Pose3::Identity();
+    keyframes_.push_back(kf);
+
+    return kf;
 }
 
 void OdometryHandler::update() {

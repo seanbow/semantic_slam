@@ -229,6 +229,7 @@ target_link_libraries(SemanticMapper
   EstimatedKeypoint
   StructureOptimizationProblem
   MLDataAssociator
+  FactorGraph
   ${CERES_LIBRARIES}
   ${BASE_LIBS}
 )

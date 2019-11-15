@@ -4,6 +4,8 @@
 #include "semantic_slam/keypoints/geometry.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/VectorNode.h"
+#include "semantic_slam/SemanticKeyframe.h"
+#include "semantic_slam/SemanticMapper.h"
 
 #include <unordered_set>
 
@@ -25,7 +27,8 @@ EstimatedObject::EstimatedObject(
   geometry::ObjectModelBasis object_model, uint64_t object_id,
   uint64_t first_keypoint_id, const ObjectMeasurement& msmt,
   const Pose3& G_T_C, const Pose3& I_T_C, std::string platform,
-  boost::shared_ptr<CameraCalibration> calibration)
+  boost::shared_ptr<CameraCalibration> calibration,
+  SemanticMapper* mapper)
   : graph_(graph)
   , id_(object_id)
   , first_kp_id_(first_keypoint_id)
@@ -42,7 +45,8 @@ EstimatedObject::EstimatedObject(
   , platform_(platform)
   , camera_calibration_(calibration)
   , model_(object_model)
-  , modified_(false)
+  , modified_(false),
+  mapper_(mapper)
 {
   // NOTE : because we need shared_from_this() to create the child keypoints,
   //  we cannot call the initialization method from within the constructor.
@@ -77,11 +81,12 @@ EstimatedObject::create(boost::shared_ptr<FactorGraph> graph,
                         const ObjectMeasurement& msmt,
                         const Pose3& G_T_C, const Pose3& I_T_C,
                         std::string platform,
-                        boost::shared_ptr<CameraCalibration> calibration)
+                        boost::shared_ptr<CameraCalibration> calibration,
+                        SemanticMapper* mapper)
 {
   EstimatedObject::Ptr pt(new EstimatedObject(
     graph, params, object_model, object_id, first_keypoint_id, msmt, G_T_C,
-    I_T_C, platform, calibration));
+    I_T_C, platform, calibration, mapper));
   pt->initializeFromMeasurement(msmt, G_T_C);
   return pt;
 }
@@ -101,7 +106,8 @@ EstimatedObject::initializePose(const ObjectMeasurement& msmt,
 {
   Pose3 C_T_O = Pose3(msmt.q, msmt.t);
   // pose_ = G_T_C.compose(C_T_O);
-  graph_pose_node_->pose() = G_T_C.compose(C_T_O);
+  // graph_pose_node_->pose() = G_T_C.compose(C_T_O);
+  pose_ = graph_pose_node_->pose();
 
   // ROS_WARN_STREAM("Initialized object with pose:\n" << pose_);
 }
@@ -120,7 +126,7 @@ EstimatedObject::initializeKeypoints(const ObjectMeasurement& msmt)
       EstimatedKeypoint::Ptr kp(
         new EstimatedKeypoint(graph_, params_, first_kp_id_ + i, id_,
                               msmt.keypoint_measurements[i].kp_class_id, I_T_C_,
-                              platform_, camera_calibration_, shared_this));
+                              platform_, camera_calibration_, shared_this, mapper_));
       keypoints_.push_back(kp);
 
       kp->initializeFromMeasurement(msmt.keypoint_measurements[i]);
@@ -187,11 +193,11 @@ EstimatedObject::findKeypointByKey(Key key) const
   return -1;
 }
 
-Pose3
-EstimatedObject::pose() const
-{
-  return graph_pose_node_->pose();
-}
+// Pose3
+// EstimatedObject::pose() const
+// {
+//   return graph_pose_node_->pose();
+// }
 
 void
 EstimatedObject::optimizeStructure()
@@ -209,7 +215,8 @@ EstimatedObject::optimizeStructure()
   Pose3 body_T_camera(I_T_C_.rotation(),
                       I_T_C_.translation());
 
-  Pose3 initial_object_pose = graph_pose_node_->pose();
+  // Pose3 initial_object_pose = graph_pose_node_->pose();
+  Pose3 initial_object_pose = pose_;
   
   std::lock_guard<std::mutex> lock(problem_mutex_);
 
@@ -219,7 +226,8 @@ EstimatedObject::optimizeStructure()
   structure_problem_->initializePose(initial_object_pose);
 
   for (auto& obj_msmt : measurements_) {
-    auto cam_node = graph_->getNode<SE3Node>(obj_msmt.observed_key);
+    auto cam_node = mapper_->keyframes()[Symbol(obj_msmt.observed_key).index()]->graph_node();
+    // auto cam_node = graph_->getNode<SE3Node>(obj_msmt.observed_key);
     if (!cam_node) {
       ROS_ERROR_STREAM("Unable to find graph node for camera pose " << DefaultKeyFormatter(obj_msmt.observed_key));
     }
@@ -259,16 +267,16 @@ EstimatedObject::optimizeStructure()
 
   structure_problem_->solve();
 
-  Pose3 ceres_pose = structure_problem_->getObjectPose();
+  pose_ = structure_problem_->getObjectPose();
 
-  graph_pose_node_->pose() = ceres_pose;
+  // graph_pose_node_->pose() = pose_;
 
   if (k > 0)
     basis_coefficients_ = structure_problem_->getBasisCoefficients();
 
   for (auto& kp : keypoints_) {
     if (!kp->bad())
-      kp->setPosition(*structure_problem_->getKeypoint(kp->classid()));
+      kp->position() = *structure_problem_->getKeypoint(kp->classid());
   }
 
   // std::cout << "Optimization result -->\n" << pose_ << std::endl;
@@ -364,6 +372,23 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
   return distance * factor;
 }
 
+
+void EstimatedObject::commitGraphSolution()
+{
+  pose_ = graph_pose_node_->pose();
+  if (k_ > 0) basis_coefficients_ = graph_coefficient_node_->vector();
+
+  for (auto& kp : keypoints_) kp->commitGraphSolution();
+}
+
+void EstimatedObject::prepareGraphNode()
+{
+  graph_pose_node_->pose() = pose_;
+  if (k_ > 0) graph_coefficient_node_->vector() = basis_coefficients_;
+
+  for (auto& kp : keypoints_) kp->prepareGraphNode();
+}
+
 // double EstimatedObject::computeMeasurementLikelihood(const ObjectMeasurement&
 // msmt) const
 // {
@@ -423,6 +448,17 @@ const std::vector<EstimatedKeypoint::Ptr>&
 EstimatedObject::getKeypoints() const
 {
   return keypoints_;
+}
+
+const std::vector<EstimatedKeypoint::Ptr>&
+EstimatedObject::keypoints() const
+{
+  return keypoints_;
+}
+
+void EstimatedObject::setIsVisible(boost::shared_ptr<SemanticKeyframe> kf)
+{
+  last_visible_ = kf->index();
 }
 
 void

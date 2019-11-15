@@ -62,18 +62,23 @@ void SemanticMapper::start()
 {
     running_ = true;
 
-    // while (ros::ok() && running_) {
-    //     updateObjects();
-    //     tryAddObjectsToGraph();
-    //     tryOptimize();
-    //     ros::Duration(0.003).sleep();
-    // }
+    anchorOrigin();
 
-    std::thread process_messages_thread(&SemanticMapper::processMessagesUpdateObjectsThread, this);
-    std::thread graph_optimize_thread(&SemanticMapper::addObjectsAndOptimizeGraphThread, this);
+    while (ros::ok() && running_) {
+        updateObjects();
+        visualizeObjectMeshes();
+        for (auto& p : presenters_) p->present(keyframes_, estimated_objects_);
+        tryAddObjectsToGraph();
+        tryOptimize();
+        computeLandmarkCovariances();
+        ros::Duration(0.003).sleep();
+    }
 
-    process_messages_thread.join();
-    graph_optimize_thread.join();
+    // std::thread process_messages_thread(&SemanticMapper::processMessagesUpdateObjectsThread, this);
+    // std::thread graph_optimize_thread(&SemanticMapper::addObjectsAndOptimizeGraphThread, this);
+
+    // process_messages_thread.join();
+    // graph_optimize_thread.join();
 
     running_ = false;
 }
@@ -87,7 +92,7 @@ void SemanticMapper::processMessagesUpdateObjectsThread()
 
             visualizeObjectMeshes();
 
-            for (auto& p : presenters_) p->present();
+            for (auto& p : presenters_) p->present(keyframes_, estimated_objects_);
         }
 
         ros::Duration(0.003).sleep();
@@ -144,13 +149,37 @@ void SemanticMapper::computeLandmarkCovariances()
     }
 }
 
+void SemanticMapper::prepareGraphNodes() 
+{
+    for (auto& kf : keyframes_) {
+        kf->graph_node()->pose() = kf->pose();
+    }
+
+    for (auto& obj : estimated_objects_) {
+        obj->prepareGraphNode();
+    }
+}
+
+void SemanticMapper::commitGraphSolution()
+{
+    for (auto& kf : keyframes_) {
+        kf->pose() = kf->graph_node()->pose();
+    }
+
+    for (auto& obj : estimated_objects_) {
+        obj->commitGraphSolution();
+    }
+}
+
 bool SemanticMapper::tryOptimize() {
     if (graph_->modified()) {
         auto t1 = std::chrono::high_resolution_clock::now();
         bool solve_succeeded;
         {  
             std::lock_guard<std::mutex> lock(graph_mutex_);
+            prepareGraphNodes();
             solve_succeeded = graph_->solve(true);
+            commitGraphSolution();
         }
 
         auto t2 = std::chrono::high_resolution_clock::now();
@@ -279,12 +308,23 @@ bool SemanticMapper::keepFrame(ros::Time time)
     }
 }
 
+void SemanticMapper::anchorOrigin()
+{
+    SemanticKeyframe::Ptr origin_kf = odometry_handler_->originKeyframe();
+
+    graph_->addNode(origin_kf->graph_node());
+    graph_->setNodeConstant(origin_kf->graph_node());
+
+    keyframes_.push_back(origin_kf);
+}
+
 bool SemanticMapper::updateObjects()
 {
     // Process a single message in the queue
 
     object_pose_interface_msgs::KeypointDetections msg;
-    CeresNodePtr spine_node_generic;
+    SemanticKeyframe::Ptr keyframe;
+    // CeresNodePtr spine_node_generic;
 
     bool got_msg = false;
 
@@ -295,8 +335,8 @@ bool SemanticMapper::updateObjects()
             msg = msg_queue_.front();
 
             if (keepFrame(msg.header.stamp)) {
-                spine_node_generic = odometry_handler_->getSpineNode(msg.header.stamp);
-                if (spine_node_generic) {
+                keyframe = odometry_handler_->createKeyframe(msg.header.stamp);
+                if (keyframe) {
                     got_msg = true;
                 }
             }
@@ -307,10 +347,10 @@ bool SemanticMapper::updateObjects()
 
     if (!got_msg) return false;
 
-    SE3NodePtr spine_node = boost::static_pointer_cast<SE3Node>(spine_node_generic);
+// SE3NodePtr spine_node = boost::static_pointer_cast<SE3Node>(spine_node_generic);
 
     // Build the ObjectMeasurement structures for all detected objects here
-    auto keyframe = util::allocate_aligned<SemanticKeyframe>(msg.header.stamp, spine_node->key());
+    // auto keyframe = util::allocate_aligned<SemanticKeyframe>(spine_node->key(), msg.header.stamp);
     keyframes_.push_back(keyframe);
     // aligned_vector<ObjectMeasurement> measurements;
 
@@ -359,7 +399,7 @@ bool SemanticMapper::updateObjects()
 
         // Build object measurement structure
         ObjectMeasurement obj_msmt;
-        obj_msmt.observed_key = spine_node->key();
+        obj_msmt.observed_key = keyframe->key();
         obj_msmt.stamp = detection.header.stamp;
         obj_msmt.platform = "zed";
         obj_msmt.frame = detection.header.frame_id;
@@ -382,7 +422,7 @@ bool SemanticMapper::updateObjects()
         for (size_t i = 0; i < detection.x.size(); ++i) {
             KeypointMeasurement kp_msmt;
 
-            kp_msmt.measured_key = spine_node->key();
+            kp_msmt.measured_key = keyframe->key();
             kp_msmt.stamp = detection.header.stamp;
             kp_msmt.platform = "zed";
             kp_msmt.obj_name = detection.obj_name;
@@ -443,7 +483,7 @@ bool SemanticMapper::updateObjects()
 
         // Create the list of objects we need to associate.
         // count visible landmarks & create mapping from list of visible to list of all
-        std::vector<bool> visible = getVisibleObjects(spine_node);
+        std::vector<bool> visible = predictVisibleObjects(keyframe);
         size_t n_visible = 0;
         std::vector<size_t> object_index;
         for (size_t j = 0; j < estimated_objects_.size(); ++j)
@@ -451,7 +491,7 @@ bool SemanticMapper::updateObjects()
             if (visible[j])
             {
                 n_visible++;
-                estimated_objects_[j]->setIsVisible(spine_node);
+                estimated_objects_[j]->setIsVisible(keyframe);
                 object_index.push_back(j);
             }
         }
@@ -462,6 +502,8 @@ bool SemanticMapper::updateObjects()
             // ROS_WARN_STREAM("** Measurement " << i << "**");
             for (size_t j = 0; j < n_visible; ++j)
             {
+                // mahals(i,j) = computeMahalanobisDistance(keyframe->measurements[measurement_index[i]],
+                                                        //  estimated_objects_[object_index[j]]);
                 mahals(i, j) = estimated_objects_[object_index[j]]->computeMahalanobisDistance(
                                                                         keyframe->measurements[measurement_index[i]]);
             }
@@ -471,7 +513,10 @@ bool SemanticMapper::updateObjects()
     
         Eigen::MatrixXd weights_matrix = MLDataAssociator(params_).computeConstraintWeights(mahals);
 
-        updateObjects(spine_node, 
+        graph_->addNode(keyframe->graph_node());
+        graph_->addFactor(keyframe->spine_factor());
+
+        updateObjects(keyframe, 
                         keyframe->measurements, 
                         measurement_index, 
                         known_das, 
@@ -482,7 +527,7 @@ bool SemanticMapper::updateObjects()
     return true;
 }
 
-bool SemanticMapper::updateObjects(SE3Node::Ptr node,
+bool SemanticMapper::updateObjects(SemanticKeyframe::Ptr kf,
                                   const aligned_vector<ObjectMeasurement>& measurements,
                                   const std::vector<size_t>& measurement_index,
                                   const std::map<size_t, size_t>& known_das,
@@ -491,7 +536,7 @@ bool SemanticMapper::updateObjects(SE3Node::Ptr node,
 {
     if (measurements.size() == 0) return true;
 
-    Pose3 map_T_body = node->pose();
+    Pose3 map_T_body = kf->pose();
     Pose3 map_T_camera = map_T_body * I_T_C_;
 
     /** new objects **/
@@ -507,7 +552,7 @@ bool SemanticMapper::updateObjects(SE3Node::Ptr node,
                                         n_landmarks_, msmt, 
                                         map_T_camera, /* G_T_C */
                                         I_T_C_,       
-                                        "zed", camera_calibration_);
+                                        "zed", camera_calibration_, this);
 
             new_obj->addKeypointMeasurements(msmt, weights(k, weights.cols() - 1));
             n_landmarks_ += new_obj->numKeypoints();
@@ -578,11 +623,11 @@ bool SemanticMapper::updateObjects(SE3Node::Ptr node,
 }
 
 std::vector<bool> 
-SemanticMapper::getVisibleObjects(SE3Node::Ptr node)
+SemanticMapper::predictVisibleObjects(SemanticKeyframe::Ptr kf)
 {
     std::vector<bool> visible(estimated_objects_.size(), false);
 
-    Pose3 map_T_body = node->pose();
+    Pose3 map_T_body = kf->pose();
 
     // Pose3 G_T_C = map_T_body * I_T_C_;
 
@@ -623,6 +668,117 @@ void SemanticMapper::msgCallback(const object_pose_interface_msgs::KeypointDetec
 
     last_msg_seq_ = msg->header.seq;
 }
+
+// double
+// SemanticMapper::computeMahalanobisDistance(const ObjectMeasurement& msmt, 
+//                                            const EstimatedObject::Ptr& obj)
+// {
+//   // if (msmt.class_id != classid_) return std::numeric_limits<double>::max();
+//   // ROS_WARN_STREAM("Computing mahal for object " << id());
+//   if (msmt.obj_name != obj->obj_name()) {
+//     // ROS_WARN_STREAM("Object id " << id() << " name " << obj_name_
+//     //                              << " != measurement class " << msmt.obj_name);
+//     return std::numeric_limits<double>::max();
+//   }
+
+//   std::vector<double> matched_distances;
+
+//   for (size_t i = 0; i < msmt.keypoint_measurements.size(); ++i) {
+//     if (!msmt.keypoint_measurements[i].observed)
+//       continue;
+
+//     const auto& kp_msmt = msmt.keypoint_measurements[i];
+
+//     int kp_match_index = obj->findKeypointByClass(msmt.keypoint_measurements[i].kp_class_id);
+
+//     if (kp_match_index >= 0) {
+//       if (!obj->keypoints()[kp_match_index]->bad()) {
+//         double d = computeMahalanobisDistance(kp_msmt, obj->keypoints()[kp_match_index]);
+//         matched_distances.push_back(d);
+//       }
+//     }
+//   }
+
+//   if (matched_distances.size() == 0)
+//     return std::numeric_limits<double>::max();
+
+//   double distance = 0.0;
+//   for (auto& x : matched_distances)
+//     distance += x;
+
+//   double factor = mahalanobisMultiplicativeFactor(2 * matched_distances.size());
+
+//   // ROS_INFO_STREAM(" Mahal distance " << distance << " * factor " << factor <<
+//   // " = " << distance * factor);
+
+//   return distance * factor;
+// }
+
+// double SemanticMapper::computeMahalanobisDistance(const KeypointMeasurement& msmt,
+//                                                   const EstimatedKeypoint::Ptr& kp)
+// {
+//   if (kp->bad())
+//   {
+//     ROS_WARN_STREAM("Mahalanobis distance called for BAD landmark " << id());
+//     return std::numeric_limits<double>::max();
+//   }
+
+//     Pose3 G_T_I = keyframes_[Symbol(msmt.measured_key).index()]->pose();
+
+//   Camera camera(G_T_I.compose(I_T_C_));
+//   Eigen::Vector2d zhat;
+
+//   try
+//   {
+//     zhat = camera.project(kp->position());
+//   }
+//   catch (CheiralityException& e)
+//   {
+//     return std::numeric_limits<double>::max();
+//   }
+
+//   // ROS_WARN_STREAM("Computing mahal for object " << parent_->id() << "; kp " << id());
+
+//   // check if visible
+//   // if (fabs(zhat(0)) > 1.25 || fabs(zhat(1)) > 1.25) {
+//   //     // clearly not in frame
+//   //     return std::numeric_limits<double>::max();
+//   // }
+
+//   Eigen::Vector2d residual = msmt.normalized_measurement - zhat;
+
+//   Eigen::Matrix<double, 2, 9> H = computeProjectionJacobian(G_T_I.rotation().toRotationMatrix(), 
+//                                                             G_T_I.translation(),
+//                                                             I_T_C_.rotation().toRotationMatrix(), 
+//                                                             kp->position());
+
+//   Eigen::Matrix2d R = Eigen::Matrix2d::Zero();
+//   double px_sigma = msmt.pixel_sigma;
+//   R(0, 0) = px_sigma * px_sigma / (camera_calibration_->fx() * camera_calibration_->fx());
+//   R(1, 1) = px_sigma * px_sigma / (camera_calibration_->fy() * camera_calibration_->fy());
+
+//   // std::cout << "R = \n" << R << std::endl;
+
+//   // Eigen::Matrix2d S = H * Plx * H.transpose() + R;
+//   // double mahal = residual.transpose() * S.inverse() * residual;
+
+//   Eigen::MatrixXd Plx = Eigen::MatrixXd::Zero(9,9);
+
+//   if (!kp->inGraph()) {
+//     Eigen::MatrixXd Plx = kp->parent_object()->getPlx(sym::L(id()), Symbol(msmt.measured_key));
+//   } else {
+//     // TODO TODO ugh
+//     Plx.block<3,3>(0,0) = global_covariance_;
+//   }
+
+
+//   // std::cout << "Plx for landmark " << id() << ": " << std::endl;
+//   // std::cout << Plx << std::endl;
+
+//   double mahal = residual.transpose() * (H * Plx * H.transpose() + R).lu().solve(residual);
+
+//   return mahal;
+// }
 
 void SemanticMapper::visualizeObjectMeshes() const
 {

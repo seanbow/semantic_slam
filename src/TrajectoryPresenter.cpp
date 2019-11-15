@@ -11,13 +11,11 @@ void TrajectoryPresenter::setup()
     publisher_ = nh_.advertise<visualization_msgs::Marker>("trajectory", 10);
 }
 
-void TrajectoryPresenter::present()
+void TrajectoryPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
+                                  const std::vector<EstimatedObject::Ptr>& objects)
 {
-    // Find the last odometry node N and assume that all in [0,N] exist
-    SE3NodePtr node = graph_->findLastNode<SE3Node>('x');
-    size_t last_index = node->index();
-    
-    
+    if (keyframes.empty()) return;
+
     visualization_msgs::Marker traj;
     traj.type = visualization_msgs::Marker::LINE_STRIP;
 
@@ -28,7 +26,7 @@ void TrajectoryPresenter::present()
     traj.pose.orientation.w = 1;
 
     traj.header.frame_id = "/map";
-    traj.header.stamp = *node->time();
+    traj.header.stamp = keyframes.back()->time();
 
     Eigen::Vector3d rgb_color(0, 1, 0);
     double Z_SCALE = 1.0;
@@ -47,12 +45,13 @@ void TrajectoryPresenter::present()
     traj.action = visualization_msgs::Marker::ADD;
 
     // create vertices for each pose
-    for (size_t i = 0; i < last_index; ++i) {
-        auto node = graph_->getNode<SE3Node>(Symbol('x', i));
+    // Assume that the keyframe vector is ordered...
+    for (size_t i = 0; i < keyframes.size(); ++i) {
+        // auto node = graph_->getNode<SE3Node>(Symbol('x', i));
 
-        if (!node) continue;
+        // if (!node) continue;
 
-        Eigen::Vector3d p = node->pose().translation();
+        Eigen::Vector3d p = keyframes[i]->pose().translation();
 
         geometry_msgs::Point p_msg;
         p_msg.x = p(0);

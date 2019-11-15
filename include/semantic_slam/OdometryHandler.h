@@ -22,11 +22,15 @@ public:
 
     Pose3 msgToPose3(const nav_msgs::Odometry& msg);
 
-    CeresNodePtr getSpineNode(ros::Time time);
+    // CeresNodePtr getSpineNode(ros::Time time);
 
-    CeresNodePtr attachSpineNode(ros::Time time);
+    // CeresNodePtr attachSpineNode(ros::Time time);
 
-    SemanticKeyframe createKeyframe(ros::Time time);
+    SemanticKeyframe::Ptr originKeyframe();
+
+    SemanticKeyframe::Ptr createKeyframe(ros::Time time);
+
+    SemanticKeyframe::Ptr findNearestKeyframe(ros::Time time);
 
     bool getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3& T12);
 
@@ -38,7 +42,7 @@ private:
 
 	std::deque<nav_msgs::Odometry> msg_queue_;
 
-    aligned_unordered_map<Key, Pose3> node_odom_;
+    std::vector<SemanticKeyframe::Ptr> keyframes_;
 
     std::mutex mutex_;
 

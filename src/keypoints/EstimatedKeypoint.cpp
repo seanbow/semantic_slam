@@ -16,12 +16,14 @@
 #include <iostream>
 
 #include "semantic_slam/Camera.h"
+#include "semantic_slam/SemanticMapper.h"
 
 namespace sym = symbol_shorthand;
 
 EstimatedKeypoint::EstimatedKeypoint(boost::shared_ptr<FactorGraph> graph, const ObjectParams& params, size_t id,
                                      size_t object_id, size_t class_id, Pose3 I_T_C, std::string platform,
-                                     boost::shared_ptr<CameraCalibration> camera_calib, EstimatedObject::Ptr parent)
+                                     boost::shared_ptr<CameraCalibration> camera_calib, EstimatedObject::Ptr parent,
+                                     SemanticMapper* mapper)
   : graph_(graph)
   , params_(params)
   , global_id_(id)
@@ -36,10 +38,21 @@ EstimatedKeypoint::EstimatedKeypoint(boost::shared_ptr<FactorGraph> graph, const
   //  object_in_graph_(false),
   initialized_(false)
   , detection_score_sum_(0.0)
-  , parent_(parent)
+  , parent_(parent),
+  mapper_(mapper)
 {
   // initializeFromMeasurement(msmt);
   graph_node_ = util::allocate_aligned<Vector3dNode>(sym::L(id));
+}
+
+void EstimatedKeypoint::commitGraphSolution()
+{
+  global_position_ = graph_node_->vector();
+}
+
+void EstimatedKeypoint::prepareGraphNode()
+{
+  graph_node_->vector() = global_position_;
 }
 
 void EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt, double weight)
@@ -74,7 +87,8 @@ void EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt, double w
   // ROS_INFO_STREAM("Adding measurement to keypoint " << id());
 
   Eigen::Vector2d noise_vec = Eigen::Vector2d::Constant(msmt.pixel_sigma);
-  auto camera_node = graph_->getNode<SE3Node>(msmt.measured_key);
+  auto camera_node = mapper_->keyframes()[Symbol(msmt.measured_key).index()]->graph_node();
+  // auto camera_node = graph_->getNode<SE3Node>(msmt.measured_key);
   CeresProjectionFactorPtr proj_factor = util::allocate_aligned<CeresProjectionFactor>(
       camera_node,
       graph_node_,
@@ -151,9 +165,10 @@ void EstimatedKeypoint::initializePosition(const KeypointMeasurement& msmt)
 
   Eigen::Vector3d C_l = d_init * z_unit;
 
-  auto node = graph_->getNode<SE3Node>(msmt.measured_key);
-  Pose3 G_x_C = node->pose();
-  G_x_C = G_x_C.compose(I_T_C_);
+  // auto node = graph_->getNode<SE3Node>(msmt.measured_key);
+  // Pose3 G_x_C = node->pose();
+  Pose3 G_x_I = mapper_->keyframes()[Symbol(msmt.measured_key).index()]->pose();
+  Pose3 G_x_C = G_x_I.compose(I_T_C_);
 
   Eigen::Vector3d G_l = G_x_C.transform_from(C_l);
 
@@ -168,7 +183,8 @@ void EstimatedKeypoint::initializePosition(const KeypointMeasurement& msmt)
   // ROS_WARN_STREAM("P_local = " << P_local.diagonal().transpose());
   // ROS_WARN_STREAM("Initialized P as:\n" << P);
 
-  graph_node_->vector() = G_l;
+  global_position_ = G_l;
+  // graph_node_->vector() = G_l;
   global_covariance_ = P;
 }
 
@@ -189,8 +205,9 @@ bool EstimatedKeypoint::triangulate(boost::optional<double&> condition)
 
   for (size_t i = 0; i < measurements_.size(); ++i)
   {
-    auto node = graph_->getNode<SE3Node>(measurements_[i].measured_key);
-    Pose3 G_x_I = node->pose();
+    // auto node = graph_->getNode<SE3Node>(measurements_[i].measured_key);
+    // Pose3 G_x_I = node->pose();
+    Pose3 G_x_I = mapper_->keyframes()[Symbol(measurements_[i].measured_key).index()]->pose();
     msmt_poses.push_back(G_x_I.compose(I_T_C_));
 
     // msmt_poses.push_back(graph_->calculateEstimate<gtsam::Pose3>(sym::X(measurements_[i].pose_id)).compose(I_T_C_));
@@ -439,14 +456,17 @@ double EstimatedKeypoint::computeMahalanobisDistance(const KeypointMeasurement& 
     return std::numeric_limits<double>::max();
   }
 
-  Pose3 G_x_I = graph_->getNode<SE3Node>(msmt.measured_key)->pose();
+  auto keyframe = mapper_->keyframes()[Symbol(msmt.measured_key).index()];
+  Pose3 G_T_I = keyframe->pose();
 
-  Camera camera(G_x_I.compose(I_T_C_));
+  // Pose3 G_T_I = graph_->getNode<SE3Node>(msmt.measured_key)->pose();
+
+  Camera camera(G_T_I.compose(I_T_C_));
   Eigen::Vector2d zhat;
 
   try
   {
-    zhat = camera.project(graph_node_->vector());
+    zhat = camera.project(position());
   }
   catch (CheiralityException& e)
   {
@@ -463,10 +483,10 @@ double EstimatedKeypoint::computeMahalanobisDistance(const KeypointMeasurement& 
 
   Eigen::Vector2d residual = msmt.normalized_measurement - zhat;
 
-  Eigen::Matrix<double, 2, 9> H = computeProjectionJacobian(G_x_I.rotation().toRotationMatrix(), 
-                                                            G_x_I.translation(),
+  Eigen::Matrix<double, 2, 9> H = computeProjectionJacobian(G_T_I.rotation().toRotationMatrix(), 
+                                                            G_T_I.translation(),
                                                             I_T_C_.rotation().toRotationMatrix(), 
-                                                            graph_node_->vector());
+                                                            position());
 
   Eigen::Matrix2d R = Eigen::Matrix2d::Zero();
   double px_sigma = msmt.pixel_sigma;

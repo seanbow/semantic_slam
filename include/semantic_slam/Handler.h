@@ -17,7 +17,7 @@ public:
     virtual void setup() = 0;
     virtual void update() = 0;
 
-    virtual CeresNodePtr getSpineNode(ros::Time time) { return nullptr; }
+    // virtual CeresNodePtr getSpineNode(ros::Time time) { return nullptr; }
 
     void setGraph(boost::shared_ptr<FactorGraph> graph) { graph_ = graph; }
     void setCv(boost::shared_ptr<std::condition_variable> cv) { cv_ = cv; }
