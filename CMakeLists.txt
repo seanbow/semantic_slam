@@ -222,8 +222,8 @@ add_library(geometry src/keypoints/geometry.cpp)
 #   gtsam
 # )
 
-add_library(ObjectHandler src/ObjectHandler.cpp)
-target_link_libraries(ObjectHandler
+add_library(SemanticMapper src/SemanticMapper.cpp)
+target_link_libraries(SemanticMapper
   geometry
   EstimatedObject
   EstimatedKeypoint
@@ -263,7 +263,7 @@ target_link_libraries(semantic_slam_node
     ${CERES_LIBRARIES}
     FactorGraph
     OdometryHandler
-    ObjectHandler
+    SemanticMapper
     PosePresenter
     TrajectoryPresenter
     ${BASE_LIBS}

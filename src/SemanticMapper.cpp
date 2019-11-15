@@ -1,5 +1,5 @@
 
-#include "semantic_slam/ObjectHandler.h"
+#include "semantic_slam/SemanticMapper.h"
 #include "semantic_slam/OdometryHandler.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/MLDataAssociator.h"
@@ -7,28 +7,39 @@
 #include <ros/package.h>
 
 #include <boost/filesystem.hpp>
+#include <thread>
 
 #include <visualization_msgs/MarkerArray.h>
 
 using namespace std::string_literals;
 namespace sym = symbol_shorthand;
 
-void ObjectHandler::setup()
+SemanticMapper::SemanticMapper()
+    : nh_(),
+      pnh_("~")
+{
+    setup();
+}
+
+void SemanticMapper::setup()
 {
     ROS_INFO("Starting object handler.");
     std::string object_topic;
     pnh_.param("keypoint_detection_topic", object_topic, "/semslam/img_keypoints"s);
 
-    ROS_INFO_STREAM("[ObjectHandler] Subscribing to topic " << object_topic);
+    ROS_INFO_STREAM("[SemanticMapper] Subscribing to topic " << object_topic);
 
-    subscriber_ = nh_.subscribe(object_topic, 1000, &ObjectHandler::msgCallback, this);
+    subscriber_ = nh_.subscribe(object_topic, 1000, &SemanticMapper::msgCallback, this);
+
+    graph_ = util::allocate_aligned<FactorGraph>();
 
     received_msgs_ = 0;
     measurements_processed_ = 0;
     n_landmarks_ = 0;
 
-    node_chr_ = 'o';
+    running_ = false;
 
+    node_chr_ = 'o';
 
     std::string base_path = ros::package::getPath("semantic_slam");
     std::string model_dir = base_path + std::string("/models/objects/");
@@ -41,8 +52,123 @@ void ObjectHandler::setup()
     vis_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("keypoint_objects/object_markers", 10);
 }
 
+void SemanticMapper::setOdometryHandler(boost::shared_ptr<OdometryHandler> odom) {
+    odometry_handler_ = odom;
+    odom->setGraph(graph_);
+    odom->setup();
+}
 
-void ObjectHandler::loadModelFiles(std::string path) {
+void SemanticMapper::start()
+{
+    running_ = true;
+
+    // while (ros::ok() && running_) {
+    //     updateObjects();
+    //     tryAddObjectsToGraph();
+    //     tryOptimize();
+    //     ros::Duration(0.003).sleep();
+    // }
+
+    std::thread process_messages_thread(&SemanticMapper::processMessagesUpdateObjectsThread, this);
+    std::thread graph_optimize_thread(&SemanticMapper::addObjectsAndOptimizeGraphThread, this);
+
+    process_messages_thread.join();
+    graph_optimize_thread.join();
+
+    running_ = false;
+}
+
+void SemanticMapper::processMessagesUpdateObjectsThread()
+{
+    while (ros::ok() && running_) {
+        bool processed_msg = updateObjects();
+
+        if (processed_msg) {
+
+            visualizeObjectMeshes();
+
+            for (auto& p : presenters_) p->present();
+        }
+
+        ros::Duration(0.003).sleep();
+    }
+
+    running_ = false;
+}
+
+void SemanticMapper::addObjectsAndOptimizeGraphThread()
+{
+    while (ros::ok() && running_) {
+        tryAddObjectsToGraph();
+        tryOptimize();
+
+        ros::Duration(0.003).sleep();
+    }
+
+    running_ = false;
+}
+
+void SemanticMapper::tryAddObjectsToGraph()
+{
+    for (auto& obj : estimated_objects_) {
+        if (obj->readyToAddToGraph()) {
+            std::lock_guard<std::mutex> lock(graph_mutex_);
+            obj->addToGraph();
+        }
+    }
+}
+
+void SemanticMapper::computeLandmarkCovariances()
+{
+    std::lock_guard<std::mutex> lock(graph_mutex_);
+
+    // Collect all landmark parameter blocks...
+    // TODO limit this somehow
+    std::vector<CeresNodePtr> landmark_nodes;
+    for (const auto& obj : estimated_objects_) {
+        if (obj->inGraph()) {
+            for (const auto& kp : obj->getKeypoints()) {
+                landmark_nodes.push_back(kp->graph_node());
+            }
+        }
+    }
+
+    graph_->computeMarginalCovariance(landmark_nodes);
+
+    for (const auto& obj : estimated_objects_) {
+        if (obj->inGraph()) {
+            for (const auto& kp : obj->getKeypoints()) {
+                kp->covariance() = graph_->getMarginalCovariance(kp->graph_node());
+            }
+        }
+    }
+}
+
+bool SemanticMapper::tryOptimize() {
+    if (graph_->modified()) {
+        auto t1 = std::chrono::high_resolution_clock::now();
+        bool solve_succeeded;
+        {  
+            std::lock_guard<std::mutex> lock(graph_mutex_);
+            solve_succeeded = graph_->solve(true);
+        }
+
+        auto t2 = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+        if (solve_succeeded) {
+            ROS_INFO_STREAM(fmt::format("Solved {} nodes and {} edges in {:.2f} ms.",
+                                        graph_->num_nodes(), graph_->num_factors(), duration.count()/1000.0));
+            // for (auto& p : presenters_) p->present();
+            return true;
+        } else {
+            ROS_INFO_STREAM("Graph solve failed");
+            return false;
+        }
+    }
+}
+
+void SemanticMapper::loadModelFiles(std::string path) {
     boost::filesystem::path model_path(path);
     for (auto i = boost::filesystem::directory_iterator(model_path); i != boost::filesystem::directory_iterator(); i++) {
         if (!boost::filesystem::is_directory(i->path())) {
@@ -59,7 +185,7 @@ void ObjectHandler::loadModelFiles(std::string path) {
     ROS_INFO("Loaded %d models", (int)(object_models_.size()));
 }
 
-bool ObjectHandler::loadCalibration() {
+bool SemanticMapper::loadCalibration() {
     // Read from the ros parameter server...
 
     double fx, fy, s, u0, v0, k1, k2, p1, p2;
@@ -102,7 +228,7 @@ bool ObjectHandler::loadCalibration() {
     return true;
 }
 
-bool ObjectHandler::loadParameters()
+bool SemanticMapper::loadParameters()
 {
     if (!pnh_.getParam("keypoint_activation_threshold", params_.keypoint_activation_threshold) ||
 
@@ -128,7 +254,7 @@ bool ObjectHandler::loadParameters()
     return true;
 }
 
-bool ObjectHandler::keepFrame(ros::Time time)
+bool SemanticMapper::keepFrame(ros::Time time)
 {
     if (keyframes_.empty()) return true;
 
@@ -153,235 +279,210 @@ bool ObjectHandler::keepFrame(ros::Time time)
     }
 }
 
-void ObjectHandler::update()
+bool SemanticMapper::updateObjects()
 {
-    // Iterate over each of our pending measurement messages, try to add them to the 
-    // factor graph
+    // Process a single message in the queue
 
-    // Start by collecting those messages that we have "spine" nodes for already in the graph
-    // These vectors are in a 1-to-1 correspondence
+    object_pose_interface_msgs::KeypointDetections msg;
+    CeresNodePtr spine_node_generic;
 
-    std::vector<object_pose_interface_msgs::KeypointDetections> messages;
-    std::vector<CeresNodePtr> spine_nodes;
     bool got_msg = false;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
 
-        // try only processing one message per call
+    {
+        std::lock_guard<std::mutex> lock(queue_mutex_);
+
         while (!msg_queue_.empty() && !got_msg) {
-            auto msg = msg_queue_.front();
+            msg = msg_queue_.front();
 
             if (keepFrame(msg.header.stamp)) {
-                auto spine_node = odometry_handler_->getSpineNode(msg.header.stamp);
-                if (spine_node) {
-                    messages.push_back(msg);
-                    spine_nodes.push_back(spine_node);
+                spine_node_generic = odometry_handler_->getSpineNode(msg.header.stamp);
+                if (spine_node_generic) {
                     got_msg = true;
                 }
             }
 
             msg_queue_.pop_front();
         }
-
-
-        // Assume that the messages were received in chronological order, so we can stop after the first
-        // we reach that we can't attach
-        // while (!msg_queue_.empty()) {
-        //     auto msg = msg_queue_.front();
-
-        //     auto spine_node = odometry_handler_->getSpineNode(msg.header.stamp);
-
-        //     if (spine_node) {
-        //         messages.push_back(msg);
-        //         spine_nodes.push_back(spine_node);
-        //         msg_queue_.pop_front();
-        //     } else {
-        //         break;
-        //     }
-        // }
     }
 
-    if (!got_msg) return;
+    if (!got_msg) return false;
 
-    for (size_t i = 0; i < messages.size(); ++i) {
-        auto& msg = messages[i];
-        auto spine_node = boost::dynamic_pointer_cast<SE3Node>(spine_nodes[i]);
+    SE3NodePtr spine_node = boost::static_pointer_cast<SE3Node>(spine_node_generic);
 
-        // Build the ObjectMeasurement structures for all detected objects here
-        auto keyframe = util::allocate_aligned<SemanticKeyframe>(msg.header.stamp, spine_node->key());
-        keyframes_.push_back(keyframe);
-        // aligned_vector<ObjectMeasurement> measurements;
+    // Build the ObjectMeasurement structures for all detected objects here
+    auto keyframe = util::allocate_aligned<SemanticKeyframe>(msg.header.stamp, spine_node->key());
+    keyframes_.push_back(keyframe);
+    // aligned_vector<ObjectMeasurement> measurements;
 
-        for (auto detection : msg.detections) {
-            auto model_it = object_models_.find(detection.obj_name);
-            if (model_it == object_models_.end()) {
-                ROS_WARN_STREAM("No object model for class " << detection.obj_name);
-            }
+    for (auto detection : msg.detections) {
+        auto model_it = object_models_.find(detection.obj_name);
+        if (model_it == object_models_.end()) {
+            ROS_WARN_STREAM("No object model for class " << detection.obj_name);
+        }
 
-            geometry::ObjectModelBasis model = model_it->second;
+        geometry::ObjectModelBasis model = model_it->second;
 
 
-            // Build vectors etc to optimize structure
-            Eigen::MatrixXd normalized_coords(3, detection.x.size());
-            Eigen::VectorXd weights(detection.x.size());
+        // Build vectors etc to optimize structure
+        Eigen::MatrixXd normalized_coords(3, detection.x.size());
+        Eigen::VectorXd weights(detection.x.size());
 
-            for (size_t i = 0; i < detection.x.size(); ++i)
-            {
-                Eigen::Vector2d img_coords(detection.x[i], detection.y[i]);
-                normalized_coords.block<2,1>(0,i) = camera_calibration_->calibrate(img_coords);
-                normalized_coords(2, i) = 1.0;
+        for (size_t i = 0; i < detection.x.size(); ++i)
+        {
+            Eigen::Vector2d img_coords(detection.x[i], detection.y[i]);
+            normalized_coords.block<2,1>(0,i) = camera_calibration_->calibrate(img_coords);
+            normalized_coords(2, i) = 1.0;
 
-                weights(i) = detection.probabilities[i];
-            }
+            weights(i) = detection.probabilities[i];
+        }
 
-            geometry::StructureResult result;
-
-
-            try
-            {
-                result = geometry::optimizeStructureFromProjection(normalized_coords,
-                                                                    model,
-                                                                    weights,
-                                                                    true /* compute depth covariance */);
-
-                // ROS_WARN_STREAM("Optimized structure.");
-                // std::cout << "t = " << result.t.transpose() << std::endl;
-            }
-            catch (std::exception &e)
-            {
-                ROS_WARN_STREAM("Structure optimization failed:\n"
-                                << e.what());
-                continue;
-            }
+        geometry::StructureResult result;
 
 
-            // Build object measurement structure
-            ObjectMeasurement obj_msmt;
-            obj_msmt.observed_key = spine_node->key();
-            obj_msmt.stamp = detection.header.stamp;
-            obj_msmt.platform = "zed";
-            obj_msmt.frame = detection.header.frame_id;
-            obj_msmt.global_msmt_id = measurements_processed_++;
-            obj_msmt.obj_name = detection.obj_name;
-            obj_msmt.track_id = detection.bounding_box.id;
-            obj_msmt.t = result.t;
-            obj_msmt.q = Eigen::Quaterniond(result.R);
+        try
+        {
+            result = geometry::optimizeStructureFromProjection(normalized_coords,
+                                                                model,
+                                                                weights,
+                                                                true /* compute depth covariance */);
 
-            obj_msmt.bbox.xmin = detection.bounding_box.xmin;
-            obj_msmt.bbox.ymin = detection.bounding_box.ymin;
-            obj_msmt.bbox.xmax = detection.bounding_box.xmax;
-            obj_msmt.bbox.ymax = detection.bounding_box.ymax;
+            // ROS_WARN_STREAM("Optimized structure.");
+            // std::cout << "t = " << result.t.transpose() << std::endl;
+        }
+        catch (std::exception &e)
+        {
+            ROS_WARN_STREAM("Structure optimization failed:\n"
+                            << e.what());
+            continue;
+        }
 
-            double bbox_dim = 0.5 * (obj_msmt.bbox.xmax - obj_msmt.bbox.xmin +
-                                     obj_msmt.bbox.ymax - obj_msmt.bbox.ymin);
 
-            size_t n_keypoints_observed = 0;
+        // Build object measurement structure
+        ObjectMeasurement obj_msmt;
+        obj_msmt.observed_key = spine_node->key();
+        obj_msmt.stamp = detection.header.stamp;
+        obj_msmt.platform = "zed";
+        obj_msmt.frame = detection.header.frame_id;
+        obj_msmt.global_msmt_id = measurements_processed_++;
+        obj_msmt.obj_name = detection.obj_name;
+        obj_msmt.track_id = detection.bounding_box.id;
+        obj_msmt.t = result.t;
+        obj_msmt.q = Eigen::Quaterniond(result.R);
 
-            for (size_t i = 0; i < detection.x.size(); ++i) {
-                KeypointMeasurement kp_msmt;
+        obj_msmt.bbox.xmin = detection.bounding_box.xmin;
+        obj_msmt.bbox.ymin = detection.bounding_box.ymin;
+        obj_msmt.bbox.xmax = detection.bounding_box.xmax;
+        obj_msmt.bbox.ymax = detection.bounding_box.ymax;
 
-                kp_msmt.measured_key = spine_node->key();
-                kp_msmt.stamp = detection.header.stamp;
-                kp_msmt.platform = "zed";
-                kp_msmt.obj_name = detection.obj_name;
+        double bbox_dim = 0.5 * (obj_msmt.bbox.xmax - obj_msmt.bbox.xmin +
+                                    obj_msmt.bbox.ymax - obj_msmt.bbox.ymin);
 
-                kp_msmt.pixel_measurement << detection.x[i], detection.y[i];
-                kp_msmt.normalized_measurement = normalized_coords.block<2,1>(0, i);
+        size_t n_keypoints_observed = 0;
 
-                kp_msmt.score = detection.probabilities[i];
-                kp_msmt.depth = result.Z(i);
+        for (size_t i = 0; i < detection.x.size(); ++i) {
+            KeypointMeasurement kp_msmt;
 
-                // covariance estimation in the structure optimization may have failed
-                if (result.Z_covariance.size() > 0) {
-                    kp_msmt.depth_sigma = std::sqrt(result.Z_covariance(i));
-                } else {
-                    // TODO what here?
-                    kp_msmt.depth_sigma = 5;
-                }
+            kp_msmt.measured_key = spine_node->key();
+            kp_msmt.stamp = detection.header.stamp;
+            kp_msmt.platform = "zed";
+            kp_msmt.obj_name = detection.obj_name;
 
-                kp_msmt.kp_class_id = i;
+            kp_msmt.pixel_measurement << detection.x[i], detection.y[i];
+            kp_msmt.normalized_measurement = normalized_coords.block<2,1>(0, i);
 
+            kp_msmt.score = detection.probabilities[i];
+            kp_msmt.depth = result.Z(i);
+
+            // covariance estimation in the structure optimization may have failed
+            if (result.Z_covariance.size() > 0) {
+                kp_msmt.depth_sigma = std::sqrt(result.Z_covariance(i));
+            } else {
                 // TODO what here?
-                kp_msmt.pixel_sigma = 0.1 * bbox_dim;
-
-                if (kp_msmt.score > params_.keypoint_activation_threshold)
-                {
-                    kp_msmt.observed = true;
-                    n_keypoints_observed++;
-                } else {
-                    kp_msmt.observed = false;
-                }
-
-                obj_msmt.keypoint_measurements.push_back(kp_msmt);
+                kp_msmt.depth_sigma = 5;
             }
 
-            if (n_keypoints_observed > 0) {
-                keyframe->measurements.push_back(obj_msmt);
+            kp_msmt.kp_class_id = i;
+
+            // TODO what here?
+            kp_msmt.pixel_sigma = 0.1 * bbox_dim;
+
+            if (kp_msmt.score > params_.keypoint_activation_threshold)
+            {
+                kp_msmt.observed = true;
+                n_keypoints_observed++;
+            } else {
+                kp_msmt.observed = false;
             }
+
+            obj_msmt.keypoint_measurements.push_back(kp_msmt);
         }
 
-        if (keyframe->measurements.size() > 0) {
-
-            // Create the list of measurements we need to associate.
-            // Identify which measurements have been tracked from already known objects
-            std::vector<size_t> measurement_index;
-            std::map<size_t, size_t> known_das;
-
-            for (size_t i = 0; i < keyframe->measurements.size(); ++i) 
-            {
-                auto known_id_it = object_track_ids_.find(keyframe->measurements[i].track_id);
-                if (known_id_it == object_track_ids_.end()) {
-                    // track not known, perform actual data association
-                    measurement_index.push_back(i);
-                } else {
-                    // track ID known, take data association as given
-                    known_das[i] = known_id_it->second;
-                }
-            }
-
-            // Create the list of objects we need to associate.
-            // count visible landmarks & create mapping from list of visible to list of all
-            std::vector<bool> visible = getVisibleObjects(spine_node);
-            size_t n_visible = 0;
-            std::vector<size_t> object_index;
-            for (size_t j = 0; j < estimated_objects_.size(); ++j)
-            {
-                if (visible[j])
-                {
-                    n_visible++;
-                    estimated_objects_[j]->setIsVisible(spine_node);
-                    object_index.push_back(j);
-                }
-            }
-
-            Eigen::MatrixXd mahals = Eigen::MatrixXd::Zero(measurement_index.size(), n_visible);
-            for (size_t i = 0; i < measurement_index.size(); ++i)
-            {
-                // ROS_WARN_STREAM("** Measurement " << i << "**");
-                for (size_t j = 0; j < n_visible; ++j)
-                {
-                    mahals(i, j) = estimated_objects_[object_index[j]]->computeMahalanobisDistance(
-                                                                            keyframe->measurements[measurement_index[i]]);
-                }
-            }
-
-            // std::cout << "Mahals:\n" << mahals << std::endl;
-      
-            Eigen::MatrixXd weights_matrix = MLDataAssociator(params_).computeConstraintWeights(mahals);
-
-            updateObjects(spine_node, 
-                          keyframe->measurements, 
-                          measurement_index, 
-                          known_das, 
-                          weights_matrix, 
-                          object_index);
+        if (n_keypoints_observed > 0) {
+            keyframe->measurements.push_back(obj_msmt);
         }
     }
 
-    visualizeObjectMeshes();
+    if (keyframe->measurements.size() > 0) {
+
+        // Create the list of measurements we need to associate.
+        // Identify which measurements have been tracked from already known objects
+        std::vector<size_t> measurement_index;
+        std::map<size_t, size_t> known_das;
+
+        for (size_t i = 0; i < keyframe->measurements.size(); ++i) 
+        {
+            auto known_id_it = object_track_ids_.find(keyframe->measurements[i].track_id);
+            if (known_id_it == object_track_ids_.end()) {
+                // track not known, perform actual data association
+                measurement_index.push_back(i);
+            } else {
+                // track ID known, take data association as given
+                known_das[i] = known_id_it->second;
+            }
+        }
+
+        // Create the list of objects we need to associate.
+        // count visible landmarks & create mapping from list of visible to list of all
+        std::vector<bool> visible = getVisibleObjects(spine_node);
+        size_t n_visible = 0;
+        std::vector<size_t> object_index;
+        for (size_t j = 0; j < estimated_objects_.size(); ++j)
+        {
+            if (visible[j])
+            {
+                n_visible++;
+                estimated_objects_[j]->setIsVisible(spine_node);
+                object_index.push_back(j);
+            }
+        }
+
+        Eigen::MatrixXd mahals = Eigen::MatrixXd::Zero(measurement_index.size(), n_visible);
+        for (size_t i = 0; i < measurement_index.size(); ++i)
+        {
+            // ROS_WARN_STREAM("** Measurement " << i << "**");
+            for (size_t j = 0; j < n_visible; ++j)
+            {
+                mahals(i, j) = estimated_objects_[object_index[j]]->computeMahalanobisDistance(
+                                                                        keyframe->measurements[measurement_index[i]]);
+            }
+        }
+
+        // std::cout << "Mahals:\n" << mahals << std::endl;
+    
+        Eigen::MatrixXd weights_matrix = MLDataAssociator(params_).computeConstraintWeights(mahals);
+
+        updateObjects(spine_node, 
+                        keyframe->measurements, 
+                        measurement_index, 
+                        known_das, 
+                        weights_matrix, 
+                        object_index);
+    }
+
+    return true;
 }
 
-bool ObjectHandler::updateObjects(SE3Node::Ptr node,
+bool SemanticMapper::updateObjects(SE3Node::Ptr node,
                                   const aligned_vector<ObjectMeasurement>& measurements,
                                   const std::vector<size_t>& measurement_index,
                                   const std::map<size_t, size_t>& known_das,
@@ -477,7 +578,7 @@ bool ObjectHandler::updateObjects(SE3Node::Ptr node,
 }
 
 std::vector<bool> 
-ObjectHandler::getVisibleObjects(SE3Node::Ptr node)
+SemanticMapper::getVisibleObjects(SE3Node::Ptr node)
 {
     std::vector<bool> visible(estimated_objects_.size(), false);
 
@@ -505,17 +606,17 @@ ObjectHandler::getVisibleObjects(SE3Node::Ptr node)
     return visible; 
 }
 
-void ObjectHandler::msgCallback(const object_pose_interface_msgs::KeypointDetections::ConstPtr& msg)
+void SemanticMapper::msgCallback(const object_pose_interface_msgs::KeypointDetections::ConstPtr& msg)
 {
-    // ROS_INFO_STREAM("[ObjectHandler] Received keypoint detection message, t = " << msg->header.stamp);
+    // ROS_INFO_STREAM("[SemanticMapper] Received keypoint detection message, t = " << msg->header.stamp);
 	received_msgs_++;
 
 	if (received_msgs_ > 1 && msg->header.seq != last_msg_seq_ + 1) {
-        ROS_ERROR_STREAM("[ObjectHandler] Error: dropped keypoint message. Expected " << last_msg_seq_ + 1 << ", got " << msg->header.seq);
+        ROS_ERROR_STREAM("[SemanticMapper] Error: dropped keypoint message. Expected " << last_msg_seq_ + 1 << ", got " << msg->header.seq);
     }
     // ROS_INFO_STREAM("Received relpose msg, seq " << msg->header.seq << ", time " << msg->header.stamp);
     {
-    	std::lock_guard<std::mutex> lock(mutex_);
+    	std::lock_guard<std::mutex> lock(queue_mutex_);
     	msg_queue_.push_back(*msg);
     }
     // cv_.notify_all();
@@ -523,7 +624,7 @@ void ObjectHandler::msgCallback(const object_pose_interface_msgs::KeypointDetect
     last_msg_seq_ = msg->header.seq;
 }
 
-void ObjectHandler::visualizeObjectMeshes() const
+void SemanticMapper::visualizeObjectMeshes() const
 {
     // Clear screen first
     // visualization_msgs::MarkerArray reset_markers;
@@ -642,7 +743,7 @@ void ObjectHandler::visualizeObjectMeshes() const
     vis_pub_.publish(object_markers);
 }
 
-void ObjectHandler::visualizeObjects() const
+void SemanticMapper::visualizeObjects() const
 {
   // Clear screen first
   visualization_msgs::MarkerArray reset_markers;
@@ -791,4 +892,11 @@ void ObjectHandler::visualizeObjects() const
 //   }
 
   vis_pub_.publish(markers_message);
+}
+
+void SemanticMapper::addPresenter(boost::shared_ptr<Presenter> presenter)
+{
+    presenter->setGraph(graph_);
+    presenter->setup();
+    presenters_.push_back(presenter);
 }

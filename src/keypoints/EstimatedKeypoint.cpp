@@ -86,7 +86,6 @@ void EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt, double w
 
   projection_factors_.push_back(proj_factor);
 
-  // kp->measurement_indices.push_back(measurements_.size() - 1);
   measurement_weights_.push_back(weight);
 
   // TODO "safety" check / error check
@@ -96,10 +95,10 @@ void EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt, double w
     // simply add the new factor(s)
     graph_->addFactor(proj_factor);
   }
-  else if (measurements_.size() >= params_.min_landmark_observations)
-  {
-    this->addToGraph();
-  }
+  // else if (measurements_.size() >= params_.min_landmark_observations)
+  // {
+  //   this->addToGraph();
+  // }
 
   // last_seen_ = msmt.pose_id;
 }
@@ -416,17 +415,6 @@ void EstimatedKeypoint::addToGraph()
   }
 }
 
-// double EstimatedKeypoint::computeMeasurementLikelihood(const ObjectMeasurement& msmt) const {
-//     // Find the measurement of this particular keypoint class id
-//     for (size_t i = 0; i < msmt.keypoint_measurements.size(); ++i) {
-//         if (msmt.keypoint_measurements[i].kp_class_id == classid_) {
-//             return computeMeasurementLikelihood(msmt.keypoint_measurements[i]);
-//         }
-//     }
-
-//     return 0.0;
-// }
-
 std::vector<Key> EstimatedKeypoint::getObservedKeys() const
 {
   std::vector<Key> keys;
@@ -480,22 +468,6 @@ double EstimatedKeypoint::computeMahalanobisDistance(const KeypointMeasurement& 
                                                             I_T_C_.rotation().toRotationMatrix(), 
                                                             graph_node_->vector());
 
-  // Eigen::Matrix<double, 2, 9> H;
-  // H.block<2,3>(0,0) = Hpoint;
-  // H.block<2,6>(0,3) = Hpose;
-
-  // Eigen::MatrixXd Plx = Eigen::MatrixXd::Zero(9,9);
-
-  // if (!in_graph_) {
-  //     Plx.block<3,3>(0,0) = global_covariance_;
-  //     Plx.block<6,6>(3,3) = joint_marginal(msmt.measured_symbol, msmt.measured_symbol);
-  // } else {
-  //     Plx.block<3,3>(0,0) = joint_marginal(sym::L(global_id_), sym::L(global_id_));
-  //     Plx.block<3,6>(0,3) = joint_marginal(sym::L(global_id_), msmt.measured_symbol);
-  //     Plx.block<6,3>(3,0) = Plx.block<3,6>(0,3).transpose();
-  //     Plx.block<6,6>(3,3) = joint_marginal(msmt.measured_symbol, msmt.measured_symbol);
-  // }
-
   Eigen::Matrix2d R = Eigen::Matrix2d::Zero();
   double px_sigma = msmt.pixel_sigma;
   R(0, 0) = px_sigma * px_sigma / (camera_calibration_->fx() * camera_calibration_->fx());
@@ -506,36 +478,20 @@ double EstimatedKeypoint::computeMahalanobisDistance(const KeypointMeasurement& 
   // Eigen::Matrix2d S = H * Plx * H.transpose() + R;
   // double mahal = residual.transpose() * S.inverse() * residual;
 
-  Eigen::MatrixXd Plx = parent_->getPlx(sym::L(id()), Symbol(msmt.measured_key));
+  Eigen::MatrixXd Plx = Eigen::MatrixXd::Zero(9,9);
+
+  if (!in_graph_) {
+    Eigen::MatrixXd Plx = parent_->getPlx(sym::L(id()), Symbol(msmt.measured_key));
+  } else {
+    // TODO TODO ugh
+    Plx.block<3,3>(0,0) = global_covariance_;
+  }
+
 
   // std::cout << "Plx for landmark " << id() << ": " << std::endl;
   // std::cout << Plx << std::endl;
 
   double mahal = residual.transpose() * (H * Plx * H.transpose() + R).lu().solve(residual);
-
-  // ROS_INFO_STREAM("Measurement of kp " << id() << ": " << msmt.normalized_measurement.transpose());
-  // ROS_INFO_STREAM("Residual: " << residual.transpose());
-  // ROS_INFO_STREAM("Plx: ");
-  // std::cout << Plx << std::endl;
-  // ROS_INFO_STREAM("H: ");
-  // std::cout << H << std::endl;
-  // ROS_INFO_STREAM("R (covariance): ");
-  // std::cout << R << std::endl;
-  // ROS_INFO_STREAM("G_T_I = ");
-  // std::cout << G_x_I << std::endl;
-  // ROS_INFO_STREAM("G_l from object = ");
-  // std::cout << global_position_.vector().transpose() << std::endl;
-  // if (inGraph()) {
-  //     ROS_INFO_STREAM("G_l from graph = ");
-  //     gtsam::Point3 G_l;
-  //     graph_->getSolution(sym::L(id()), G_l);
-  //     std::cout << G_l.vector().transpose() << std::endl;
-  // }
-  // ROS_INFO_STREAM("I_T_C = ");
-  // std::cout << I_T_C_ << std::endl;
-  // // ROS_INFO_STREAM(" ( PX alone = ");
-  // // std::cout << graph_->marginalCovariance(sym::X(msmt.pose_id)) << std::endl;
-  // ROS_INFO_STREAM("Mahal dist = " << mahal);
 
   return mahal;
 }

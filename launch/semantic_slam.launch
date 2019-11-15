@@ -42,7 +42,7 @@
   <param name="/yolo"                             value="$(arg yolo)" type="bool"/>
 
   <node pkg="semantic_slam" type="semantic_slam_node" name="semantic_slam" output="screen"
-            launch-prefix="" >
+            launch-prefix="gdb -ex run --args" >
     <param name="odom_topic" value="$(arg odom_topic)" />
 
     <!-- Camera calibration file -->

@@ -21,6 +21,7 @@ void OdometryHandler::setup()
     subscriber_ = nh_.subscribe(odometry_topic, 1000, &OdometryHandler::msgCallback, this);
 
     received_msgs_ = 0;
+    last_keyframe_index_ = 0;
 
     node_chr_ = 'x';
 
@@ -108,6 +109,7 @@ CeresNodePtr OdometryHandler::getSpineNode(ros::Time time)
 }
 
 CeresNodePtr OdometryHandler::attachSpineNode(ros::Time time)
+// SemanticKeyframe OdometryHandler::createKeyframe(ros::Time time)
 {
     // Integrate up to time and attach a node corresponding to it
 
@@ -116,6 +118,8 @@ CeresNodePtr OdometryHandler::attachSpineNode(ros::Time time)
     // becomes empty, yet the next message we receive will be after `time`. can't
     // check for this case unless we have both "straddling" messages present here
     if (msg_queue_.size() < 2) return nullptr;
+
+    // Symbol keyframe_symbol(node_chr_, last_keyframe_index_ + 1);
 
     SE3NodePtr last_odom_node = graph_->findLastNode<SE3Node>(node_chr_);
 

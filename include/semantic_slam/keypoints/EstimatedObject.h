@@ -1,54 +1,24 @@
 #pragma once
 
-// #include "semslam/Common.h"
-// #include "semslam/FactorInfo.h"
 #include "semantic_slam/Common.h"
 #include "semantic_slam/keypoints/EstimatedKeypoint.h"
-// #include "omnigraph/keypoints/StructureFactor.h"
 #include "semantic_slam/keypoints/geometry.h"
 #include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/pose_math.h"
 #include "semantic_slam/CeresStructureFactor.h"
-// #include "omnigraph/omnigraph.h"
 
+#include <mutex>
 #include <memory>
-
-// #include <gtsam/geometry/Pose3.h>
-// #include <gtsam/nonlinear/Values.h>
-// #include <gtsam/base/FastVector.h>
-// #include <gtsam/nonlinear/Marginals.h>
-// #include <gtsam/sam/BearingRangeFactor.h>
-
-// #include <rcta_worldmodel_msgs/Object.h>
 
 #include "semantic_slam/keypoints/StructureOptimizationProblem.h"
 
 #include <boost/enable_shared_from_this.hpp>
 
-// using semslam::StructureFactor;
-// using namespace omnigraph;
-
-// namespace gtsam
-// {
-// // class ISAM2;
-// class Values;
-// class Pose3;
-// class NonlinearFactorGraph;
-// } // namespace gtsam
 
 class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
 {
 public:
   using Ptr = boost::shared_ptr<EstimatedObject>;
-
-  // EstimatedObject(boost::shared_ptr<PoseGraphHandler> graph,
-  // 				const ObjectParams& params,
-  // 				uint64_t object_id,
-  // 				uint64_t first_keypoint_id,
-  // 				const ObjectMeasurement& msmt,
-  // 				const gtsam::Pose3& G_T_C,
-  // 				const gtsam::Pose3& I_T_C,
-  //                 boost::shared_ptr<gtsam::Cal3DS2> calibration);
 
   static EstimatedObject::Ptr create(boost::shared_ptr<FactorGraph> graph, const ObjectParams &params,
                                      geometry::ObjectModelBasis object_model, uint64_t object_id,
@@ -77,12 +47,6 @@ public:
 
   // int64_t getWhenAddedToGraph() { if (inGraph()) return pose_added_to_graph_; else return -1; }
 
-  // std::vector<Key> getKeypointKeys() const;
-  // std::vector<Key> getKeypointKeysInGraph() const;
-  // std::vector<Key> getAllKeys() const;
-  // std::vector<Key> getKeysInGraph() const;
-
-  // const gtsam::Pose3& pose() const { return pose_; }
   Pose3 pose() const;
 
   void setPose(const Pose3 &pose)
@@ -139,50 +103,19 @@ public:
 
   Eigen::VectorXd getKeypointOptimizationWeights() const;
 
-  // gtsam::JointMarginal jointMarginalCovariance(const ObjectMeasurement &msmt) const;
-
   void optimizeStructure();
 
+  bool readyToAddToGraph();
+
+  void addToGraph();
+
   // double getStructureError() const;
-
-  // const gtsam::NonlinearFactorGraph &getStructureGraph()
-  // {
-  //   if (modified_)
-  //     optimizeStructure();
-  //   return structure_graph_;
-  // }
-  // const gtsam::Values &getStructureValues()
-  // {
-  //   if (modified_)
-  //     optimizeStructure();
-  //   return structure_optimization_values_;
-  // }
-
-  // geometry::StructureResult
-  // optimizeStructureFromMeasurementSet(const aligned_vector<ObjectMeasurement>& object_measurements,
-  // 									boost::shared_ptr<gtsam::Cal3DS2> camera_calibration,
-  // 									const gtsam::Pose3& I_T_C,
-  // 									boost::shared_ptr<omnigraph::Omnigraph> graph,
-  // 									const geometry::ObjectModelBasis& model,
-  // 									gtsam::Pose3& object_pose,
-  // 									bool compute_covariance=false);
 
   Eigen::MatrixXd getPlx(Key l_key, Key x_key);
 
   // void createMarginals(const std::vector<Key>& extra_keys);
 
   // utils::ProjectionFactor::shared_ptr getProjectionFactor(const KeypointMeasurement &kp_msmt) const;
-
-  // void addCameraPoseConstraints(gtsam::NonlinearFactorGraph &G) const;
-  // void addProjectionConstraints(gtsam::NonlinearFactorGraph &G) const;
-  // void addDepthConstraints(gtsam::NonlinearFactorGraph &G) const;
-
-  // void setWorldModelObject(rcta_worldmodel_msgs::Object obj);
-  // void setWorldModelObject(const boost::shared_ptr<rcta_worldmodel_msgs::Object> &obj_ptr);
-  // boost::shared_ptr<rcta_worldmodel_msgs::Object> getWorldModelObject() const;
-
-  // bool inWorldModel() const { return in_worldmodel_; }
-  // void setInWorldModel(bool value) { in_worldmodel_ = value; }
 
 private:
   EstimatedObject(boost::shared_ptr<FactorGraph> graph, const ObjectParams &params,
@@ -203,50 +136,20 @@ private:
   // 						std::vector<FactorInfoPtr>& new_factors,
   // 						gtsam::Values& values);
 
-  void tryAddSelfToGraph(const ObjectMeasurement &msmt);
-
-  // void scaleStructure(double scale);
-
-  // bool checkSafeToAdd(const gtsam::NonlinearFactorGraph& G, const gtsam::Values& new_values, const gtsam::Values&
-  // state_estimate);
-
-  // bool checkSafe(const gtsam::NonlinearFactorGraph& G,
-  // 	const gtsam::Values& new_values,
-  // 	const gtsam::Values& state_estimate,
-  // 	const gtsam::ISAM2& isam);
-
-  // gtsam::FactorIndices getFactorIndicesForRemoval() const;
-
   // void sanityCheck(NodeInfoConstPtr node_info);
 
   size_t countObservedFeatures(const ObjectMeasurement &msmt) const;
 
   // bool checkObjectExploded() const;
 
-  // void updatePoseFromKeypoints();
-
-  // bool checkKeypointMerge(const EstimatedKeypoint::Ptr& kp1,
-  //                         const EstimatedKeypoint::Ptr& kp2);
-
-  // gtsam::NonlinearFactorGraph structure_graph_;
-  // gtsam::Values structure_optimization_values_;
-  // boost::shared_ptr<gtsam::Marginals> structure_marginals_;
-
-  // gtsam::NonlinearFactorGraph full_factor_graph_;
-  // gtsam::Values full_values_;
-
   boost::shared_ptr<FactorGraph> graph_;
 
-  // boost::shared_ptr<rcta_worldmodel_msgs::Object> managed_wm_object_;
-
   uint64_t id_;            // ID within the *pose graph*
-  // uint64_t worldmodel_id_; // ID within the *world model* -- different from id_!
   uint64_t first_kp_id_;
   uint64_t classid_;
   std::string obj_name_;
   bool in_graph_;
   bool is_bad_;
-  // bool in_worldmodel_;
 
   uint64_t last_seen_;
   uint64_t last_visible_;
@@ -269,13 +172,6 @@ private:
 
   std::vector<EstimatedKeypoint::Ptr> keypoints_;
 
-  // std::vector<std::pair<FactorInfo, gtsam::NonlinearFactor::shared_ptr>> new_factors_;
-  // std::vector<NodeInfoPtr> new_node_infos_;
-  // gtsam::Values new_values_;
-
-  // FactorInfo structure_factor_info_;
-  // gtsam::NonlinearFactor::shared_ptr structure_factor_;
-
 /** Flag on whether the structure factor graph has been modified since the last marginals computation */
   bool modified_;
 
@@ -287,6 +183,7 @@ private:
   Eigen::VectorXd basis_coefficients_;
 
   boost::shared_ptr<StructureOptimizationProblem> structure_problem_;
+  std::mutex problem_mutex_;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

@@ -1,26 +1,11 @@
 #pragma once
 
-// #include "semslam/Common.h"
-// #include "semslam/FactorInfo.h"
-// #include "semslam/PoseGraphHandler.h"
-
-// #include "omnigraph/base/node_info.h"
 #include "semantic_slam/Common.h"
 #include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/pose_math.h"
 #include "semantic_slam/CameraCalibration.h"
 #include "semantic_slam/VectorNode.h"
 #include "semantic_slam/CeresProjectionFactor.h"
-
-// #include <gtsam/nonlinear/Marginals.h>
-// #include <omnigraph/keypoints/RangeFactor.h>
-
-// typedef gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3DS2> ProjectionFactor;
-// typedef boost::shared_ptr<ProjectionFactor> SharedProjectionFactor;
-// typedef RangeFactor<gtsam::Pose3, gtsam::Point3> DepthFactor;
-// typedef boost::shared_ptr<DepthFactor> SharedDepthFactor;
-
-// using namespace omnigraph;
 
 class EstimatedObject;
 
@@ -66,8 +51,6 @@ public:
         graph_node_->vector() = p;
     }
 
-    // gtsam::Point3 structure() const { return local_position_; }
-
     bool triangulate(boost::optional<double&> condition_number = boost::none);
 
     bool initialized() const
@@ -79,9 +62,6 @@ public:
 
   uint64_t local_id;
 
-  // std::vector<SharedProjectionFactor> projection_factors;
-  // std::vector<size_t> measurement_indices;
-
   void addMeasurement(const KeypointMeasurement& msmt, double weight);
 
   double computeMahalanobisDistance(const KeypointMeasurement& msmt) const;
@@ -89,8 +69,6 @@ public:
   std::vector<Key> getObservedKeys() const;
 
   // double computeMeasurementLikelihood(const KeypointMeasurement& msmt) const;
-
-  // double computeMeasurementLikelihood(const ObjectMeasurement& msmt) const;
 
   void addToGraph();
 
@@ -123,14 +101,8 @@ public:
 
   double maxMahalanobisDistance() const;
 
-  Eigen::Matrix3d globalCovariance() const
-  {
-	return global_covariance_;
-  }
-  void setGlobalCovariance(Eigen::Matrix3d cov)
-  {
-	global_covariance_ = cov;
-  }
+  const Eigen::Matrix3d& covariance() const { return global_covariance_; }
+  Eigen::Matrix3d& covariance() { return global_covariance_; }
 
   void removeFromEstimation();
 
@@ -164,11 +136,7 @@ private:
   // uint64_t last_seen_;
 
   std::vector<CeresFactorPtr> projection_factors_;
-//   std::vector<std::pair<FactorInfo, gtsam::NonlinearFactor::shared_ptr>> projection_factors_;
   std::vector<double> measurement_weights_;
-
-//   std::vector<std::pair<FactorInfo, gtsam::NonlinearFactor::shared_ptr>> depth_factors_;
-  // FactorInfoPtr structure_factor_;
 
   Eigen::Vector3d local_position_;  // within containing object
 

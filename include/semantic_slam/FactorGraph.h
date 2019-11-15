@@ -42,7 +42,9 @@ public:
     bool computeMarginalCovariance(const std::vector<Key>& keys);
     bool computeMarginalCovariance(const std::vector<CeresNodePtr>& nodes);
 
+    Eigen::MatrixXd getMarginalCovariance(const Key& key) const;
     Eigen::MatrixXd getMarginalCovariance(const Key& key1, const Key& key2) const;
+    Eigen::MatrixXd getMarginalCovariance(CeresNodePtr node) const;
     Eigen::MatrixXd getMarginalCovariance(CeresNodePtr node1, CeresNodePtr node2) const;
 
     CeresNodePtr findLastNodeBeforeTime(unsigned char symbol_chr, ros::Time time);

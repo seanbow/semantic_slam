@@ -166,48 +166,6 @@ EstimatedObject::inGraph() const
   return in_graph_;
 }
 
-// std::vector<Key>
-// EstimatedObject::getKeypointKeys() const
-// {
-//   std::vector<Key> keys;
-
-//   for (size_t i = 0; i < keypoints_.size(); ++i) {
-//     keys.push_back(sym::L(keypoints_[i]->id()));
-//   }
-
-//   return keys;
-// }
-
-// std::vector<Key>
-// EstimatedObject::getKeypointKeysInGraph() const
-// {
-//   std::vector<Key> keys;
-
-//   for (size_t i = 0; i < keypoints_.size(); ++i) {
-//     if (keypoints_[i]->inGraph())
-//       keys.push_back(sym::L(keypoints_[i]->id()));
-//   }
-
-//   return keys;
-// }
-
-// std::vector<Key>
-// EstimatedObject::getAllKeys() const
-// {
-//   std::vector<Key> keys = getKeypointKeys();
-//   keys.push_back(sym::O(id_));
-//   return keys;
-// }
-
-// std::vector<Key>
-// EstimatedObject::getKeysInGraph() const
-// {
-//   std::vector<Key> keys = getKeypointKeysInGraph();
-//   if (inGraph())
-//     keys.push_back(sym::O(id_));
-//   return keys;
-// }
-
 int64_t
 EstimatedObject::findKeypointByClass(uint64_t classid) const
 {
@@ -241,26 +199,22 @@ EstimatedObject::optimizeStructure()
   size_t m = model_.mu.cols();
   size_t k = model_.pc.rows() / 3;
 
-  // structure_graph_ = gtsam::NonlinearFactorGraph();
-  // structure_optimization_values_.clear();
-
   Eigen::MatrixXd mu = geometry::centralize(model_.mu);
   Eigen::MatrixXd pc = geometry::centralize(model_.pc);
 
   double lambda = params_.structure_regularization_factor;
-
-  // ROS_WARN_STREAM("Beginning structure optimization, m = " << m << "; k = " << k);
-  // ROS_WARN_STREAM("Object " << id_ << ", name " << obj_name());
 
 
   Eigen::VectorXd weights = Eigen::VectorXd::Ones(m);
   Pose3 body_T_camera(I_T_C_.rotation(),
                       I_T_C_.translation());
 
+  Pose3 initial_object_pose = graph_pose_node_->pose();
+  
+  std::lock_guard<std::mutex> lock(problem_mutex_);
+
   structure_problem_ = util::allocate_aligned<StructureOptimizationProblem>(model_, *camera_calibration_,
                                                     body_T_camera, weights, params_);
-
-  Pose3 initial_object_pose = graph_pose_node_->pose();
 
   structure_problem_->initializePose(initial_object_pose);
 
@@ -271,11 +225,6 @@ EstimatedObject::optimizeStructure()
     }
 
     Pose3 cam_pose = cam_node->pose();
-
-    // gtsam::Pose3 cam_pose;
-    // graph_->getSolution(obj_msmt.observed_symbol, cam_pose);
-    // Pose3 pose(cam_pose.rotation(),
-    //            cam_pose.translation().vector());
 
     // TODO should we be using the real covariances here?? or at least in
     // covariance computation within ceres?
@@ -363,6 +312,7 @@ EstimatedObject::getPlx(Key l_key, Key x_key)
 
   Symbol x_symbol(x_key);
 
+  std::lock_guard<std::mutex> lock(problem_mutex_);
   Eigen::MatrixXd Plx = structure_problem_->getPlx(kp->classid(), x_symbol.index());
 
   return Plx;
@@ -511,12 +461,12 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
 
   last_seen_ = Symbol(msmt.observed_key).index();
 
-  if (!in_graph_) {
-    tryAddSelfToGraph(msmt);
-  }
+  // if (!in_graph_ && readyToAddToGraph()) {
+  //   addToGraph();
+  // }
 
   // TEST TODO
-  if (!params_.include_objects_in_graph || !in_graph_) {
+  if (!in_graph_) {
     optimizeStructure();
   }
 }
@@ -587,57 +537,55 @@ EstimatedObject::getKeypointOptimizationWeights() const
   return w;
 }
 
-void
-EstimatedObject::tryAddSelfToGraph(const ObjectMeasurement& msmt)
+bool EstimatedObject::readyToAddToGraph()
 {
-  if (in_graph_)
-    return;
+  if (in_graph_) return false;
 
-  // Count how many keypoints are in the graph
+  // Count how many keypoints have enough measurements to be considered well localized
+  // TODO use a better metric than #measurements?
   size_t n_keypoints_localized = 0;
-
-  for (auto kp : keypoints_) {
-    if (kp->inGraph())
-      n_keypoints_localized++;
-    // if (kp->nMeasurements() > 2) n_keypoints_localized++;
+  for (const auto& kp : keypoints_) {
+    if (kp->nMeasurements() > 2) n_keypoints_localized++;
   }
-
-  // ROS_INFO_STREAM("Object " << id() << " has " << n_keypoints_localized << "
-  // localized keypoints.");
 
   if (n_keypoints_localized >= params_.min_object_n_keypoints) {
-    // add self to the graph
-
-    // Update our structure given the keypoints we have so far.
-    try {
-      optimizeStructure();
-    }
-    catch (const std::exception& e)
-    {
-      ROS_WARN_STREAM("Failed to optimize structure of object " << id());
-      ROS_WARN_STREAM("Error: " << e.what());
-      // removeFromEstimation();
-      return;
-    }
-
-    // Make sure all of our keypoints are in the graph
-    for (EstimatedKeypoint::Ptr& kp : keypoints_) {
-      kp->addToGraphForced();
-    }
-
-    modified_ = true;
-
-    if (params_.include_objects_in_graph) {
-      graph_->addNode(graph_pose_node_);
-      if (k_ > 0) graph_->addNode(graph_coefficient_node_);
-      graph_->addFactor(structure_factor_);
-    }
-
-    in_graph_ = true;
-    // pose_added_to_graph_ = msmt.pose_id;
-
-    ROS_INFO_STREAM("Object " << id() << " added to graph.");
+    return true;
   }
+
+  return false;
+}
+
+void
+EstimatedObject::addToGraph()
+{
+  // Compute a good initial estimate with a local optimization
+  optimizeStructure();
+
+  // catch (const std::exception& e)
+  // {
+  //   ROS_WARN_STREAM("Failed to optimize structure of object " << id());
+  //   ROS_WARN_STREAM("Error: " << e.what());
+  //   // removeFromEstimation();
+  //   return;
+  // }
+
+  // Add our keypoints are in the graph
+  for (EstimatedKeypoint::Ptr& kp : keypoints_) {
+    kp->addToGraphForced();
+  }
+
+  modified_ = true;
+
+  if (params_.include_objects_in_graph) {
+    graph_->addNode(graph_pose_node_);
+    if (k_ > 0) graph_->addNode(graph_coefficient_node_);
+    graph_->addFactor(structure_factor_);
+  }
+
+  in_graph_ = true;
+  // pose_added_to_graph_ = msmt.pose_id;
+
+  ROS_INFO_STREAM("Object " << id() << " added to graph.");
 }
 
 void
@@ -646,9 +594,6 @@ EstimatedObject::removeFromEstimation()
   is_bad_ = true;
 
   ROS_WARN_STREAM("Removing object " << id() << " from estimation.");
-
-  // return; // TODO why does everything below this cause a crash??? --> it was
-  // a GTSAM bug
 
   for (auto& kp : keypoints_) {
     kp->removeFromEstimation();
@@ -659,8 +604,6 @@ EstimatedObject::removeFromEstimation()
     graph_->removeNode(graph_coefficient_node_);
     graph_->removeFactor(structure_factor_);
   }
-
-  // graph_->isamUpdate({}, gtsam::Values(), getFactorIndicesForRemoval());
 
   in_graph_ = false;
 }

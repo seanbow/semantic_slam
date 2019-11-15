@@ -2,7 +2,7 @@
 
 #include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/Handler.h"
-#include "semantic_slam/ObjectHandler.h"
+#include "semantic_slam/SemanticMapper.h"
 #include "semantic_slam/OdometryHandler.h"
 #include "semantic_slam/PosePresenter.h"
 #include "semantic_slam/TrajectoryPresenter.h"
@@ -142,32 +142,24 @@ int main(int argc, char *argv[])
 {
     ros::init(argc, argv, "semslam");
     
-    FactorGraphSupervisor supervisor;
+    // FactorGraphSupervisor supervisor;
 
     auto odom_handler = boost::shared_ptr<OdometryHandler>(new OdometryHandler);
 
-    auto object_handler = boost::shared_ptr<ObjectHandler>(new ObjectHandler);
-    object_handler->setOdometryHandler(odom_handler);
+    auto mapper = boost::shared_ptr<SemanticMapper>(new SemanticMapper);
+    mapper->setOdometryHandler(odom_handler);
 
-    supervisor.addHandler(odom_handler);
-    supervisor.addHandler(object_handler);
+    // Start message handling thread
+    ros::AsyncSpinner message_spinner(1);
+    message_spinner.start();
+    
+    // Setup and add presenters
+    auto pose_presenter = util::allocate_aligned<PosePresenter>();
+    auto trajectory_presenter = util::allocate_aligned<TrajectoryPresenter>();
 
-    supervisor.emplacePresenter(new PosePresenter);
-    supervisor.emplacePresenter(new TrajectoryPresenter);
+    mapper->addPresenter(pose_presenter);
+    mapper->addPresenter(trajectory_presenter);
 
-    // install a signal handler so we can stop the cv waiting on CTRL+C
-    shutdown_handler = [&](int signal) { 
-        std::cout << " Shutting down " << std::endl;
-        supervisor.stop();
-        ros::shutdown();
-        // why doesn't this work to shut it down damnit
-        // have to do this --
-        exit(1);
-    };
+    mapper->start();
 
-    // std::signal(SIGINT, signal_handler);
-
-    supervisor.start();
-
-    supervisor.stop();
 }

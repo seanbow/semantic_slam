@@ -3,6 +3,7 @@
 #include "semantic_slam/Common.h"
 #include "semantic_slam/Handler.h"
 #include "semantic_slam/pose_math.h"
+#include "semantic_slam/SemanticKeyframe.h"
 
 #include <nav_msgs/Odometry.h>
 #include <mutex>
@@ -25,6 +26,8 @@ public:
 
     CeresNodePtr attachSpineNode(ros::Time time);
 
+    SemanticKeyframe createKeyframe(ros::Time time);
+
     bool getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3& T12);
 
     // inherit constructor
@@ -41,6 +44,7 @@ private:
 
     Pose3 last_odom_;
     ros::Time last_time_;
+    size_t last_keyframe_index_;
     
     size_t received_msgs_;
     size_t last_msg_seq_;

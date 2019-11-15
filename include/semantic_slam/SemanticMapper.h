@@ -8,28 +8,38 @@
 #include "semantic_slam/keypoints/EstimatedObject.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/SemanticKeyframe.h"
+#include "semantic_slam/Presenter.h"
 
 #include <object_pose_interface_msgs/KeypointDetections.h>
 
 #include <nav_msgs/Odometry.h>
 #include <mutex>
+// #include <shared_mutex>
 #include <deque>
 #include <unordered_map>
 // #include <gtsam/geometry/Pose3.h>
 
 class OdometryHandler;
 
-class ObjectHandler : public Handler
+class SemanticMapper
 {
 public:
+    SemanticMapper();
+
     void setup();
 
-    void update();
+    bool updateObjects();
+    void tryAddObjectsToGraph();
+    bool tryOptimize();
+
+    void processMessagesUpdateObjectsThread();
+    void addObjectsAndOptimizeGraphThread();
+
+    void computeLandmarkCovariances();
+
+    void start();
 
     void msgCallback(const object_pose_interface_msgs::KeypointDetections::ConstPtr& msg);
-
-    // inherit constructor
-    using Handler::Handler;
     
     void loadModelFiles(std::string path);
 
@@ -42,16 +52,21 @@ public:
 
     bool keepFrame(ros::Time time);
 
-    void setOdometryHandler(boost::shared_ptr<OdometryHandler> odom) {
-        odometry_handler_ = odom;
-    }
+    void setOdometryHandler(boost::shared_ptr<OdometryHandler> odom);
+
+    void addPresenter(boost::shared_ptr<Presenter> presenter);
 
 private:
+    boost::shared_ptr<FactorGraph> graph_;
+    std::mutex graph_mutex_; // wish this could be a shared_mutex
+
+    ros::NodeHandle nh_;
+    ros::NodeHandle pnh_;
+
     ros::Subscriber subscriber_;
 
 	std::deque<object_pose_interface_msgs::KeypointDetections> msg_queue_;
-
-    std::mutex mutex_;
+    std::mutex queue_mutex_;
 
     size_t received_msgs_;
     size_t last_msg_seq_;
@@ -91,6 +106,10 @@ private:
                        const std::vector<size_t>& object_index);
 
     ros::Publisher vis_pub_;
+
+    std::vector<boost::shared_ptr<Presenter>> presenters_;
+
+    bool running_;
 
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

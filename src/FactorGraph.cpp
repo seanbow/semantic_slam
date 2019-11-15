@@ -36,6 +36,8 @@ bool FactorGraph::setNodeConstant(CeresNodePtr node)
 bool FactorGraph::solve(bool verbose)
 {
     ceres::Solver::Summary summary;
+    
+    solver_options_.minimizer_progress_to_stdout = verbose;
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -159,6 +161,12 @@ bool FactorGraph::computeMarginalCovariance(const std::vector<CeresNodePtr>& nod
     // return covariance_->Compute(cov_blocks, problem_.get());
 }
 
+Eigen::MatrixXd FactorGraph::getMarginalCovariance(const Key& key) const
+{
+    auto node = getNode(key);
+    if (!node) throw std::runtime_error("Error: tried to get the covariance of a node not in the FactorGraph");
+    return getMarginalCovariance(node, nullptr);
+}
 
 Eigen::MatrixXd FactorGraph::getMarginalCovariance(const Key& key1, const Key& key2) const 
 {
@@ -169,6 +177,11 @@ Eigen::MatrixXd FactorGraph::getMarginalCovariance(const Key& key1, const Key& k
     }
 
     return getMarginalCovariance(node1, node2);
+}
+
+Eigen::MatrixXd FactorGraph::getMarginalCovariance(CeresNodePtr node) const
+{
+    return getMarginalCovariance(node, nullptr);
 }
 
 Eigen::MatrixXd FactorGraph::getMarginalCovariance(CeresNodePtr node1, CeresNodePtr node2) const
