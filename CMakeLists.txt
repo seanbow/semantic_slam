@@ -199,8 +199,8 @@ target_link_libraries(OdometryHandler
 )
 
 add_library(PosePresenter src/PosePresenter.cpp)
-
 add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
+add_library(ObjectMeshPresenter src/ObjectMeshPresenter.cpp)
 
 add_library(EstimatedObject src/keypoints/EstimatedObject.cpp)
 
@@ -267,6 +267,7 @@ target_link_libraries(semantic_slam_node
     SemanticMapper
     PosePresenter
     TrajectoryPresenter
+    ObjectMeshPresenter
     ${BASE_LIBS}
 )
 

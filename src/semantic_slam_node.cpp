@@ -6,6 +6,7 @@
 #include "semantic_slam/OdometryHandler.h"
 #include "semantic_slam/PosePresenter.h"
 #include "semantic_slam/TrajectoryPresenter.h"
+#include "semantic_slam/ObjectMeshPresenter.h"
 
 #include <rosfmt/rosfmt.h>
 #include <fmt/ostream.h>
@@ -156,9 +157,11 @@ int main(int argc, char *argv[])
     // Setup and add presenters
     auto pose_presenter = util::allocate_aligned<PosePresenter>();
     auto trajectory_presenter = util::allocate_aligned<TrajectoryPresenter>();
+    auto object_presenter = util::allocate_aligned<ObjectMeshPresenter>();
 
     mapper->addPresenter(pose_presenter);
     mapper->addPresenter(trajectory_presenter);
+    mapper->addPresenter(object_presenter);
 
     mapper->start();
 

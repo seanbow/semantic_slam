@@ -49,7 +49,7 @@ void SemanticMapper::setup()
     loadParameters();
 
 
-    vis_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("keypoint_objects/object_markers", 10);
+    // vis_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("keypoint_objects/object_markers", 10);
 }
 
 void SemanticMapper::setOdometryHandler(boost::shared_ptr<OdometryHandler> odom) {
@@ -782,15 +782,6 @@ void SemanticMapper::msgCallback(const object_pose_interface_msgs::KeypointDetec
 
 void SemanticMapper::visualizeObjectMeshes() const
 {
-    // Clear screen first
-    // visualization_msgs::MarkerArray reset_markers;
-    // reset_markers.markers.resize(1);
-    // reset_markers.markers[0].header.frame_id = "map";
-    // reset_markers.markers[0].header.stamp = ros::Time::now();
-    // reset_markers.markers[0].ns = "deleteAllMarkers";
-    // reset_markers.markers[0].action = 3;
-    // vis_pub_.publish(reset_markers);    
-
     visualization_msgs::MarkerArray object_markers;
     visualization_msgs::Marker object_marker;
     object_marker.type = visualization_msgs::Marker::MESH_RESOURCE;
