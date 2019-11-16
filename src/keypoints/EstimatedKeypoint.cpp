@@ -495,6 +495,7 @@ double EstimatedKeypoint::computeMahalanobisDistance(const KeypointMeasurement& 
   R(1, 1) = px_sigma * px_sigma / (camera_calibration_->fy() * camera_calibration_->fy());
 
   // std::cout << "R = \n" << R << std::endl;
+  // std::cout << "px sigma = " << px_sigma << "; fx = " << camera_calibration_->fx() << std::endl;
 
   // Eigen::Matrix2d S = H * Plx * H.transpose() + R;
   // double mahal = residual.transpose() * S.inverse() * residual;
@@ -502,14 +503,14 @@ double EstimatedKeypoint::computeMahalanobisDistance(const KeypointMeasurement& 
   Eigen::MatrixXd Plx = Eigen::MatrixXd::Zero(9,9);
 
   if (!in_graph_) {
-    Eigen::MatrixXd Plx = parent_->getPlx(sym::L(id()), Symbol(msmt.measured_key));
+    Plx = parent_->getPlx(sym::L(id()), Symbol(msmt.measured_key));
   } else {
-    // TODO TODO ugh
-    Plx.block<3,3>(0,0) = global_covariance_;
+    Plx = mapper_->getPlx(sym::L(id()), Symbol(msmt.measured_key));
   }
 
 
   // std::cout << "Plx for landmark " << id() << ": " << std::endl;
+  // std::cout << " in graph?: " << in_graph_ << "\n";
   // std::cout << Plx << std::endl;
 
   double mahal = residual.transpose() * (H * Plx * H.transpose() + R).lu().solve(residual);

@@ -52,6 +52,8 @@ public:
 
     aligned_vector<ObjectMeasurement> measurements;
 
+    const std::map<SemanticKeyframe::Ptr, int> neighbors() const { return neighbors_; }
+
     // std::vector<ObjectMeasurement>& measurements() { return measurements_; }
     std::vector<EstimatedObject::Ptr>& visible_objects() { return visible_objects_; }
 

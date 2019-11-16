@@ -67,9 +67,9 @@ include_objects_in_graph: true
 # where W = (1/structure_error_coefficient) * I
 # i.e. this is an inverse "noise" like value where higher = more penalty for 
 # deviations from the calculated object structure
-structure_error_coefficient: 500
+structure_error_coefficient: 1000
 
-keypoint_activation_threshold: 0.70     # threshold above which to consider a keypoint observed
+keypoint_activation_threshold: 0.60     # threshold above which to consider a keypoint observed
 
 camera_range: 10                        # meters
 

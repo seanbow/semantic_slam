@@ -22,7 +22,7 @@ CeresProjectionFactor::CeresProjectionFactor(SE3NodePtr camera_node,
 void CeresProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
     // TODO fix this
-    ceres::LossFunction* lf = new ceres::HuberLoss(1.5);
+    ceres::LossFunction* lf = new ceres::HuberLoss(2.4);
     // ceres::LossFunction* lf = NULL;
     residual_id_ = problem->AddResidualBlock(cf_, 
                                             lf, 

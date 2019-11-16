@@ -469,6 +469,7 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
 
   auto keyframe = mapper_->keyframes()[Symbol(msmt.observed_key).index()];
   keyframe_observations_.push_back(keyframe);
+  keyframe->visible_objects().push_back(shared_from_this());
 
   for (size_t i = 0; i < msmt.keypoint_measurements.size(); ++i) {
     const KeypointMeasurement& kp_msmt = msmt.keypoint_measurements[i];

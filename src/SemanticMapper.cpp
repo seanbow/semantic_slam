@@ -37,6 +37,8 @@ void SemanticMapper::setup()
     measurements_processed_ = 0;
     n_landmarks_ = 0;
 
+    last_kf_covariance_ = Eigen::MatrixXd::Zero(6,6);
+
     running_ = false;
 
     node_chr_ = 'o';
@@ -104,6 +106,12 @@ void SemanticMapper::processMessagesUpdateObjectsThread()
 
                 next_keyframe_->updateConnections();
 
+                // std::cout << "Keyframe neighbors: \n";
+                // for (auto connection : next_keyframe_->neighbors()) {
+                //     std::cout << DefaultKeyFormatter(connection.first->key()) << " ";
+                // }
+                // std::cout << std::endl;
+
                 for (auto& p : presenters_) p->present(keyframes_, estimated_objects_);
             }
 
@@ -123,7 +131,7 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
         bool did_optimize = tryOptimize();
 
         if (did_optimize) {
-            computeLandmarkCovariances();
+            computeCovariances();
         }
 
         ros::Duration(0.003).sleep();
@@ -153,7 +161,7 @@ void SemanticMapper::tryAddObjectsToGraph()
     }
 }
 
-void SemanticMapper::computeLandmarkCovariances()
+void SemanticMapper::computeCovariances()
 {
     std::lock_guard<std::mutex> lock(graph_mutex_);
 
@@ -168,6 +176,18 @@ void SemanticMapper::computeLandmarkCovariances()
         }
     }
 
+    // Add the most recent processed keyframe
+    bool added_keyframe = false;
+    int kf_index = 0;
+    for (int i = keyframes_.size() - 1; i >= 0; --i) {
+        if (keyframes_[i]->inGraph()) {
+            added_keyframe = true;
+            kf_index = i;
+            landmark_nodes.push_back(keyframes_[kf_index]->graph_node());
+            break;
+        }
+    }
+
     bool cov_succeeded = graph_->computeMarginalCovariance(landmark_nodes);
 
     if (!cov_succeeded) {
@@ -175,10 +195,26 @@ void SemanticMapper::computeLandmarkCovariances()
         return;
     }
 
+    std::lock_guard<std::mutex> map_lock(map_mutex_);
+
     for (const auto& obj : estimated_objects_) {
         if (obj->inGraph()) {
             for (const auto& kp : obj->getKeypoints()) {
                 kp->covariance() = graph_->getMarginalCovariance(kp->graph_node());
+            }
+        }
+    }
+
+    if (added_keyframe) {
+        keyframes_[kf_index]->covariance() = graph_->getMarginalCovariance(keyframes_[kf_index]->graph_node());
+        last_kf_covariance_ = keyframes_[kf_index]->covariance();
+
+        for (const auto& obj : estimated_objects_) {
+            if (obj->inGraph()) {
+                for (const auto& kp : obj->getKeypoints()) {
+                    Plxs_[kp->id()] = graph_->getMarginalCovariance(keyframes_[kf_index]->graph_node(),
+                                                                    kp->graph_node());
+                }
             }
         }
     }
@@ -424,6 +460,9 @@ bool SemanticMapper::updateNextKeyframeObjects()
 
     keyframes_.push_back(next_keyframe_);
 
+    // TODO fix this bad approximation 
+    next_keyframe_->covariance() = last_kf_covariance_;
+
     if (next_keyframe_->measurements.size() > 0) {
 
         // Create the list of measurements we need to associate.
@@ -580,7 +619,9 @@ SemanticMapper::processObjectDetectionMessage(const object_pose_interface_msgs::
             kp_msmt.kp_class_id = i;
 
             // TODO what here?
-            kp_msmt.pixel_sigma = 0.1 * bbox_dim;
+            kp_msmt.pixel_sigma = 0.05 * bbox_dim;
+
+            // std::cout << "pixel sigma = " << kp_msmt.pixel_sigma << std::endl;
 
             if (kp_msmt.score > params_.keypoint_activation_threshold)
             {
@@ -599,6 +640,38 @@ SemanticMapper::processObjectDetectionMessage(const object_pose_interface_msgs::
     }
 
     return object_measurements;
+}
+
+Eigen::MatrixXd
+SemanticMapper::getPlx(Key key1, Key key2)
+{
+    // TODO fix this
+
+    auto it = Plxs_.find(Symbol(key1).index());
+    if (it != Plxs_.end()) {
+        return it->second;
+    } else {
+        return Eigen::MatrixXd::Zero(9,9);
+    }
+
+    // EstimatedKeypoint::Ptr kp = nullptr;
+
+    // // Find the landmark...
+    // for (auto& obj : estimated_objects_) {
+    //     int id = obj->findKeypointByKey(key2);
+
+    //     if (id > 0) {
+    //         kp = obj->keypoints()[id];
+    //     }
+    // }
+
+    // Eigen::MatrixXd cov = Eigen::MatrixXd::Zero(9,9);
+
+    // if (kp) {
+    //     cov.block<3,3>(0,0) = kp->covariance();
+    // } 
+
+    // return cov;
 }
 
 bool SemanticMapper::updateObjects(SemanticKeyframe::Ptr kf,

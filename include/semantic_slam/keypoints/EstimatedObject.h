@@ -119,6 +119,7 @@ public:
   Eigen::MatrixXd getPlx(Key l_key, Key x_key);
 
   int64_t findKeypointByClass(uint64_t classid) const;
+  int64_t findKeypointByKey(Key key) const;
 
   const std::vector<boost::shared_ptr<SemanticKeyframe>>& keyframe_observations() const { return keyframe_observations_; }
 
@@ -132,7 +133,6 @@ private:
                   const ObjectMeasurement &msmt, const Pose3 &G_T_C, const Pose3 &I_T_C,
                   std::string platform, boost::shared_ptr<CameraCalibration> calibration,
                   SemanticMapper* mapper);
-  int64_t findKeypointByKey(Key key) const;
 
   void initializePose(const ObjectMeasurement &msmt, const Pose3 &G_T_C);
   void initializeKeypoints(const ObjectMeasurement &msmt);

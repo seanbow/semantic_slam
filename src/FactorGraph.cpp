@@ -22,6 +22,7 @@ FactorGraph::FactorGraph()
 
     // set covariance options if needed...
     // covariance_options_....?
+    covariance_options_.apply_loss_function = true;
     covariance_ = boost::make_shared<ceres::Covariance>(covariance_options_);
 }
 

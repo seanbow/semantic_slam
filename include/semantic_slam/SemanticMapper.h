@@ -39,7 +39,9 @@ public:
     void processMessagesUpdateObjectsThread();
     void addObjectsAndOptimizeGraphThread();
 
-    void computeLandmarkCovariances();
+    void computeCovariances();
+
+    Eigen::MatrixXd getPlx(Key key1, Key key2);
 
     void start();
 
@@ -101,6 +103,9 @@ private:
     unsigned char node_chr_;
 
     SemanticKeyframe::Ptr next_keyframe_;
+
+    Eigen::MatrixXd last_kf_covariance_;
+    aligned_map<int, Eigen::MatrixXd> Plxs_;
 
     aligned_map<std::string, geometry::ObjectModelBasis> object_models_;
 
