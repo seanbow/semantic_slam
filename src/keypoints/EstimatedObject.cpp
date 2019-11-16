@@ -107,7 +107,7 @@ EstimatedObject::initializePose(const ObjectMeasurement& msmt,
   Pose3 C_T_O = Pose3(msmt.q, msmt.t);
   // pose_ = G_T_C.compose(C_T_O);
   // graph_pose_node_->pose() = G_T_C.compose(C_T_O);
-  pose_ = graph_pose_node_->pose();
+  pose_ = G_T_C.compose(C_T_O);
 
   // ROS_WARN_STREAM("Initialized object with pose:\n" << pose_);
 }
@@ -467,6 +467,9 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
 {
   measurements_.push_back(msmt);
 
+  auto keyframe = mapper_->keyframes()[Symbol(msmt.observed_key).index()];
+  keyframe_observations_.push_back(keyframe);
+
   for (size_t i = 0; i < msmt.keypoint_measurements.size(); ++i) {
     const KeypointMeasurement& kp_msmt = msmt.keypoint_measurements[i];
 
@@ -616,9 +619,9 @@ EstimatedObject::addToGraph()
     graph_->addNode(graph_pose_node_);
     if (k_ > 0) graph_->addNode(graph_coefficient_node_);
     graph_->addFactor(structure_factor_);
-  }
 
-  in_graph_ = true;
+    in_graph_ = true;
+  }
   // pose_added_to_graph_ = msmt.pose_id;
 
   ROS_INFO_STREAM("Object " << id() << " added to graph.");

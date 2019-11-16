@@ -120,6 +120,8 @@ public:
 
   int64_t findKeypointByClass(uint64_t classid) const;
 
+  const std::vector<boost::shared_ptr<SemanticKeyframe>>& keyframe_observations() const { return keyframe_observations_; }
+
   // void createMarginals(const std::vector<Key>& extra_keys);
 
   // utils::ProjectionFactor::shared_ptr getProjectionFactor(const KeypointMeasurement &kp_msmt) const;
@@ -175,6 +177,9 @@ private:
   boost::shared_ptr<CameraCalibration> camera_calibration_;
 
   aligned_vector<ObjectMeasurement> measurements_;
+
+  // List of keyframes that observed this object
+  std::vector<boost::shared_ptr<SemanticKeyframe>> keyframe_observations_;
 
   std::vector<EstimatedKeypoint::Ptr> keypoints_;
 

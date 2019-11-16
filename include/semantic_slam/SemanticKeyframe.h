@@ -3,14 +3,22 @@
 #include "semantic_slam/Common.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/CeresFactor.h"
+#include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
 
 #include <ros/ros.h>
 #include <vector>
+#include <map>
 #include <eigen3/Eigen/Core>
 
-class SemanticKeyframe {
+#include <boost/enable_shared_from_this.hpp>
+
+class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe> {
 public:
+
+    using This = SemanticKeyframe;
+    using Ptr = boost::shared_ptr<This>;
+
     SemanticKeyframe(Key key, ros::Time time);
 
     Key key() const { return key_; }
@@ -34,16 +42,24 @@ public:
     SE3NodePtr& graph_node() { return graph_node_; }
     const SE3NodePtr& graph_node() const { return graph_node_; }
 
+    bool inGraph() const { return in_graph_; }
+
+    void addToGraph(boost::shared_ptr<FactorGraph> graph);
+
+    void updateConnections();
+
+    void addConnection(SemanticKeyframe::Ptr other, int weight);
+
     aligned_vector<ObjectMeasurement> measurements;
 
     // std::vector<ObjectMeasurement>& measurements() { return measurements_; }
     std::vector<EstimatedObject::Ptr>& visible_objects() { return visible_objects_; }
 
-    using Ptr = boost::shared_ptr<SemanticKeyframe>;
-
 private:
     Key key_;
     ros::Time time_;
+
+    bool in_graph_;
 
     Pose3 odometry_;
     Pose3 pose_;
@@ -56,14 +72,11 @@ private:
     // aligned_vector<ObjectMeasurement> measurements_;
     std::vector<EstimatedObject::Ptr> visible_objects_;
 
+    // Connections to keyframes that observe the same objects along with the number of
+    // mutually observed objects
+    // can't use unordered_map without custom hash function bc std::hash<boost::shared_ptr> is not defined
+    std::map<SemanticKeyframe::Ptr, int> neighbors_;
+
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
-
-SemanticKeyframe::SemanticKeyframe(Key key, ros::Time time)
-    : key_(key),
-      time_(time)
-{
-    graph_node_ = util::allocate_aligned<SE3Node>(key, time);
-    pose_covariance_ = Eigen::MatrixXd::Zero(6,6);
-}

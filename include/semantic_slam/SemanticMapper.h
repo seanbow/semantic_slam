@@ -30,7 +30,9 @@ public:
 
     void anchorOrigin();
 
-    bool updateObjects();
+    bool haveNextKeyframe();
+    bool tryFetchNextKeyframe();
+    bool updateNextKeyframeObjects();
     void tryAddObjectsToGraph();
     bool tryOptimize();
 
@@ -42,6 +44,9 @@ public:
     void start();
 
     void msgCallback(const object_pose_interface_msgs::KeypointDetections::ConstPtr& msg);
+
+    aligned_vector<ObjectMeasurement>
+    processObjectDetectionMessage(const object_pose_interface_msgs::KeypointDetections& msg, Key keyframe_key);
     
     void loadModelFiles(std::string path);
 
@@ -61,6 +66,10 @@ public:
     void prepareGraphNodes();
     void commitGraphSolution();
 
+    void addNewOdometryToGraph();
+
+    std::mutex& map_mutex() { return map_mutex_; }
+
     // double computeMahalanobisDistance(const ObjectMeasurement& msmt,
     //                                   const EstimatedObject::Ptr& obj);
 
@@ -72,6 +81,7 @@ public:
 private:
     boost::shared_ptr<FactorGraph> graph_;
     std::mutex graph_mutex_; // wish this could be a shared_mutex
+    std::mutex map_mutex_;
 
     ros::NodeHandle nh_;
     ros::NodeHandle pnh_;
@@ -89,6 +99,8 @@ private:
     size_t n_landmarks_;
 
     unsigned char node_chr_;
+
+    SemanticKeyframe::Ptr next_keyframe_;
 
     aligned_map<std::string, geometry::ObjectModelBasis> object_models_;
 

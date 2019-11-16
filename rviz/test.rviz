@@ -107,7 +107,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /semantic_slam/keypoint_objects/object_markers
+      Marker Topic: /keypoint_objects/object_markers
       Name: MarkerArray
       Namespaces:
         objects: true

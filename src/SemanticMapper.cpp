@@ -64,21 +64,27 @@ void SemanticMapper::start()
 
     anchorOrigin();
 
-    while (ros::ok() && running_) {
-        updateObjects();
-        visualizeObjectMeshes();
-        for (auto& p : presenters_) p->present(keyframes_, estimated_objects_);
-        tryAddObjectsToGraph();
-        tryOptimize();
-        computeLandmarkCovariances();
-        ros::Duration(0.003).sleep();
-    }
+    // while (ros::ok() && running_) {
+    //     updateObjects();
+    //     // visualizeObjectMeshes();
+    //     for (auto& p : presenters_) p->present(keyframes_, estimated_objects_);
+    //     addNewOdometryToGraph();
+    //     tryAddObjectsToGraph();
 
-    // std::thread process_messages_thread(&SemanticMapper::processMessagesUpdateObjectsThread, this);
-    // std::thread graph_optimize_thread(&SemanticMapper::addObjectsAndOptimizeGraphThread, this);
+    //     bool did_optimize = tryOptimize();
 
-    // process_messages_thread.join();
-    // graph_optimize_thread.join();
+    //     if (did_optimize) {
+    //         computeLandmarkCovariances();
+    //     }
+
+    //     ros::Duration(0.003).sleep();
+    // }
+
+    std::thread process_messages_thread(&SemanticMapper::processMessagesUpdateObjectsThread, this);
+    std::thread graph_optimize_thread(&SemanticMapper::addObjectsAndOptimizeGraphThread, this);
+
+    process_messages_thread.join();
+    graph_optimize_thread.join();
 
     running_ = false;
 }
@@ -86,13 +92,21 @@ void SemanticMapper::start()
 void SemanticMapper::processMessagesUpdateObjectsThread()
 {
     while (ros::ok() && running_) {
-        bool processed_msg = updateObjects();
 
-        if (processed_msg) {
+        bool processed_msg = false;
 
-            visualizeObjectMeshes();
+        if (haveNextKeyframe()) {
 
-            for (auto& p : presenters_) p->present(keyframes_, estimated_objects_);
+            tryFetchNextKeyframe();
+
+            if (next_keyframe_) {
+                updateNextKeyframeObjects();
+
+                next_keyframe_->updateConnections();
+
+                for (auto& p : presenters_) p->present(keyframes_, estimated_objects_);
+            }
+
         }
 
         ros::Duration(0.003).sleep();
@@ -104,8 +118,13 @@ void SemanticMapper::processMessagesUpdateObjectsThread()
 void SemanticMapper::addObjectsAndOptimizeGraphThread()
 {
     while (ros::ok() && running_) {
+        addNewOdometryToGraph();
         tryAddObjectsToGraph();
-        tryOptimize();
+        bool did_optimize = tryOptimize();
+
+        if (did_optimize) {
+            computeLandmarkCovariances();
+        }
 
         ros::Duration(0.003).sleep();
     }
@@ -113,8 +132,19 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
     running_ = false;
 }
 
+void SemanticMapper::addNewOdometryToGraph()
+{
+    for (auto& kf : keyframes_) {
+        if (!kf->inGraph()) {
+            kf->addToGraph(graph_);
+        }
+    }
+}
+
 void SemanticMapper::tryAddObjectsToGraph()
 {
+    if (!params_.include_objects_in_graph) return;
+
     for (auto& obj : estimated_objects_) {
         if (obj->readyToAddToGraph()) {
             std::lock_guard<std::mutex> lock(graph_mutex_);
@@ -138,7 +168,12 @@ void SemanticMapper::computeLandmarkCovariances()
         }
     }
 
-    graph_->computeMarginalCovariance(landmark_nodes);
+    bool cov_succeeded = graph_->computeMarginalCovariance(landmark_nodes);
+
+    if (!cov_succeeded) {
+        ROS_WARN("Covariance computation failed!");
+        return;
+    }
 
     for (const auto& obj : estimated_objects_) {
         if (obj->inGraph()) {
@@ -151,6 +186,9 @@ void SemanticMapper::computeLandmarkCovariances()
 
 void SemanticMapper::prepareGraphNodes() 
 {
+    std::lock_guard<std::mutex> map_lock(map_mutex_);
+    std::lock_guard<std::mutex> graph_lock(graph_mutex_);
+
     for (auto& kf : keyframes_) {
         kf->graph_node()->pose() = kf->pose();
     }
@@ -162,6 +200,9 @@ void SemanticMapper::prepareGraphNodes()
 
 void SemanticMapper::commitGraphSolution()
 {
+    std::lock_guard<std::mutex> map_lock(map_mutex_);
+    std::lock_guard<std::mutex> graph_lock(graph_mutex_);
+
     for (auto& kf : keyframes_) {
         kf->pose() = kf->graph_node()->pose();
     }
@@ -172,28 +213,30 @@ void SemanticMapper::commitGraphSolution()
 }
 
 bool SemanticMapper::tryOptimize() {
-    if (graph_->modified()) {
-        auto t1 = std::chrono::high_resolution_clock::now();
-        bool solve_succeeded;
-        {  
-            std::lock_guard<std::mutex> lock(graph_mutex_);
-            prepareGraphNodes();
-            solve_succeeded = graph_->solve(true);
-            commitGraphSolution();
-        }
+    if (!graph_->modified()) return false;
+    
+    auto t1 = std::chrono::high_resolution_clock::now();
+    bool solve_succeeded;
+    prepareGraphNodes();
+    
+    {  
+        std::lock_guard<std::mutex> lock(graph_mutex_);
+        solve_succeeded = graph_->solve(false);
+    }
 
-        auto t2 = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+    if (solve_succeeded) commitGraphSolution();
 
-        if (solve_succeeded) {
-            ROS_INFO_STREAM(fmt::format("Solved {} nodes and {} edges in {:.2f} ms.",
-                                        graph_->num_nodes(), graph_->num_factors(), duration.count()/1000.0));
-            // for (auto& p : presenters_) p->present();
-            return true;
-        } else {
-            ROS_INFO_STREAM("Graph solve failed");
-            return false;
-        }
+    auto t2 = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    if (solve_succeeded) {
+        ROS_INFO_STREAM(fmt::format("Solved {} nodes and {} edges in {:.2f} ms.",
+                                    graph_->num_nodes(), graph_->num_factors(), duration.count()/1000.0));
+        // for (auto& p : presenters_) p->present();
+        return true;
+    } else {
+        ROS_INFO_STREAM("Graph solve failed");
+        return false;
     }
 }
 
@@ -312,19 +355,36 @@ void SemanticMapper::anchorOrigin()
 {
     SemanticKeyframe::Ptr origin_kf = odometry_handler_->originKeyframe();
 
-    graph_->addNode(origin_kf->graph_node());
+    origin_kf->addToGraph(graph_);
+    // graph_->addNode(origin_kf->graph_node());
     graph_->setNodeConstant(origin_kf->graph_node());
 
     keyframes_.push_back(origin_kf);
 }
 
-bool SemanticMapper::updateObjects()
+bool SemanticMapper::haveNextKeyframe()
 {
-    // Process a single message in the queue
+    // Check if we have a candidate keyframe waiting in our message queue
+    // This will modify the message queue in that it discards non-keyframes,
+    // but it will not remove the keyframe from the queue
 
+    std::lock_guard<std::mutex> lock(queue_mutex_);
+
+    while (!msg_queue_.empty()) {
+        const auto& msg = msg_queue_.front();
+
+        if (keepFrame(msg.header.stamp)) {
+            return true;
+        } else {
+            msg_queue_.pop_front();
+        }
+    }
+}
+
+bool SemanticMapper::tryFetchNextKeyframe()
+{
     object_pose_interface_msgs::KeypointDetections msg;
-    SemanticKeyframe::Ptr keyframe;
-    // CeresNodePtr spine_node_generic;
+    next_keyframe_ = nullptr;
 
     bool got_msg = false;
 
@@ -335,9 +395,13 @@ bool SemanticMapper::updateObjects()
             msg = msg_queue_.front();
 
             if (keepFrame(msg.header.stamp)) {
-                keyframe = odometry_handler_->createKeyframe(msg.header.stamp);
-                if (keyframe) {
+                next_keyframe_ = odometry_handler_->createKeyframe(msg.header.stamp);
+                if (next_keyframe_) {
                     got_msg = true;
+                } else {
+                    // Want to keep this keyframe but odometry handler can't make
+                    // it for us yet -- try again later
+                    return false;
                 }
             }
 
@@ -347,12 +411,86 @@ bool SemanticMapper::updateObjects()
 
     if (!got_msg) return false;
 
-// SE3NodePtr spine_node = boost::static_pointer_cast<SE3Node>(spine_node_generic);
+    next_keyframe_->measurements = processObjectDetectionMessage(msg, next_keyframe_->key());
 
-    // Build the ObjectMeasurement structures for all detected objects here
-    // auto keyframe = util::allocate_aligned<SemanticKeyframe>(spine_node->key(), msg.header.stamp);
-    keyframes_.push_back(keyframe);
-    // aligned_vector<ObjectMeasurement> measurements;
+    return true;
+}
+
+bool SemanticMapper::updateNextKeyframeObjects()
+{
+    if (!next_keyframe_) return false;
+
+    std::lock_guard<std::mutex> lock(map_mutex_);
+
+    keyframes_.push_back(next_keyframe_);
+
+    if (next_keyframe_->measurements.size() > 0) {
+
+        // Create the list of measurements we need to associate.
+        // Identify which measurements have been tracked from already known objects
+        std::vector<size_t> measurement_index;
+        std::map<size_t, size_t> known_das;
+
+        for (size_t i = 0; i < next_keyframe_->measurements.size(); ++i) 
+        {
+            auto known_id_it = object_track_ids_.find(next_keyframe_->measurements[i].track_id);
+            if (known_id_it == object_track_ids_.end()) {
+                // track not known, perform actual data association
+                measurement_index.push_back(i);
+            } else {
+                // track ID known, take data association as given
+                known_das[i] = known_id_it->second;
+            }
+        }
+
+        // Create the list of objects we need to associate.
+        // count visible landmarks & create mapping from list of visible to list of all
+        std::vector<bool> visible = predictVisibleObjects(next_keyframe_);
+        size_t n_visible = 0;
+        std::vector<size_t> object_index;
+        for (size_t j = 0; j < estimated_objects_.size(); ++j)
+        {
+            if (visible[j])
+            {
+                n_visible++;
+                estimated_objects_[j]->setIsVisible(next_keyframe_);
+                object_index.push_back(j);
+            }
+        }
+
+        Eigen::MatrixXd mahals = Eigen::MatrixXd::Zero(measurement_index.size(), n_visible);
+        for (size_t i = 0; i < measurement_index.size(); ++i)
+        {
+            // ROS_WARN_STREAM("** Measurement " << i << "**");
+            for (size_t j = 0; j < n_visible; ++j)
+            {
+                // mahals(i,j) = computeMahalanobisDistance(keyframe->measurements[measurement_index[i]],
+                                                        //  estimated_objects_[object_index[j]]);
+                mahals(i, j) = estimated_objects_[object_index[j]]->computeMahalanobisDistance(
+                                                                        next_keyframe_->measurements[measurement_index[i]]);
+            }
+        }
+
+        std::cout << "Mahals:\n" << mahals << std::endl;
+    
+        Eigen::MatrixXd weights_matrix = MLDataAssociator(params_).computeConstraintWeights(mahals);
+
+        updateObjects(next_keyframe_, 
+                        next_keyframe_->measurements, 
+                        measurement_index, 
+                        known_das, 
+                        weights_matrix, 
+                        object_index);
+    }
+
+    return true;
+}
+
+aligned_vector<ObjectMeasurement>
+SemanticMapper::processObjectDetectionMessage(const object_pose_interface_msgs::KeypointDetections& msg,
+                                              Key keyframe_key)
+{
+    aligned_vector<ObjectMeasurement> object_measurements;
 
     for (auto detection : msg.detections) {
         auto model_it = object_models_.find(detection.obj_name);
@@ -378,7 +516,6 @@ bool SemanticMapper::updateObjects()
 
         geometry::StructureResult result;
 
-
         try
         {
             result = geometry::optimizeStructureFromProjection(normalized_coords,
@@ -396,10 +533,9 @@ bool SemanticMapper::updateObjects()
             continue;
         }
 
-
         // Build object measurement structure
         ObjectMeasurement obj_msmt;
-        obj_msmt.observed_key = keyframe->key();
+        obj_msmt.observed_key = keyframe_key;
         obj_msmt.stamp = detection.header.stamp;
         obj_msmt.platform = "zed";
         obj_msmt.frame = detection.header.frame_id;
@@ -422,7 +558,7 @@ bool SemanticMapper::updateObjects()
         for (size_t i = 0; i < detection.x.size(); ++i) {
             KeypointMeasurement kp_msmt;
 
-            kp_msmt.measured_key = keyframe->key();
+            kp_msmt.measured_key = keyframe_key;
             kp_msmt.stamp = detection.header.stamp;
             kp_msmt.platform = "zed";
             kp_msmt.obj_name = detection.obj_name;
@@ -458,73 +594,11 @@ bool SemanticMapper::updateObjects()
         }
 
         if (n_keypoints_observed > 0) {
-            keyframe->measurements.push_back(obj_msmt);
+            object_measurements.push_back(obj_msmt);
         }
     }
 
-    if (keyframe->measurements.size() > 0) {
-
-        // Create the list of measurements we need to associate.
-        // Identify which measurements have been tracked from already known objects
-        std::vector<size_t> measurement_index;
-        std::map<size_t, size_t> known_das;
-
-        for (size_t i = 0; i < keyframe->measurements.size(); ++i) 
-        {
-            auto known_id_it = object_track_ids_.find(keyframe->measurements[i].track_id);
-            if (known_id_it == object_track_ids_.end()) {
-                // track not known, perform actual data association
-                measurement_index.push_back(i);
-            } else {
-                // track ID known, take data association as given
-                known_das[i] = known_id_it->second;
-            }
-        }
-
-        // Create the list of objects we need to associate.
-        // count visible landmarks & create mapping from list of visible to list of all
-        std::vector<bool> visible = predictVisibleObjects(keyframe);
-        size_t n_visible = 0;
-        std::vector<size_t> object_index;
-        for (size_t j = 0; j < estimated_objects_.size(); ++j)
-        {
-            if (visible[j])
-            {
-                n_visible++;
-                estimated_objects_[j]->setIsVisible(keyframe);
-                object_index.push_back(j);
-            }
-        }
-
-        Eigen::MatrixXd mahals = Eigen::MatrixXd::Zero(measurement_index.size(), n_visible);
-        for (size_t i = 0; i < measurement_index.size(); ++i)
-        {
-            // ROS_WARN_STREAM("** Measurement " << i << "**");
-            for (size_t j = 0; j < n_visible; ++j)
-            {
-                // mahals(i,j) = computeMahalanobisDistance(keyframe->measurements[measurement_index[i]],
-                                                        //  estimated_objects_[object_index[j]]);
-                mahals(i, j) = estimated_objects_[object_index[j]]->computeMahalanobisDistance(
-                                                                        keyframe->measurements[measurement_index[i]]);
-            }
-        }
-
-        // std::cout << "Mahals:\n" << mahals << std::endl;
-    
-        Eigen::MatrixXd weights_matrix = MLDataAssociator(params_).computeConstraintWeights(mahals);
-
-        graph_->addNode(keyframe->graph_node());
-        graph_->addFactor(keyframe->spine_factor());
-
-        updateObjects(keyframe, 
-                        keyframe->measurements, 
-                        measurement_index, 
-                        known_das, 
-                        weights_matrix, 
-                        object_index);
-    }
-
-    return true;
+    return object_measurements;
 }
 
 bool SemanticMapper::updateObjects(SemanticKeyframe::Ptr kf,

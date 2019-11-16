@@ -1,8 +1,10 @@
 // math utilities
 
 #include <ros/ros.h>
+#include <ceres/ceres.h>
 // #include <gtsam/geometry/Pose3.h>
-#include <Eigen/Geometry>
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Geometry>
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/Imu.h>
@@ -108,16 +110,15 @@ void FromROSMsg(const sensor_msgs::Imu& msg,
 
 }
 
-Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Eigen::Matrix3d& G_R_I,
-                                          const Eigen::Vector3d& G_t_I,
-                                          const Eigen::Matrix3d& I_R_C,
-                                          const Eigen::Vector3d& G_l)
+Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Pose3& G_T_I,
+                                                      const Pose3& I_T_C,
+                                                      const Eigen::Vector3d& G_l)
 {
-  Eigen::Matrix3d G_R_C = G_R_I * I_R_C;
+  Eigen::MatrixXd Hpose1, Hpoint1;
+  Eigen::Vector3d I_p = G_T_I.transform_to(G_l, Hpose1, Hpoint1);
 
-  // assume G_t_I = G_t_C TODO
-
-  Eigen::Vector3d C_p = G_R_C.transpose() * (G_l - G_t_I);
+  Eigen::MatrixXd Hpoint2;
+  Eigen::Vector3d C_p = I_T_C.transform_from(I_p, boost::none, Hpoint2);
 
   Eigen::Matrix<double, 2, 3> Hcam;
   Hcam(0,0) = 1 / C_p(2);
@@ -127,15 +128,51 @@ Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Eigen::Matrix3d& G_R
   Hcam(0,2) = -C_p(0) / (C_p(2)*C_p(2));
   Hcam(1,2) = -C_p(1) / (C_p(2)*C_p(2));
 
-  Eigen::Matrix3d Hq = I_R_C.transpose() * skewsymm(G_R_I.transpose() * (G_l - G_t_I));
-  Eigen::Matrix3d Hp = -G_R_C.transpose();
-  Eigen::Matrix3d Hl = G_R_C.transpose();
+  // Eigen::MatrixXd Hpose = Hcam * Hpoint2 * Hpose1;
+  // Eigen::MatrixXd Hpoint = Hcam * Hpoint2 * Hpoint1;
+
+  // Hpose is in the *ambient* (4-dimensional) quaternion space.
+  // Want it in the *tangent* (3-dimensional) space.
+  Eigen::Matrix<double, 4, 3, Eigen::RowMajor> Hquat_space;
+  ceres::EigenQuaternionParameterization local_param;
+  local_param.ComputeJacobian(G_T_I.rotation_data(), Hquat_space.data());
 
   Eigen::Matrix<double, 2, 9> H;
-
-  H.block<2,3>(0,0) = Hcam * Hl;
-  H.block<2,3>(0,3) = Hcam * Hq;
-  H.block<2,3>(0,6) = Hcam * Hp;
+  H.block<2,3>(0,0) = Hcam * Hpoint2 * Hpoint1;
+  H.block<2,3>(0,3) = Hcam * Hpoint2 * Hpose1.block<3,4>(0,0) * Hquat_space;
+  H.block<2,3>(0,6) = Hcam * Hpoint2 * Hpose1.block<3,3>(0,4);
 
   return H;
 }
+
+// Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Eigen::Matrix3d& G_R_I,
+//                                           const Eigen::Vector3d& G_t_I,
+//                                           const Eigen::Matrix3d& I_R_C,
+//                                           const Eigen::Vector3d& G_l)
+// {
+//   Eigen::Matrix3d G_R_C = G_R_I * I_R_C;
+
+//   // assume G_t_I = G_t_C TODO
+
+//   Eigen::Vector3d C_p = G_R_C.transpose() * (G_l - G_t_I);
+
+//   Eigen::Matrix<double, 2, 3> Hcam;
+//   Hcam(0,0) = 1 / C_p(2);
+//   Hcam(1,1) = 1 / C_p(2);
+//   Hcam(0,1) = 0;
+//   Hcam(1,0) = 0;
+//   Hcam(0,2) = -C_p(0) / (C_p(2)*C_p(2));
+//   Hcam(1,2) = -C_p(1) / (C_p(2)*C_p(2));
+
+//   Eigen::Matrix3d Hq = I_R_C.transpose() * skewsymm(G_R_I.transpose() * (G_l - G_t_I));
+//   Eigen::Matrix3d Hp = -G_R_C.transpose();
+//   Eigen::Matrix3d Hl = G_R_C.transpose();
+
+//   Eigen::Matrix<double, 2, 9> H;
+
+//   H.block<2,3>(0,0) = Hcam * Hl;
+//   H.block<2,3>(0,3) = Hcam * Hq;
+//   H.block<2,3>(0,6) = Hcam * Hp;
+
+//   return H;
+// }

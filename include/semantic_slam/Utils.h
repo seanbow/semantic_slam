@@ -17,6 +17,8 @@
 #include <boost/preprocessor/arithmetic/sub.hpp>
 #include <boost/optional.hpp>
 
+#include "semantic_slam/pose_math.h"
+
 #include <chrono>
 
 #define CONCAT_2(A,B) A##B
@@ -98,10 +100,13 @@ T computeMedian(std::vector<T> vec) {
  * Returns:
  *   - H is a 2 by 9 jacobian matrix = [Hl Hq Hp]
  */
-Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Eigen::Matrix3d& G_R_I,
-                                          const Eigen::Vector3d& G_t_I,
-                                          const Eigen::Matrix3d& I_R_C,
-                                          const Eigen::Vector3d& G_l);
+// Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Eigen::Matrix3d& G_R_I,
+//                                           const Eigen::Vector3d& G_t_I,
+//                                           const Eigen::Matrix3d& I_R_C,
+//                                           const Eigen::Vector3d& G_l);
+Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Pose3& G_T_I,
+                                                      const Pose3& I_T_C,
+                                                      const Eigen::Vector3d& G_l);
 
 Eigen::Matrix3d skewsymm(const Eigen::Vector3d& x) {
     Eigen::Matrix3d S;

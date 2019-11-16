@@ -53,6 +53,7 @@ bool FactorGraph::solve(bool verbose)
 
 void FactorGraph::addNode(CeresNodePtr node)
 {
+    if (!node) return;
     if (nodes_.find(node->key()) != nodes_.end()) {
         throw std::runtime_error(
                 fmt::format("Tried to add already existing node with symbol {} to graph",
@@ -67,6 +68,7 @@ void FactorGraph::addNode(CeresNodePtr node)
 
 void FactorGraph::addFactor(CeresFactorPtr factor)
 {
+    if (!factor) return;
     std::lock_guard<std::mutex> lock(mutex_);
     factors_.push_back(factor);
     factor->addToProblem(problem_);
@@ -77,6 +79,7 @@ void FactorGraph::addFactors(std::vector<CeresFactorPtr> factors)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     for (auto& factor : factors) {
+        if (!factor) continue;
         factors_.push_back(factor);
         factor->addToProblem(problem_);
     }

@@ -69,7 +69,7 @@ include_objects_in_graph: true
 # deviations from the calculated object structure
 structure_error_coefficient: 500
 
-keypoint_activation_threshold: 0.40     # threshold above which to consider a keypoint observed
+keypoint_activation_threshold: 0.70     # threshold above which to consider a keypoint observed
 
 camera_range: 10                        # meters
 

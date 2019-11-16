@@ -210,6 +210,8 @@ target_link_libraries(EstimatedKeypoint
     ${CERES_FACTORS}
 )
 
+add_library(SemanticKeyframe src/SemanticKeyframe.cpp)
+
 add_library(munkres src/munkres.cpp)
 
 add_library(MLDataAssociator src/MLDataAssociator.cpp)
@@ -229,6 +231,7 @@ target_link_libraries(SemanticMapper
   EstimatedKeypoint
   StructureOptimizationProblem
   MLDataAssociator
+  SemanticKeyframe
   FactorGraph
   ${CERES_LIBRARIES}
   ${BASE_LIBS}
@@ -268,6 +271,7 @@ target_link_libraries(semantic_slam_node
     PosePresenter
     TrajectoryPresenter
     ObjectMeshPresenter
+    SemanticKeyframe
     ${BASE_LIBS}
 )
 

@@ -405,9 +405,9 @@ void EstimatedKeypoint::addToGraphForced()
     // proceed to add to graph as normal
     graph_->addNode(graph_node_);
     graph_->addFactors(projection_factors_);
-  }
   
-  in_graph_ = true;
+    in_graph_ = true;
+  }
 }
 
 void EstimatedKeypoint::addToGraph()
@@ -422,9 +422,9 @@ void EstimatedKeypoint::addToGraph()
     if (params_.include_objects_in_graph) {
       graph_->addNode(graph_node_);
       graph_->addFactors(projection_factors_);
-    }
 
-    in_graph_ = true;
+      in_graph_ = true;
+    }
   }
   else
   {
@@ -483,10 +483,11 @@ double EstimatedKeypoint::computeMahalanobisDistance(const KeypointMeasurement& 
 
   Eigen::Vector2d residual = msmt.normalized_measurement - zhat;
 
-  Eigen::Matrix<double, 2, 9> H = computeProjectionJacobian(G_T_I.rotation().toRotationMatrix(), 
-                                                            G_T_I.translation(),
-                                                            I_T_C_.rotation().toRotationMatrix(), 
-                                                            position());
+  // Eigen::Matrix<double, 2, 9> H = computeProjectionJacobian(G_T_I.rotation().toRotationMatrix(), 
+  //                                                           G_T_I.translation(),
+  //                                                           I_T_C_.rotation().toRotationMatrix(), 
+  //                                                           position());
+  Eigen::Matrix<double, 2, 9> H = computeProjectionJacobian(G_T_I, I_T_C_, position());
 
   Eigen::Matrix2d R = Eigen::Matrix2d::Zero();
   double px_sigma = msmt.pixel_sigma;
