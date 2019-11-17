@@ -145,9 +145,9 @@ int main(int argc, char *argv[])
     
     // FactorGraphSupervisor supervisor;
 
-    auto odom_handler = boost::shared_ptr<OdometryHandler>(new OdometryHandler);
+    auto odom_handler = util::allocate_aligned<OdometryHandler>();
 
-    auto mapper = boost::shared_ptr<SemanticMapper>(new SemanticMapper);
+    auto mapper = util::allocate_aligned<SemanticMapper>();
     mapper->setOdometryHandler(odom_handler);
 
     // Start message handling thread

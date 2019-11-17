@@ -468,7 +468,7 @@ bool SemanticMapper::keepFrame(ros::Time time)
         return true;
     }
 
-    double translation_threshold = 0.05;
+    double translation_threshold = 0.1;
     double rotation_threshold = 10; // degrees
 
     if (relpose.translation().norm() > translation_threshold ||
