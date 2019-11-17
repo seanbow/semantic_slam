@@ -8,6 +8,7 @@
 
 #include <boost/filesystem.hpp>
 #include <thread>
+#include <unordered_set>
 
 #include <visualization_msgs/MarkerArray.h>
 
@@ -105,6 +106,7 @@ void SemanticMapper::processMessagesUpdateObjectsThread()
                 updateNextKeyframeObjects();
 
                 next_keyframe_->updateConnections();
+                next_keyframe_->measurements_processed() = true;
 
                 // std::cout << "Keyframe neighbors: \n";
                 // for (auto connection : next_keyframe_->neighbors()) {
@@ -117,7 +119,7 @@ void SemanticMapper::processMessagesUpdateObjectsThread()
 
         }
 
-        ros::Duration(0.003).sleep();
+        ros::Duration(0.001).sleep();
     }
 
     running_ = false;
@@ -126,27 +128,117 @@ void SemanticMapper::processMessagesUpdateObjectsThread()
 void SemanticMapper::addObjectsAndOptimizeGraphThread()
 {
     while (ros::ok() && running_) {
-        addNewOdometryToGraph();
-        tryAddObjectsToGraph();
-        bool did_optimize = tryOptimize();
+        auto new_frames = addNewOdometryToGraph();
 
-        if (did_optimize) {
-            computeCovariances();
+        if (new_frames.size() > 0) {
+            tryAddObjectsToGraph();
+
+            freezeNonCovisible(new_frames);
+            bool did_optimize = tryOptimize();
+
+            if (did_optimize) {
+                unfreezeAll();
+                computeCovariances();
+            }
         }
 
-        ros::Duration(0.003).sleep();
+        ros::Duration(0.001).sleep();
     }
 
     running_ = false;
 }
 
-void SemanticMapper::addNewOdometryToGraph()
+void SemanticMapper::freezeNonCovisible(const std::vector<SemanticKeyframe::Ptr>& target_frames)
 {
-    for (auto& kf : keyframes_) {
-        if (!kf->inGraph()) {
-            kf->addToGraph(graph_);
+    // Iterate over the target frames and their covisible frames, collecting the frames
+    // and objects that will remain unfrozen in the graph
+
+    unfrozen_kfs_.clear();
+    unfrozen_objs_.clear();
+
+    for (const auto& frame : target_frames) {
+        unfrozen_kfs_.insert(frame->index());
+        for (auto obj : frame->visible_objects()) {
+            unfrozen_objs_.insert(obj->id());
+        }
+
+        for (const auto& cov_frame : frame->neighbors()) {
+            unfrozen_kfs_.insert(cov_frame.first->index());
+            for (auto obj : cov_frame.first->visible_objects()) {
+                unfrozen_objs_.insert(obj->id());
+            }
         }
     }
+
+    // std::cout << "Unfrozen frames: \n";
+    // for (int id : unfrozen_kfs_) {
+    //     std::cout << id << " ";
+    // }
+    // std::cout << std::endl;
+
+    // std::cout << "Unfrozen objects: \n";
+    // for (int id : unfrozen_objs_) {
+    //     std::cout << id << " ";
+    // }
+    // std::cout << std::endl;
+
+    std::lock_guard<std::mutex> lock(graph_mutex_);
+
+    for (const auto& kf : keyframes_) {
+        if (!kf->inGraph()) continue;
+
+        if (unfrozen_kfs_.count(kf->index())) {
+            graph_->setNodeVariable(kf->graph_node());
+        } else {
+            graph_->setNodeConstant(kf->graph_node());
+        }
+    }
+
+    // now objects
+    // Why is this broken??
+    /*
+    for (const auto& obj : estimated_objects_) {
+        if (!obj->inGraph()) continue;
+
+        if (unfrozen_objs_.count(obj->id())) {
+            obj->setVariableInGraph();
+        } else {
+            obj->setConstantInGraph();
+        }
+    }
+    */
+}
+
+void SemanticMapper::unfreezeAll()
+{
+    for (const auto& kf : keyframes_) {
+        if (!kf->inGraph()) continue;
+
+        // do NOT unfreeze the first (gauge freedom)
+        if (kf->index() > 0)
+            graph_->setNodeVariable(kf->graph_node());
+    }
+
+    for (const auto& obj : estimated_objects_) {
+        if (!obj->inGraph()) continue;
+
+        obj->setVariableInGraph();
+    }
+}
+
+std::vector<SemanticKeyframe::Ptr>
+SemanticMapper::addNewOdometryToGraph()
+{
+    std::vector<SemanticKeyframe::Ptr> new_frames;
+
+    for (auto& kf : keyframes_) {
+        if (!kf->inGraph() && kf->measurements_processed()) {
+            kf->addToGraph(graph_);
+            new_frames.push_back(kf);
+        }
+    }
+
+    return new_frames;
 }
 
 void SemanticMapper::tryAddObjectsToGraph()
@@ -169,7 +261,7 @@ void SemanticMapper::computeCovariances()
     // TODO limit this somehow
     std::vector<CeresNodePtr> landmark_nodes;
     for (const auto& obj : estimated_objects_) {
-        if (obj->inGraph()) {
+        if (obj->inGraph()) { // && unfrozen_objs_.count(obj->id())) {
             for (const auto& kp : obj->getKeypoints()) {
                 landmark_nodes.push_back(kp->graph_node());
             }
@@ -180,7 +272,7 @@ void SemanticMapper::computeCovariances()
     bool added_keyframe = false;
     int kf_index = 0;
     for (int i = keyframes_.size() - 1; i >= 0; --i) {
-        if (keyframes_[i]->inGraph()) {
+        if (keyframes_[i]->inGraph()) { // && unfrozen_kfs_.count(keyframes_[i]->index())) {
             added_keyframe = true;
             kf_index = i;
             landmark_nodes.push_back(keyframes_[kf_index]->graph_node());
@@ -198,7 +290,7 @@ void SemanticMapper::computeCovariances()
     std::lock_guard<std::mutex> map_lock(map_mutex_);
 
     for (const auto& obj : estimated_objects_) {
-        if (obj->inGraph()) {
+        if (obj->inGraph()) { // && unfrozen_objs_.count(obj->id())) {
             for (const auto& kp : obj->getKeypoints()) {
                 kp->covariance() = graph_->getMarginalCovariance(kp->graph_node());
             }
@@ -210,7 +302,7 @@ void SemanticMapper::computeCovariances()
         last_kf_covariance_ = keyframes_[kf_index]->covariance();
 
         for (const auto& obj : estimated_objects_) {
-            if (obj->inGraph()) {
+            if (obj->inGraph()) { // && unfrozen_objs_.count(obj->id())) {
                 for (const auto& kp : obj->getKeypoints()) {
                     Plxs_[kp->id()] = graph_->getMarginalCovariance(keyframes_[kf_index]->graph_node(),
                                                                     kp->graph_node());

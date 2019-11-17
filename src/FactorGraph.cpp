@@ -34,6 +34,14 @@ bool FactorGraph::setNodeConstant(CeresNodePtr node)
     return true;
 }
 
+bool FactorGraph::setNodeVariable(CeresNodePtr node)
+{
+    for (auto& block : node->parameter_blocks()) {
+        problem_->SetParameterBlockVariable(block);
+    }
+    return true;
+}
+
 bool FactorGraph::solve(bool verbose)
 {
     ceres::Solver::Summary summary;

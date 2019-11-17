@@ -17,6 +17,7 @@
 // #include <shared_mutex>
 #include <deque>
 #include <unordered_map>
+#include <unordered_set>
 // #include <gtsam/geometry/Pose3.h>
 
 class OdometryHandler;
@@ -68,7 +69,10 @@ public:
     void prepareGraphNodes();
     void commitGraphSolution();
 
-    void addNewOdometryToGraph();
+    std::vector<SemanticKeyframe::Ptr> addNewOdometryToGraph();
+
+    void freezeNonCovisible(const std::vector<SemanticKeyframe::Ptr>& target_frames);
+    void unfreezeAll();
 
     std::mutex& map_mutex() { return map_mutex_; }
 
@@ -106,6 +110,9 @@ private:
 
     Eigen::MatrixXd last_kf_covariance_;
     aligned_map<int, Eigen::MatrixXd> Plxs_;
+
+    std::unordered_set<int> unfrozen_kfs_;
+    std::unordered_set<int> unfrozen_objs_;
 
     aligned_map<std::string, geometry::ObjectModelBasis> object_models_;
 

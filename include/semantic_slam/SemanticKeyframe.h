@@ -50,6 +50,9 @@ public:
 
     void addConnection(SemanticKeyframe::Ptr other, int weight);
 
+    bool& measurements_processed() { return measurements_processed_; }
+    const bool& measurements_processed() const { return measurements_processed_; }
+
     aligned_vector<ObjectMeasurement> measurements;
 
     const std::map<SemanticKeyframe::Ptr, int> neighbors() const { return neighbors_; }
@@ -62,6 +65,8 @@ private:
     ros::Time time_;
 
     bool in_graph_;
+
+    bool measurements_processed_;
 
     Pose3 odometry_;
     Pose3 pose_;

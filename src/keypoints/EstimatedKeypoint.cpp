@@ -432,6 +432,16 @@ void EstimatedKeypoint::addToGraph()
   }
 }
 
+void EstimatedKeypoint::setConstantInGraph()
+{
+  graph_->setNodeConstant(graph_node_);
+}
+
+void EstimatedKeypoint::setVariableInGraph()
+{
+  graph_->setNodeVariable(graph_node_);
+}
+
 std::vector<Key> EstimatedKeypoint::getObservedKeys() const
 {
   std::vector<Key> keys;

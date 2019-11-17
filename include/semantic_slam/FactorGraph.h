@@ -35,6 +35,7 @@ public:
     bool modified() { return modified_; }
 
     bool setNodeConstant(CeresNodePtr node);
+    bool setNodeVariable(CeresNodePtr node);
 
     template <typename NodeType=CeresNode>
     boost::shared_ptr<NodeType> getNode(Symbol sym) const;

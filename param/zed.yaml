@@ -74,7 +74,7 @@ keypoint_activation_threshold: 0.60     # threshold above which to consider a ke
 camera_range: 10                        # meters
 
 mahal_thresh_assign: 4                  # Mahalanobis distance below which to assign data (MLDataAssociator)
-mahal_thresh_init: 12                   # Mahalanobis distance above which to assign new mapped landmarks (MLDataAssociator)
+mahal_thresh_init: 16                   # Mahalanobis distance above which to assign new mapped landmarks (MLDataAssociator)
 
 max_new_factor_error: 300
 

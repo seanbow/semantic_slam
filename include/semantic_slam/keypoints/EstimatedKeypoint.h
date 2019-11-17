@@ -68,6 +68,9 @@ public:
 
   void addToGraphForced();
 
+  void setConstantInGraph();
+  void setVariableInGraph();
+
   double totalMahalanobisError() const;
   double mahalDistanceThreshold() const;
 

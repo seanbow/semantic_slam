@@ -628,6 +628,30 @@ EstimatedObject::addToGraph()
   ROS_INFO_STREAM("Object " << id() << " added to graph.");
 }
 
+void EstimatedObject::setConstantInGraph()
+{
+  if (!in_graph_) return;
+
+  graph_->setNodeConstant(graph_pose_node_);
+  if (k_ > 0) graph_->setNodeConstant(graph_coefficient_node_);
+
+  for (auto& kp : keypoints_) {
+    kp->setConstantInGraph();
+  }
+}
+
+void EstimatedObject::setVariableInGraph()
+{
+  if (!in_graph_) return;
+
+  graph_->setNodeVariable(graph_pose_node_);
+  if (k_ > 0) graph_->setNodeVariable(graph_coefficient_node_);
+
+  for (auto& kp : keypoints_) {
+    kp->setVariableInGraph();
+  }
+}
+
 void
 EstimatedObject::removeFromEstimation()
 {

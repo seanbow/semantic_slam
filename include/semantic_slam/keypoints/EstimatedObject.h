@@ -114,6 +114,9 @@ public:
 
   void addToGraph();
 
+  void setConstantInGraph();
+  void setVariableInGraph();
+
   // double getStructureError() const;
 
   Eigen::MatrixXd getPlx(Key l_key, Key x_key);
