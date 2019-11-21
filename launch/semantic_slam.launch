@@ -45,6 +45,8 @@
             launch-prefix="" >
     <param name="odom_topic" value="$(arg odom_topic)" />
 
+    <param name="image_topic"                   value="$(arg raw_cam_topic)"/>
+
     <!-- Camera calibration file -->
     <rosparam file="$(arg calib_file)"/>
   </node>
@@ -111,6 +113,16 @@
       <param name="missed_detection_threshold" value="$(arg missed_detection_threshold)" />
       <param name="visualize" value="$(arg visualize)" />
     </node>
+
+
+
+  <!-- <node pkg="feature_tracker" type="feature_tracker_node" name="feature_tracker" 
+      required="true" clear_params="true" output="log" launch-prefix="">
+    <param name="cam_topic" value="$(arg raw_cam_topic)" type="str" />
+    <param name="use_2pt_ransac" value="false" type="bool" />
+
+    <rosparam file="$(arg calib_file)" />
+  </node> -->
 
   <!-- Launch keypoint detector -->
   <node name="keypoint_detector" pkg="object_keypoint_detector" type="keypoint_detector_torch.py" 

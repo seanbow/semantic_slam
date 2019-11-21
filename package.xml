@@ -55,6 +55,7 @@
   <depend>object_pose_interface_msgs</depend>
   <depend>darknet_ros_msgs</depend>
   <depend>roslib</depend>
+  <depend>feature_tracker</depend>
 
   <exec_depend>rviz_plugin_covariance</exec_depend>
 

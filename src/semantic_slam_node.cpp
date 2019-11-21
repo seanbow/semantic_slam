@@ -5,6 +5,7 @@
 #include "semantic_slam/PosePresenter.h"
 #include "semantic_slam/TrajectoryPresenter.h"
 #include "semantic_slam/ObjectMeshPresenter.h"
+#include "semantic_slam/GeometricFeatureHandler.h"
 
 
 int main(int argc, char *argv[])
@@ -17,6 +18,9 @@ int main(int argc, char *argv[])
 
     auto mapper = util::allocate_aligned<SemanticMapper>();
     mapper->setOdometryHandler(odom_handler);
+
+    auto geom_handler = util::allocate_aligned<GeometricFeatureHandler>();
+    mapper->setGeometricFeatureHandler(geom_handler);
 
     // Start message handling thread
     ros::AsyncSpinner message_spinner(1);

@@ -21,6 +21,7 @@
 // #include <gtsam/geometry/Pose3.h>
 
 class OdometryHandler;
+class GeometricFeatureHandler;
 
 class SemanticMapper
 {
@@ -63,6 +64,7 @@ public:
     bool keepFrame(ros::Time time);
 
     void setOdometryHandler(boost::shared_ptr<OdometryHandler> odom);
+    void setGeometricFeatureHandler(boost::shared_ptr<GeometricFeatureHandler> odom);
 
     void addPresenter(boost::shared_ptr<Presenter> presenter);
 
@@ -119,6 +121,7 @@ private:
     std::vector<EstimatedObject::Ptr> estimated_objects_;
 
     boost::shared_ptr<OdometryHandler> odometry_handler_;
+    boost::shared_ptr<GeometricFeatureHandler> geom_handler_;
 
     // A list of tracking IDs that are associated with each estimated object
     // for example if the object tracks 3 and 8 are associated with the same physical object 2,
@@ -141,6 +144,8 @@ private:
                        const std::map<size_t, size_t>& known_das,
                        const Eigen::MatrixXd& weights,
                        const std::vector<size_t>& object_index);
+
+    void processGeometricFeatureTracks(const std::vector<SemanticKeyframe::Ptr>& new_keyframes);
 
     ros::Publisher vis_pub_;
 

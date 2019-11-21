@@ -60,6 +60,8 @@ public:
     // std::vector<ObjectMeasurement>& measurements() { return measurements_; }
     std::vector<EstimatedObject::Ptr>& visible_objects() { return visible_objects_; }
 
+    ros::Time image_time;
+
 private:
     Key key_;
     ros::Time time_;

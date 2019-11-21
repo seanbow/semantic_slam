@@ -22,3 +22,5 @@ private:
     SE3NodePtr node2_;
 
 };
+
+using CeresBetweenFactorPtr = CeresBetweenFactor::Ptr;

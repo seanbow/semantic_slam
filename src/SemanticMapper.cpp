@@ -3,6 +3,7 @@
 #include "semantic_slam/OdometryHandler.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/MLDataAssociator.h"
+#include "semantic_slam/GeometricFeatureHandler.h"
 
 #include <ros/package.h>
 
@@ -59,6 +60,12 @@ void SemanticMapper::setOdometryHandler(boost::shared_ptr<OdometryHandler> odom)
     odometry_handler_ = odom;
     odom->setGraph(graph_);
     odom->setup();
+}
+
+void SemanticMapper::setGeometricFeatureHandler(boost::shared_ptr<GeometricFeatureHandler> geom) {
+    geom_handler_ = geom;
+    geom->setGraph(graph_);
+    geom->setup();
 }
 
 void SemanticMapper::start()
@@ -130,6 +137,8 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
     while (ros::ok() && running_) {
         auto new_frames = addNewOdometryToGraph();
 
+        processGeometricFeatureTracks(new_frames);
+
         if (new_frames.size() > 0) {
             tryAddObjectsToGraph();
 
@@ -146,6 +155,13 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
     }
 
     running_ = false;
+}
+
+void SemanticMapper::processGeometricFeatureTracks(const std::vector<SemanticKeyframe::Ptr>& new_keyframes)
+{
+    for (auto& kf : new_keyframes) {
+        geom_handler_->addKeyframeTime(kf->image_time);
+    }
 }
 
 void SemanticMapper::freezeNonCovisible(const std::vector<SemanticKeyframe::Ptr>& target_frames)
@@ -525,6 +541,7 @@ bool SemanticMapper::tryFetchNextKeyframe()
             if (keepFrame(msg.header.stamp)) {
                 next_keyframe_ = odometry_handler_->createKeyframe(msg.header.stamp);
                 if (next_keyframe_) {
+                    next_keyframe_->image_time = msg.header.stamp;
                     got_msg = true;
                 } else {
                     // Want to keep this keyframe but odometry handler can't make

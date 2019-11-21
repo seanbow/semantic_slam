@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 
-#include "semantic_slam/CeresFactorGraph.h"
+#include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/CeresSE3PriorFactor.h"
 #include "semantic_slam/CeresBetweenFactor.h"
 
@@ -50,7 +50,7 @@ TEST(CeresBasicTests, testAddSE3Node_Exists)
 
 TEST(CeresBasicTests, testAddNodeToGraph_CheckKeys)
 {
-    CeresFactorGraph graph;
+    FactorGraph graph;
 
     SE3NodePtr node0 = util::allocate_aligned<SE3Node>(sym::X(0));
     SE3NodePtr node1 = util::allocate_aligned<SE3Node>(sym::X(1));
@@ -69,7 +69,7 @@ TEST(CeresBasicTests, testAddNodeToGraph_CheckKeys)
 
 TEST(CeresBasicTests, testAddFactor_checkExistsInProblem)
 {
-    CeresFactorGraph graph;
+    FactorGraph graph;
     SE3NodePtr node0 = util::allocate_aligned<SE3Node>(sym::X(0));
 
     Pose3 prior = Pose3::Identity();
@@ -84,7 +84,7 @@ TEST(CeresBasicTests, testAddFactor_checkExistsInProblem)
 
 TEST(CeresBasicTests, testSolve_SimplePriorProblem)
 {
-    CeresFactorGraph graph;
+    FactorGraph graph;
     SE3NodePtr node0 = util::allocate_aligned<SE3Node>(sym::X(0));
 
     Pose3 prior = Pose3::Identity();
@@ -155,7 +155,7 @@ TEST(CeresBasicTests, testBetweenFactor_SimpleCase)
     Eigen::MatrixXd prior_cov = 1e-4 * Eigen::MatrixXd::Identity(6,6);
     CeresSE3PriorFactorPtr x0_prior = util::allocate_aligned<CeresSE3PriorFactor>(x0, Pose3::Identity(), prior_cov);
 
-    CeresFactorGraph graph;
+    FactorGraph graph;
 
     graph.addNode(x0);
     graph.addNode(x1);
@@ -284,7 +284,7 @@ TEST(CeresBasicTests, testBetweenFactor_SimpleCase2)
     Pose3 x0_prior = x0->pose();
     CeresSE3PriorFactorPtr x0_prior_fac = util::allocate_aligned<CeresSE3PriorFactor>(x0, x0_prior, prior_cov);
 
-    CeresFactorGraph graph;
+    FactorGraph graph;
 
     graph.addNode(x0);
     graph.addNode(x1);
@@ -333,7 +333,7 @@ TEST(CeresBasicTests, testBetweenSolve_g2o_Sphere2500)
 
     outputPoses("initial_poses.txt", nodes);
 
-    CeresFactorGraph graph;
+    FactorGraph graph;
 
     for (auto& node_pair : nodes) {
         graph.addNode(node_pair.second);
@@ -343,7 +343,7 @@ TEST(CeresBasicTests, testBetweenSolve_g2o_Sphere2500)
         graph.addFactor(factor);
     }
 
-    graph.setFirstNodeConstant();
+    graph.setNodeConstant(nodes.begin()->second);
 
     // graph.solve(true);
     graph.solve();

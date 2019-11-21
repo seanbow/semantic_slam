@@ -252,6 +252,10 @@ SemanticKeyframe::Ptr OdometryHandler::originKeyframe() {
 
 void OdometryHandler::update() {
     // Update the spine if our messages are exceeding our max period without a node
+
+    // or not...
+
+    /*
     nav_msgs::Odometry last_msg;
     {
         std::lock_guard<std::mutex> guard(mutex_);
@@ -278,5 +282,6 @@ void OdometryHandler::update() {
             // attachSpineNode(*last_odom_node->time() + max_node_period_);
         }
     }
+    */
 
 }

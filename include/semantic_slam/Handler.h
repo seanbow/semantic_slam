@@ -20,7 +20,7 @@ public:
     // virtual CeresNodePtr getSpineNode(ros::Time time) { return nullptr; }
 
     void setGraph(boost::shared_ptr<FactorGraph> graph) { graph_ = graph; }
-    void setCv(boost::shared_ptr<std::condition_variable> cv) { cv_ = cv; }
+    // void setCv(boost::shared_ptr<std::condition_variable> cv) { cv_ = cv; }
 
 protected:
     boost::shared_ptr<FactorGraph> graph_;
@@ -28,7 +28,7 @@ protected:
     ros::NodeHandle nh_;
     ros::NodeHandle pnh_;
 
-    boost::shared_ptr<std::condition_variable> cv_;
+    // boost::shared_ptr<std::condition_variable> cv_;
 };
 
 Handler::Handler()

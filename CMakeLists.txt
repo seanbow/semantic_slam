@@ -13,6 +13,8 @@ find_package(catkin REQUIRED
     roscpp
     roslib
     # gtsam
+    cv_bridge
+    image_transport
     rosfmt
     object_pose_interface_msgs
     darknet_ros_msgs
@@ -26,6 +28,8 @@ find_package(Boost COMPONENTS filesystem serialization system REQUIRED)
 
 find_package(Ceres REQUIRED)
 include_directories(${CERES_INCLUDE_DIRS})
+
+find_package(OpenCV)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -153,6 +157,19 @@ add_library(Key src/Key.cpp)
 add_library(Symbol src/Symbol.cpp)
 add_library(CameraCalibration src/CameraCalibration.cpp)
 
+## Feature Tracker ##
+add_library(TwoPointRansac src/feature_tracker/TwoPointRansac.cpp)
+add_library(FivePointRansac src/feature_tracker/FivePointRansac.cpp)
+add_library(ORBextractor src/feature_tracker/ORBextractor.cpp)
+add_library(FeatureTracker src/feature_tracker/FeatureTracker.cpp)
+target_link_libraries(FeatureTracker
+  ORBextractor
+  FivePointRansac
+  TwoPointRansac
+  ${OpenCV_LIBRARIES}
+  ${catkin_LIBRARIES}
+)
+
 # add_library(StructureFactor src/keypoints/gtsam/StructureFactor.cpp)
 # add_library(StructureProjectionFactor src/keypoints/gtsam/StructureProjectionFactor.cpp)
 
@@ -198,6 +215,11 @@ target_link_libraries(OdometryHandler
   ${CERES_LIBRARIES}
 )
 
+add_library(GeometricFeatureHandler src/GeometricFeatureHandler.cpp)
+target_link_libraries(GeometricFeatureHandler
+  FeatureTracker
+)
+
 add_library(PosePresenter src/PosePresenter.cpp)
 add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
 add_library(ObjectMeshPresenter src/ObjectMeshPresenter.cpp)
@@ -230,6 +252,7 @@ target_link_libraries(SemanticMapper
   EstimatedObject
   EstimatedKeypoint
   StructureOptimizationProblem
+  GeometricFeatureHandler
   MLDataAssociator
   SemanticKeyframe
   FactorGraph
@@ -267,6 +290,8 @@ target_link_libraries(semantic_slam_node
     ${CERES_LIBRARIES}
     FactorGraph
     OdometryHandler
+    GeometricFeatureHandler
+    FeatureTracker
     SemanticMapper
     PosePresenter
     TrajectoryPresenter
@@ -347,6 +372,8 @@ target_link_libraries(testFactorGraph
 
 catkin_add_gtest(testCeresBasics test/testCeresBasics.cpp)
 target_link_libraries(testCeresBasics
+    FactorGraph
+    CeresBetweenFactor
     ${CERES_LIBRARIES}
     # gtsam
     ${BASE_LIBS}

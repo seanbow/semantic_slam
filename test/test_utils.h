@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include "semantic_slam/CeresFactorGraph.h"
+#include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/CeresSE3PriorFactor.h"
 #include "semantic_slam/CeresBetweenFactor.h"
 

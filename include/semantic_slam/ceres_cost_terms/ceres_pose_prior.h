@@ -51,7 +51,7 @@ bool PosePriorCostTerm::operator()(const T* const q_ptr, const T* const p_ptr, T
   Eigen::Quaternion<T> dq = q_prior_inverse_.cast<T>() * q;
   Eigen::Matrix<T, 3, 1> dp = p - p_prior_;
 
-  residual.template head<3>() = T(2.0) * dq.template vec().template head<3>();
+  residual.template head<3>() = T(2.0) * dq.vec().template head<3>();
   residual.template tail<3>() = dp;
 
   residual.applyOnTheLeft(sqrt_information_);

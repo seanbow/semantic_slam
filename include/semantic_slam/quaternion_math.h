@@ -23,6 +23,17 @@ skewsymm(const Eigen::Vector3d& x)
   return omega;
 }
 
+inline Eigen::Matrix4d quat_Omega(const Eigen::Vector3d& omega) {
+    Eigen::Matrix4d Om;
+
+    Om.block<3,3>(0,0) = skewsymm(omega);
+    Om.block<3,1>(0,3) = omega;
+    Om.block<1,3>(3,0) = omega.transpose();
+    Om(3,3) = 0;
+
+    return Om;
+}
+
 inline Eigen::Matrix4d
 Dquat_inv(const Quaterniond& q)
 {

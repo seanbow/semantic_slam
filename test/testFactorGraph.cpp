@@ -8,7 +8,7 @@
 
 namespace sym = symbol_shorthand;
 
-using NodeType = VectorNode<Eigen::Vector2d>;
+using NodeType = VectorNode<2>;
 
 class FactorGraphTests : public ::testing::Test
 {
@@ -124,7 +124,7 @@ TEST(FactorGraphTest, testSolve_SimplePriorFactor)
   FactorGraph graph2;
   Symbol symb = sym::X(0);
 
-  Vector2dNodePtr node = util::allocate_aligned<VectorNode<Eigen::Vector2d>>(symb);
+  Vector2dNodePtr node = util::allocate_aligned<VectorNode<2>>(symb);
   node->vector() << 0, 0;
 
   graph2.addNode(node);
