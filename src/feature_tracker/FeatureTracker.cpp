@@ -36,7 +36,8 @@ FeatureTracker::FeatureTracker(const Params& params)
     // orb_ = cv::Ptr<cv::ORB>( new cv::ORB(2000) );
     // orb_ = cv::ORB::create();
 
-    orb_ = boost::make_shared<ORB_SLAM2::ORBextractor>(2000, 1.2, 8, 15, 3);
+    // orb_ = boost::make_shared<ORB_SLAM2::ORBextractor>(2000, 1.2, 8, 15, 3);
+    orb_ = boost::make_shared<ORB_SLAM2::ORBextractor>(2000, 1.2, 8, 20, 7);
 
     image_transport::ImageTransport it(nh_);
     pub_marked_images_ = it.advertise("marked_image", 10);
@@ -44,13 +45,8 @@ FeatureTracker::FeatureTracker(const Params& params)
     // keyframe_dR_ = Eigen::Matrix3d::Identity();
 }
 
-void FeatureTracker::addImage(const sensor_msgs::ImageConstPtr& msg)
+void FeatureTracker::addImage(const Frame& new_frame)
 {
-    Frame new_frame;
-    new_frame.image = msg;
-
-    extractKeypointsDescriptors(new_frame);
-
     {
         std::lock_guard<std::mutex> lock(buffer_mutex_);
         image_buffer_.push_back(new_frame);
@@ -195,6 +191,7 @@ void FeatureTracker::trackFeaturesForward(int idx1)
     // ROS_INFO_STREAM("RANSAC: From " << pts1.size() << " features to " << frame2.feature_tracks.size() << " inliers.");
 
     // (testing) publish marked image with new tracks
+    
     cv::Mat color_img;
     try {
         color_img = cv_bridge::toCvCopy(frame2.image, "bgr8")->image;

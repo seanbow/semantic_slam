@@ -159,9 +159,18 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
 
 void SemanticMapper::processGeometricFeatureTracks(const std::vector<SemanticKeyframe::Ptr>& new_keyframes)
 {
+    using namespace std::chrono;
+    auto t1 = high_resolution_clock::now();
+
     for (auto& kf : new_keyframes) {
         geom_handler_->addKeyframeTime(kf->image_time);
     }
+
+    auto t2 = high_resolution_clock::now();
+
+    if (new_keyframes.size() > 0)
+        ROS_INFO_STREAM("Tracking features took " 
+            << duration_cast<microseconds>(t2 - t1).count()/1000.0 << " ms." << std::endl);
 }
 
 void SemanticMapper::freezeNonCovisible(const std::vector<SemanticKeyframe::Ptr>& target_frames)
@@ -330,8 +339,9 @@ void SemanticMapper::computeCovariances()
 
 void SemanticMapper::prepareGraphNodes() 
 {
-    std::lock_guard<std::mutex> map_lock(map_mutex_);
-    std::lock_guard<std::mutex> graph_lock(graph_mutex_);
+    std::unique_lock<std::mutex> map_lock(map_mutex_, std::defer_lock);
+    std::unique_lock<std::mutex> graph_lock(graph_mutex_, std::defer_lock);
+    std::lock(map_lock, graph_lock);
 
     for (auto& kf : keyframes_) {
         kf->graph_node()->pose() = kf->pose();
@@ -344,8 +354,9 @@ void SemanticMapper::prepareGraphNodes()
 
 void SemanticMapper::commitGraphSolution()
 {
-    std::lock_guard<std::mutex> map_lock(map_mutex_);
-    std::lock_guard<std::mutex> graph_lock(graph_mutex_);
+    std::unique_lock<std::mutex> map_lock(map_mutex_, std::defer_lock);
+    std::unique_lock<std::mutex> graph_lock(graph_mutex_, std::defer_lock);
+    std::lock(map_lock, graph_lock);
 
     for (auto& kf : keyframes_) {
         kf->pose() = kf->graph_node()->pose();
@@ -619,7 +630,7 @@ bool SemanticMapper::updateNextKeyframeObjects()
             }
         }
 
-        std::cout << "Mahals:\n" << mahals << std::endl;
+        // std::cout << "Mahals:\n" << mahals << std::endl;
     
         Eigen::MatrixXd weights_matrix = MLDataAssociator(params_).computeConstraintWeights(mahals);
 

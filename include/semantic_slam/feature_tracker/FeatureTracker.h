@@ -86,7 +86,7 @@ public:
     void imgCallback(const sensor_msgs::ImageConstPtr& msg);
     // void camInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
 
-    void addImage(const sensor_msgs::ImageConstPtr& msg);
+    void addImage(const Frame& new_frame);
     void addKeyframeTime(ros::Time t);
 
     void imuCallback(const sensor_msgs::Imu::ConstPtr& msg);

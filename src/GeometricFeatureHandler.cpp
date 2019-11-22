@@ -10,9 +10,13 @@ void GeometricFeatureHandler::setup()
 
     last_img_seq_ = -1;
 
-    img_sub_ = nh_.subscribe(image_topic, 100, &GeometricFeatureHandler::imageCallback, this);
+    img_sub_ = nh_.subscribe(image_topic, 1000, &GeometricFeatureHandler::imageCallback, this);
 
     loadParameters();
+
+    running_ = true;
+
+    work_thread_ = std::thread(&GeometricFeatureHandler::extractKeypointsThread, this);
 }
 
 void GeometricFeatureHandler::update()
@@ -61,10 +65,36 @@ void GeometricFeatureHandler::imageCallback(const sensor_msgs::ImageConstPtr& ms
         ROS_ERROR_STREAM("[Tracker] dropped image message, non-sequential sequence numbers, received " << msg->header.seq << ", expected " << last_img_seq_ + 1);
     }
 
-    img_queue_.push_back(msg);
+    {
+        std::lock_guard<std::mutex> lock(queue_mutex_);
+        img_queue_.push_back(msg);
+    }
     // ROS_INFO_STREAM("IMAGE time = " << msg->header.stamp);
+
+    queue_cv_.notify_all();
 
     last_img_seq_ = msg->header.seq;
 
-    tracker_->addImage(msg);
+    // tracker_->addImage(msg);
+}
+
+void GeometricFeatureHandler::extractKeypointsThread()
+{
+    while (ros::ok() && running_) {
+
+        FeatureTracker::Frame new_frame;
+
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex_);
+
+            queue_cv_.wait(lock, [&] { return !img_queue_.empty(); });
+
+            new_frame.image = img_queue_.front();
+            img_queue_.pop_front();
+        }
+
+        tracker_->extractKeypointsDescriptors(new_frame);
+
+        tracker_->addImage(new_frame);
+    }
 }
