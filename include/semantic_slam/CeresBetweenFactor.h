@@ -10,6 +10,7 @@ class CeresBetweenFactor : public CeresFactor
 {
 public:
     CeresBetweenFactor(SE3NodePtr node1, SE3NodePtr node2, Pose3 between, Eigen::MatrixXd covariance, int tag=0);
+    ~CeresBetweenFactor();
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
     void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);

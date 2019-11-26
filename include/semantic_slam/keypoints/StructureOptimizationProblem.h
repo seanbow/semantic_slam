@@ -20,7 +20,7 @@ public:
   using CovarianceBlocks = std::vector<std::pair<const double*, const double*>>;
 
   StructureOptimizationProblem(geometry::ObjectModelBasis model,
-                               CameraCalibration camera_calibration,
+                               boost::shared_ptr<CameraCalibration> camera_calibration,
                                Pose3 body_T_camera, Eigen::VectorXd weights,
                                ObjectParams params);
 
@@ -53,7 +53,7 @@ private:
   geometry::ObjectModelBasis model_;
   size_t m_, k_;
 
-  CameraCalibration camera_calibration_;
+  boost::shared_ptr<CameraCalibration> camera_calibration_;
   Pose3 body_T_camera_;
 
   ceres::Problem ceres_problem_;

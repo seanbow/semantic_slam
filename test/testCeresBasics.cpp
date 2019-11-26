@@ -321,37 +321,37 @@ TEST(CeresBasicTests, testBetweenFactor_SimpleCase2)
     
 }
 
-TEST(CeresBasicTests, testBetweenSolve_g2o_Sphere2500)
-{
-    std::unordered_map<Key, SE3NodePtr> nodes;
-    std::vector<CeresFactorPtr> factors;
-    std::string filename("/home/sean/code/SESync/data/sphere2500.g2o");
+// TEST(CeresBasicTests, testBetweenSolve_g2o_Sphere2500)
+// {
+//     std::unordered_map<Key, SE3NodePtr> nodes;
+//     std::vector<CeresFactorPtr> factors;
+//     std::string filename("/home/sean/code/SESync/data/sphere2500.g2o");
 
-    readG2oFile(filename, nodes, factors);
+//     readG2oFile(filename, nodes, factors);
 
-    std::cout << "g2o file has " << nodes.size() << " nodes and " << factors.size() << " factors." << std::endl;
+//     std::cout << "g2o file has " << nodes.size() << " nodes and " << factors.size() << " factors." << std::endl;
 
-    outputPoses("initial_poses.txt", nodes);
+//     outputPoses("initial_poses.txt", nodes);
 
-    FactorGraph graph;
+//     FactorGraph graph;
 
-    for (auto& node_pair : nodes) {
-        graph.addNode(node_pair.second);
-    }
+//     for (auto& node_pair : nodes) {
+//         graph.addNode(node_pair.second);
+//     }
 
-    for (auto& factor : factors) {
-        graph.addFactor(factor);
-    }
+//     for (auto& factor : factors) {
+//         graph.addFactor(factor);
+//     }
 
-    graph.setNodeConstant(nodes.begin()->second);
+//     graph.setNodeConstant(nodes.begin()->second);
 
-    // graph.solve(true);
-    graph.solve();
+//     // graph.solve(true);
+//     graph.solve();
 
-    outputPoses("optimized_poses.txt", nodes);
+//     outputPoses("optimized_poses.txt", nodes);
 
-    EXPECT_TRUE(true);
-}
+//     EXPECT_TRUE(true);
+// }
 
 // Run all the tests that were declared with TEST()
 int main(int argc, char **argv){

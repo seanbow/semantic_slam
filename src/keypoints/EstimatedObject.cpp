@@ -220,7 +220,7 @@ EstimatedObject::optimizeStructure()
   
   std::lock_guard<std::mutex> lock(problem_mutex_);
 
-  structure_problem_ = util::allocate_aligned<StructureOptimizationProblem>(model_, *camera_calibration_,
+  structure_problem_ = util::allocate_aligned<StructureOptimizationProblem>(model_, camera_calibration_,
                                                     body_T_camera, weights, params_);
 
   structure_problem_->initializePose(initial_object_pose);

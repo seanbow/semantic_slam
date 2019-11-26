@@ -233,7 +233,7 @@ bool EstimatedKeypoint::triangulate(boost::optional<double&> condition)
   }
   else
   {
-    // QR is cheaper
+    // QR should be stable enough
     point = A.colPivHouseholderQr().solve(b).block<3, 1>(0, 0);
   }
 

@@ -45,20 +45,25 @@ FeatureTracker::FeatureTracker(const Params& params)
     // keyframe_dR_ = Eigen::Matrix3d::Identity();
 }
 
-void FeatureTracker::addImage(const Frame& new_frame)
+void FeatureTracker::addImage(Frame&& new_frame)
 {
+    extractKeypointsDescriptors(new_frame);
+
     {
         std::lock_guard<std::mutex> lock(buffer_mutex_);
         image_buffer_.push_back(new_frame);
     }
 }
 
-void FeatureTracker::addKeyframeTime(ros::Time t)
+bool
+FeatureTracker::addKeyframeTime(ros::Time t, std::vector<FeatureTracker::TrackedFeature>& tracks)
 {
+    tracks.clear();
+
     // Don't do anything if this is our first keyframe...
     if (last_keyframe_time_ == ros::Time(0)) {
         last_keyframe_time_ = t;
-        return;
+        return true;
     }
 
     // Lookup image that corresponds to this time, and also to the previous time
@@ -75,15 +80,17 @@ void FeatureTracker::addKeyframeTime(ros::Time t)
     }
 
     if (this_kf_index < 0) {
-        ROS_ERROR_STREAM("Unable to find image for time " << t);
-        last_keyframe_time_ = t;
-        return;
+        // ROS_ERROR_STREAM("Unable to find image for time " << t);
+        // ROS_ERROR_STREAM("Last buffer time = " << image_buffer_.back().image->header.stamp);
+        // last_keyframe_time_ = t;
+        return false;
     }
 
     if (last_kf_index < 0) {
         ROS_ERROR_STREAM("Unable to find image for time " << last_keyframe_time_);
-        last_keyframe_time_ = t;
-        return;
+        // ROS_ERROR_STREAM("Last buffer time = " << image_buffer_.back().image->header.stamp);
+        // last_keyframe_time_ = t;
+        return false;
     }
 
     // Extract new features in the previous keyframe
@@ -94,7 +101,7 @@ void FeatureTracker::addKeyframeTime(ros::Time t)
         trackFeaturesForward(i);
     }
 
-    // TODO pass along information etc
+    tracks = image_buffer_[this_kf_index].feature_tracks;
 
     // Remove old unneeded frames
     std::lock_guard<std::mutex> lock(buffer_mutex_);
@@ -102,6 +109,8 @@ void FeatureTracker::addKeyframeTime(ros::Time t)
     image_buffer_.erase(image_buffer_.begin(), image_buffer_.begin() + this_kf_index);
 
     last_keyframe_time_ = t;
+
+    return true;
 }
 
 void FeatureTracker::extractKeypointsDescriptors(Frame& frame)

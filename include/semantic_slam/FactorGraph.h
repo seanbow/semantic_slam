@@ -99,15 +99,13 @@ FactorGraph::findLastNode(unsigned char symbol_chr)
 {
     CeresNodePtr result = nullptr;
 
-    ros::Time last_time = ros::Time(0);
+    size_t last_index = 0;
 
     for (auto& key_node : nodes_) {
         if (key_node.second->chr() != symbol_chr) continue;
 
-        if (!key_node.second->time()) continue;
-
-        if (key_node.second->time() > last_time) {
-            last_time = *key_node.second->time();
+        if (key_node.second->index() > last_index) {
+            last_index = key_node.second->index();
             result = key_node.second;
         }
     }

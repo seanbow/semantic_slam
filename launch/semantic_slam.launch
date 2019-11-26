@@ -2,87 +2,61 @@
 
 <launch>
 
-  <!-- Arguments -->
-  <arg name="cam_topic"                           default="/zed/zed_node/rgb/image_rect_color"/>
-  <arg name="raw_cam_topic"                       default="/zed/zed_node/rgb/relay" />
-  <arg name="cam_info_topic"                      default="/zed/zed_node/rgb/camera_info"/>
-  <arg name="image_transport"                     default="raw"/>
+    <!-- Arguments -->
+    <arg name="cam_topic"                           default="/zed/zed_node/rgb/image_rect_color"/>
+    <arg name="raw_cam_topic"                       default="/zed/zed_node/rgb/relay" />
+    <arg name="cam_info_topic"                      default="/zed/zed_node/rgb/camera_info"/>
+    <arg name="image_transport"                     default="raw"/>
 
-  <arg name="imu_topic"                           default="/zed/zed_node/imu/data_raw"/>
-  <arg name="odom_topic"                          default="/zed/zed_node/odom"/>
+    <arg name="imu_topic"                           default="/zed/zed_node/imu/data_raw"/>
+    <arg name="odom_topic"                          default="/zed/zed_node/odom"/>
 
-  <arg name="global_frame"						            default="/odom"/>
-  <arg name="robot_frame"							            default="/base_link"/>
-  <arg name="imu_frame"							              default="/zed_imu_link"/>
+    <arg name="global_frame"						            default="/odom"/>
+    <arg name="robot_frame"							            default="/base_link"/>
+    <arg name="imu_frame"							              default="/zed_imu_link"/>
 
-  <!-- <arg name="calib_file"                          default="$(find semslam)/param/turtlebot.yaml"/> -->
+    <!-- <arg name="calib_file"                          default="$(find semslam)/param/turtlebot.yaml"/> -->
 
-  <arg name="calib_file"                          default="$(find semantic_slam)/param/zed.yaml"/>
+    <arg name="calib_file"                          default="$(find semantic_slam)/param/zed.yaml"/>
 
-  <arg name="detected_objects_topic"              default="/darknet_ros/bounding_boxes"/>
-  <arg name="detected_objects_topic_republished"  default="bounding_boxes_republished"/>
-  <arg name="keypoint_topic"                      default="img_keypoints"/>
+    <arg name="detected_objects_topic"              default="/darknet_ros/bounding_boxes"/>
+    <arg name="detected_objects_topic_republished"  default="bounding_boxes_republished"/>
+    <arg name="keypoint_topic"                      default="img_keypoints"/>
 
-  <arg name="yolo"                                default="true"/>
+    <arg name="yolo"                                default="true"/>
 
-  <arg name="launch-args"                         default=""/>
-  <arg name="launch-delay"                        default="30.0"/>
+    <arg name="launch-args"                         default=""/>
+    <arg name="launch-delay"                        default="30.0"/>
 
-  <!-- Object tracking parameters -->  
-  <arg name="use_image_topic" default="false" /> <!-- Would turn off image topic if using passthrough tracker -->
-  <arg name="use_detection_topic" default="true" /> <!-- Not supported, but would turn off detection topic if using OpenCV's selectROI -->
-  <arg name="tracker_type" default="NAIVE" />  <!-- Options: BOOSTING, MIL, KCF, TLD, MEDIANFLOW, GOTURN, MOSSE -->
-  <arg name="reset_on_detection" default="true" />
-  <arg name="filter_2class" default="true" />
-  <arg name="detection_conf_threshold" default="0.80" />
-  <arg name="f2f_match_threshold" default="0.0" />
-  <arg name="missed_detection_threshold" default="0" />
-  <arg name="visualize" default="true" />
+    <!-- Object tracking parameters -->  
+    <arg name="use_image_topic" default="false" /> <!-- Would turn off image topic if using passthrough tracker -->
+    <arg name="use_detection_topic" default="true" /> <!-- Not supported, but would turn off detection topic if using OpenCV's selectROI -->
+    <arg name="tracker_type" default="NAIVE" />  <!-- Options: BOOSTING, MIL, KCF, TLD, MEDIANFLOW, GOTURN, MOSSE -->
+    <arg name="reset_on_detection" default="true" />
+    <arg name="filter_2class" default="true" />
+    <arg name="detection_conf_threshold" default="0.80" />
+    <arg name="f2f_match_threshold" default="0.0" />
+    <arg name="missed_detection_threshold" default="0" />
+    <arg name="visualize" default="true" />
 
-  <param name="/yolo"                             value="$(arg yolo)" type="bool"/>
+    <param name="/yolo"                             value="$(arg yolo)" type="bool"/>
 
-  <node pkg="semantic_slam" type="semantic_slam_node" name="semantic_slam" output="screen"
-            launch-prefix="" >
-    <param name="odom_topic" value="$(arg odom_topic)" />
+    <node pkg="semantic_slam" type="semantic_slam_node" name="semantic_slam" output="screen"
+                launch-prefix="" >
+        <param name="odom_topic" value="$(arg odom_topic)" />
 
-    <param name="image_topic"                   value="$(arg raw_cam_topic)"/>
+        <param name="image_topic"                   value="$(arg raw_cam_topic)"/>
 
-    <!-- Camera calibration file -->
-    <rosparam file="$(arg calib_file)"/>
-  </node>
+        <!-- Camera calibration file -->
+        <rosparam file="$(arg calib_file)"/>
+    </node>
 
-  <!-- <node pkg="feature_tracker" type="feature_tracker_node" name="feature_tracker" 
-        required="true" clear_params="true" output="screen" launch-prefix="" >
-    <param name="cam_topic" value="$(arg cam_topic)" />
-    <param name="cam_info_topic" value="$(arg cam_info_topic)" /> -->
-    <!-- <param name="imu_topic" value="$(arg imu_topic)" type="str" /> -->
-    <!-- <param name="use_2pt_ransac" value="false" type="bool" />
-    <param name="image_transport" value="$(arg image_transport)" type="str" /> -->
-    <!-- Camera calibration file -->
-    <!-- <rosparam file="$(find semslam)/param/zed.yaml" />
-  </node> -->
-
-  <!-- Launch semantic SLAM node -->
-  <!-- <node pkg="semslam" type="semslam_node" name="semslam" output="screen" required="true" launch-prefix="$(arg launch-args)"> 
-    <param name="cam_topic"           value="$(arg raw_cam_topic)" type="str"/>
-    <param name="odom_topic"          value="$(arg odom_topic)" type="str"/>
-    <param name="keyframe_topic"      value="$(arg keypoint_topic)" type="str"/>
-    <param name="image_transport"     value="$(arg image_transport)"/>
-    <param name="keypoint_topic"      value="$(arg keypoint_topic)"/>
-
-    <param name="global_frame"        value="$(arg global_frame)"/>
-    <param name="robot_frame"         value="$(arg robot_frame)"/>
-    <param name="imu_frame"           value="$(arg imu_frame)"/>
-
-    <rosparam file="$(arg calib_file)"/>
-  </node> -->
-
-  <!-- Launch object detector -->
-  <!-- Make sure to: 1) configure your launch file -->
-  <!--               2) change the topic name for your camera in ros.yaml -->
-  <!--               3) change enable_opencv to true and enable_console_output to false to suppress all printing -->
-  <!--               4) use relative namespaces in ros.yaml -->
-  <!-- <include file="$(find darknet_ros)/launch/yolo_v3_voc_indoor.launch"/> -->
+    <!-- Launch object detector -->
+    <!-- Make sure to: 1) configure your launch file -->
+    <!--               2) change the topic name for your camera in ros.yaml -->
+    <!--               3) change enable_opencv to true and enable_console_output to false to suppress all printing -->
+    <!--               4) use relative namespaces in ros.yaml -->
+    <!-- <include file="$(find darknet_ros)/launch/yolo_v3_voc_indoor.launch"/> -->
 
 
     <include file="$(find darknet_ros)/launch/darknet_ros.launch">
@@ -92,61 +66,52 @@
         <arg name="network_param_file" value="$(find darknet_ros)/config/yolov3-voc-test.yaml" />
     </include>
 
-  <!-- Launch detection republisher -->
-  <node pkg="object_keypoint_detector" type="detection_republisher.py" name="detection_republisher" output="screen">
-    <param name="detection_topic"						      value="$(arg detected_objects_topic)"/>
-    <param name="detection_republished_topic"			value="$(arg detected_objects_topic_republished)"/>
-</node>
-
-    <node pkg="opencv_object_tracking"
-          type="opencv_object_tracking_node" name="object_tracker" output="screen">
-      <param name="platform" value="zed" />
-      <param name="image_topic" value="$(arg raw_cam_topic)" />
-      <param name="detection_topic" value="$(arg detected_objects_topic_republished)" />
-      <param name="use_image_topic" value="$(arg use_image_topic)" />
-      <param name="use_detection_topic" value="$(arg use_detection_topic)" />
-      <param name="tracker_type" value="$(arg tracker_type)" />
-      <param name="reset_on_detection" value="$(arg reset_on_detection)" />
-      <param name="filter_2class" value="$(arg filter_2class)" />
-      <param name="detection_conf_threshold" value="$(arg detection_conf_threshold)" />
-      <param name="f2f_match_threshold" value="$(arg f2f_match_threshold)" />
-      <param name="missed_detection_threshold" value="$(arg missed_detection_threshold)" />
-      <param name="visualize" value="$(arg visualize)" />
+    <!-- Launch detection republisher -->
+    <node pkg="object_keypoint_detector" type="detection_republisher.py" name="detection_republisher" output="screen">
+        <param name="detection_topic"						      value="$(arg detected_objects_topic)"/>
+        <param name="detection_republished_topic"			value="$(arg detected_objects_topic_republished)"/>
     </node>
 
+    <node pkg="opencv_object_tracking"
+                    type="opencv_object_tracking_node" name="object_tracker" output="screen">
+        <param name="platform" value="zed" />
+        <param name="image_topic" value="$(arg raw_cam_topic)" />
+        <param name="detection_topic" value="$(arg detected_objects_topic_republished)" />
+        <param name="use_image_topic" value="$(arg use_image_topic)" />
+        <param name="use_detection_topic" value="$(arg use_detection_topic)" />
+        <param name="tracker_type" value="$(arg tracker_type)" />
+        <param name="reset_on_detection" value="$(arg reset_on_detection)" />
+        <param name="filter_2class" value="$(arg filter_2class)" />
+        <param name="detection_conf_threshold" value="$(arg detection_conf_threshold)" />
+        <param name="f2f_match_threshold" value="$(arg f2f_match_threshold)" />
+        <param name="missed_detection_threshold" value="$(arg missed_detection_threshold)" />
+        <param name="visualize" value="$(arg visualize)" />
+    </node>
 
+    <!-- Launch keypoint detector -->
+    <node name="keypoint_detector" pkg="object_keypoint_detector" type="keypoint_detector_torch.py" 
+                    required="true" output="log">
 
-  <!-- <node pkg="feature_tracker" type="feature_tracker_node" name="feature_tracker" 
-      required="true" clear_params="true" output="log" launch-prefix="">
-    <param name="cam_topic" value="$(arg raw_cam_topic)" type="str" />
-    <param name="use_2pt_ransac" value="false" type="bool" />
+        <param name="image_topic"                   value="$(arg raw_cam_topic)"/>
+        <remap from="pose_estimator/img_keypoints"  to="semslam/$(arg keypoint_topic)"/>
+        <remap from="detected_objects"              to="object_tracker/tracked_objects"/>
 
-    <rosparam file="$(arg calib_file)" />
-  </node> -->
+        <param name="model_type"                    value="StackedHourglass"/>
+        <param name="num_keypoints_file"            value="$(find object_keypoint_detector)/keypoint_description/num_keypoints_indoor.txt"/>
+        <param name="model_path"                    value="$(find object_keypoint_detector)/models/model_20_multiple.t7"/>
 
-  <!-- Launch keypoint detector -->
-  <node name="keypoint_detector" pkg="object_keypoint_detector" type="keypoint_detector_torch.py" 
-      required="true" output="log">
+        <param name="target_framerate"              value="10" />
+    </node>
 
-    <param name="image_topic"                   value="$(arg raw_cam_topic)"/>
-    <remap from="pose_estimator/img_keypoints"  to="semslam/$(arg keypoint_topic)"/>
-    <remap from="detected_objects"              to="object_tracker/tracked_objects"/>
-
-    <param name="model_type"                    value="StackedHourglass"/>
-    <param name="num_keypoints_file"            value="$(find object_keypoint_detector)/keypoint_description/num_keypoints_indoor.txt"/>
-    <param name="model_path"                    value="$(find object_keypoint_detector)/models/model_20_multiple.t7"/>
-
-    <param name="target_framerate"              value="10" />
-  </node>
-
-   <node name="republish_left"  type="republish" pkg="image_transport" 
-        args="compressed in:=/zed/zed_node/rgb/image_rect_color 
-              raw out:=$(arg raw_cam_topic)" />
+    <node name="republish_left"  type="image_republish_node" pkg="semantic_slam" 
+            args="compressed in:=/zed/zed_node/rgb/image_rect_color 
+                  raw out:=$(arg raw_cam_topic)" />
 
     <!-- 2019-10-23-11-41-52.bag or 2019-10-23-13-16-11.bag -->
     <node pkg="rosbag" type="play" name="rosbag_player" output="log" 
-        args="--clock /mnt/data/turtlebot/2019-10-23-11-41-52.bag
-              --delay 2" />
+            args="--clock /mnt/data/turtlebot/2019-10-23-11-41-52.bag
+                  --delay 5
+                  --queue 1000" />
 
     <node pkg="rviz" type="rviz" name="rviz" args="-d $(find semantic_slam)/rviz/test.rviz" />
 

@@ -6,7 +6,10 @@
 FactorGraph::FactorGraph()
     : modified_(false)
 {
-    problem_ = boost::make_shared<ceres::Problem>(); 
+    ceres::Problem::Options problem_options;
+    problem_options.cost_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+    problem_options.enable_fast_removal = true;
+    problem_ = boost::make_shared<ceres::Problem>(problem_options); 
 
     // solver_options_.trust_region_strategy_type = ceres::DOGLEG;
     // solver_options_.dogleg_type = ceres::SUBSPACE_DOGLEG;
@@ -57,7 +60,7 @@ bool FactorGraph::solve(bool verbose)
     if (verbose)
         std::cout << summary.FullReport() << std::endl;
 
-    return true;
+    return summary.IsSolutionUsable();
 }
 
 void FactorGraph::addNode(CeresNodePtr node)

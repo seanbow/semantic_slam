@@ -8,7 +8,8 @@ CameraCalibration::CameraCalibration(double fx, double fy, double s, double u0, 
 
 }
 
-Eigen::Vector2d CameraCalibration::uncalibrate(const Eigen::Vector2d& p) const
+Eigen::Vector2d CameraCalibration::uncalibrate(const Eigen::Vector2d& p,
+                                               boost::optional<Eigen::MatrixXd&> Hpoint) const
 {
     // Code borrowed from opencv's projectpoints function
     double x = p(0), y = p(1);
@@ -24,8 +25,40 @@ Eigen::Vector2d CameraCalibration::uncalibrate(const Eigen::Vector2d& p) const
     double xd0 = x*cdist + p1_*a1 + p2_*a2;
     double yd0 = y*cdist + p1_*a3 + p2_*a1;
 
+    if (Hpoint) {
+        Duncalibrate(p, *Hpoint);
+    }
+
     return Eigen::Vector2d( fx_*xd0 + s_*yd0 + u0_, 
                             fy_*yd0 + v0_ );
+}
+
+void CameraCalibration::Duncalibrate(const Eigen::Vector2d& p, Eigen::MatrixXd& Hpoint) const
+{
+    // 2x2 Jacobian matrix d(projection) / d(point)
+    // Computed in mathematica
+    double x = p(0), y = p(1);
+    double r2 = x*x + y*y;
+    double r4 = r2 * r2;
+
+    double a1 = 2*x*y;
+
+    Hpoint = Eigen::MatrixXd(2,2);
+
+    Hpoint(0,0) = r4*fx_*k2_ + fx_*(1 + 2 *x*x* k1_ + 2* y* p1_ + 6* x* p2_) + 
+                        2* (x *y* k1_ + x* p1_ + y* p2_) *s_ + 
+                        r2* (fx_* (k1_ + 4* x*x*k2_) + 2*a1* k2_* s_);
+
+    Hpoint(0,1) = 2 *fx_* (x* y* k1_ + x* p1_ + y* p2_) + r4 * k2_ *s_ + 
+                        (1 + 2 *y*y* k1_ + 6 *y* p1_ + 2* x* p2_)* s_ + 
+                        r2 * (2*a1 *fx_* k2_ + (k1_ + 4 *y*y* k2_)* s_);
+
+    Hpoint(1,0) =   2*a1*r2* fy_* k2_ + 2 *fy_ *(x* y *k1_ + x* p1_ + y* p2_);
+
+    Hpoint(1,1) = r4* fy_* k2_ + r2* fy_* (k1_ + 4 *y*y* k2_) + 
+                            fy_* (1 + 2 *y*y* k1_ + 6 *y* p1_ + 2* x* p2_);
+
+    // Hpoint << fx_, 0, 0, fy_;
 }
 
 Eigen::Vector2d CameraCalibration::calibrate(const Eigen::Vector2d& p) const

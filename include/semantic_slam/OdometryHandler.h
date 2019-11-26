@@ -26,13 +26,15 @@ public:
 
     // CeresNodePtr attachSpineNode(ros::Time time);
 
-    SemanticKeyframe::Ptr originKeyframe();
+    SemanticKeyframe::Ptr originKeyframe(ros::Time time);
 
     SemanticKeyframe::Ptr createKeyframe(ros::Time time);
 
     SemanticKeyframe::Ptr findNearestKeyframe(ros::Time time);
 
     bool getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3& T12);
+
+    bool getRelativePoseJacobianEstimate(ros::Time t1, ros::Time t2, Eigen::MatrixXd& J);
 
     // inherit constructor
     using Handler::Handler;
@@ -55,6 +57,8 @@ private:
 
     unsigned char node_chr_;
     ros::Duration max_node_period_;
+
+    Eigen::MatrixXd extractOdometryCovariance(const nav_msgs::Odometry& msg) const;
 
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

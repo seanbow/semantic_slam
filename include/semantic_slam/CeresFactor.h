@@ -16,7 +16,7 @@ public:
     FactorType type() const { return type_; }
     int tag() const { return tag_; }
 
-    bool operator==(const CeresFactor& other) const;
+    virtual bool operator==(const CeresFactor& other) const;
 
 protected:
     FactorType type_;

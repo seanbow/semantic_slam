@@ -47,6 +47,8 @@ public:
                 boost::optional<Eigen::MatrixXd&> Hpose1 = boost::none,
                 boost::optional<Eigen::MatrixXd&> Hpose2 = boost::none) const;
 
+  bool equals(const Pose3& other, double tolerance) const;
+
   double x() const { return translation()[0]; }
   double y() const { return translation()[1]; }
   double z() const { return translation()[2]; }
@@ -237,6 +239,13 @@ Pose3::between(const Pose3& other,
     }
 
     return result;
+}
+
+bool Pose3::equals(const Pose3& other, double tolerance) const
+{
+  double tol2 = tolerance * tolerance;
+  return (p_ - other.translation()).squaredNorm() < tol2 
+            && (q_.coeffs() - other.rotation().coeffs()).squaredNorm() < tol2;
 }
 
 std::ostream &operator<<(std::ostream &os, const Pose3& pose) {

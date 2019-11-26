@@ -6,6 +6,7 @@
 #include "semantic_slam/TrajectoryPresenter.h"
 #include "semantic_slam/ObjectMeshPresenter.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
+#include "semantic_slam/GeometricMapPresenter.h"
 
 
 int main(int argc, char *argv[])
@@ -30,10 +31,12 @@ int main(int argc, char *argv[])
     auto pose_presenter = util::allocate_aligned<PosePresenter>();
     auto trajectory_presenter = util::allocate_aligned<TrajectoryPresenter>();
     auto object_presenter = util::allocate_aligned<ObjectMeshPresenter>();
+    auto geom_presenter = util::allocate_aligned<GeometricMapPresenter>();
 
     mapper->addPresenter(pose_presenter);
     mapper->addPresenter(trajectory_presenter);
     mapper->addPresenter(object_presenter);
+    mapper->addPresenter(geom_presenter);
 
     mapper->start();
 

@@ -215,14 +215,29 @@ target_link_libraries(OdometryHandler
   ${CERES_LIBRARIES}
 )
 
+add_library(MultiProjectionFactor src/MultiProjectionFactor.cpp)
+target_link_libraries(MultiProjectionFactor
+  ${CERES_LIBRARIES}
+  ${BASE_LIBS}
+)
+
+add_library(SmartProjectionFactor src/SmartProjectionFactor.cpp)
+target_link_libraries(SmartProjectionFactor
+  ${CERES_LIBRARIES}
+  ${BASE_LIBS}
+)
+
 add_library(GeometricFeatureHandler src/GeometricFeatureHandler.cpp)
 target_link_libraries(GeometricFeatureHandler
   FeatureTracker
+  MultiProjectionFactor
+  SmartProjectionFactor
 )
 
 add_library(PosePresenter src/PosePresenter.cpp)
 add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
 add_library(ObjectMeshPresenter src/ObjectMeshPresenter.cpp)
+add_library(GeometricMapPresenter src/GeometricMapPresenter.cpp)
 
 add_library(EstimatedObject src/keypoints/EstimatedObject.cpp)
 
@@ -296,8 +311,14 @@ target_link_libraries(semantic_slam_node
     PosePresenter
     TrajectoryPresenter
     ObjectMeshPresenter
+    GeometricMapPresenter
     SemanticKeyframe
     ${BASE_LIBS}
+)
+
+add_executable(image_republish_node src/image_republish_node.cpp)
+target_link_libraries(image_republish_node
+    ${catkin_LIBRARIES}
 )
 
 ## Rename C++ executable without prefix
@@ -376,6 +397,16 @@ target_link_libraries(testCeresBasics
     CeresBetweenFactor
     ${CERES_LIBRARIES}
     # gtsam
+    ${BASE_LIBS}
+)
+
+catkin_add_gtest(testProjectionFactors test/testProjectionFactors.cpp)
+target_link_libraries(testProjectionFactors
+    FactorGraph
+    MultiProjectionFactor
+    SmartProjectionFactor
+    CeresProjectionFactor
+    ${CERES_LIBRARIES}
     ${BASE_LIBS}
 )
 

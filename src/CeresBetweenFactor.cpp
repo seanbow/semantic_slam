@@ -13,6 +13,11 @@ CeresBetweenFactor::CeresBetweenFactor(SE3NodePtr node1,
     cf_ = BetweenCostTerm::Create(between, covariance);
 }
 
+CeresBetweenFactor::~CeresBetweenFactor()
+{
+    delete cf_;
+}
+
 void
 CeresBetweenFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {

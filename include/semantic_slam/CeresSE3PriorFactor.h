@@ -11,6 +11,7 @@ class CeresSE3PriorFactor : public CeresFactor
 {
 public:
     CeresSE3PriorFactor(SE3NodePtr node, const Pose3& prior, const Eigen::MatrixXd& covariance, int tag=0);
+    ~CeresSE3PriorFactor();
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
     void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
@@ -32,6 +33,11 @@ CeresSE3PriorFactor::CeresSE3PriorFactor(SE3NodePtr node,
 {
     // ceres::Problem will take ownership of this cost function
     cf_ = PosePriorCostTerm::Create(prior, covariance);
+}
+
+CeresSE3PriorFactor::~CeresSE3PriorFactor()
+{
+    delete cf_;
 }
 
 void CeresSE3PriorFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)

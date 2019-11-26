@@ -20,6 +20,8 @@ public:
                           const Pose3& body_T_sensor,
                           int tag = 0);
 
+    ~CeresProjectionFactor();
+
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
     void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 

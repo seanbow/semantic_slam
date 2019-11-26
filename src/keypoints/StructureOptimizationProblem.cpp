@@ -130,7 +130,7 @@ StructureOptimizationProblem::getPlx(size_t landmark_index,
 }
 
 StructureOptimizationProblem::StructureOptimizationProblem(
-  geometry::ObjectModelBasis model, CameraCalibration camera_calibration,
+  geometry::ObjectModelBasis model, boost::shared_ptr<CameraCalibration> camera_calibration,
   Pose3 body_T_camera, Eigen::VectorXd weights, ObjectParams params)
   : model_(model)
   , camera_calibration_(camera_calibration)

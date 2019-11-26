@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eigen3/Eigen/Core>
+#include <boost/optional.hpp>
 
 // Camera calibration data & utilities
 
@@ -28,7 +29,10 @@ public:
     inline double p2() const { return p2_; }
 
     // Convert intrinsic camera coordinates to distorted image coordinates
-    Eigen::Vector2d uncalibrate(const Eigen::Vector2d& p) const;
+    Eigen::Vector2d uncalibrate(const Eigen::Vector2d& p,
+                                boost::optional<Eigen::MatrixXd&> Hpoint = boost::none) const;
+
+    void Duncalibrate(const Eigen::Vector2d& p, Eigen::MatrixXd& Hpoint) const;
 
     // Convert distorted image coordinates to intrinsic coordinates
     Eigen::Vector2d calibrate(const Eigen::Vector2d& p) const;

@@ -1,16 +1,22 @@
 #include "semantic_slam/GeometricFeatureHandler.h"
 
+#include "semantic_slam/MultiProjectionFactor.h"
+#include "semantic_slam/SmartProjectionFactor.h"
+
 void GeometricFeatureHandler::setup()
 {  
     std::string image_topic;
 
     if (!pnh_.getParam("image_topic", image_topic)) {
         ROS_ERROR_STREAM("Error: unable to read feature tracker parameters");
+    } else {
+        ROS_INFO_STREAM("[Tracker] Subscribing to " << image_topic);
     }
 
     last_img_seq_ = -1;
 
-    img_sub_ = nh_.subscribe(image_topic, 1000, &GeometricFeatureHandler::imageCallback, this);
+    image_transport::ImageTransport it(nh_);
+    img_sub_ = it.subscribe(image_topic, 1000, &GeometricFeatureHandler::imageCallback, this);
 
     loadParameters();
 
@@ -24,9 +30,92 @@ void GeometricFeatureHandler::update()
     
 }
 
-void GeometricFeatureHandler::addKeyframeTime(ros::Time t)
+void GeometricFeatureHandler::setExtrinsicCalibration(const Pose3& body_T_sensor)
 {
-    tracker_->addKeyframeTime(t);
+    I_T_C_ = body_T_sensor;
+}
+
+void GeometricFeatureHandler::addKeyframe(const SemanticKeyframe::Ptr& frame)
+{
+    kfs_to_process_.push_back(frame);
+}
+
+void GeometricFeatureHandler::processPendingFrames()
+{
+    while (!kfs_to_process_.empty()) {
+        auto frame = kfs_to_process_.front();
+
+        std::vector<FeatureTracker::TrackedFeature> tracks;
+        
+        bool got_tracks = tracker_->addKeyframeTime(frame->image_time, tracks);
+
+        if (!got_tracks) break;
+
+        kfs_to_process_.pop_front();
+
+        // For each feature tracked into this frame, either create or update its projection factor
+        
+        for (int i = 0; i < tracks.size(); ++i) {
+            const auto& tf = tracks[i];
+
+            if (use_smart_projection_factors_) {
+                SmartProjectionFactor::Ptr factor;
+                Vector3dNode::Ptr landmark_node;
+
+                auto factor_it = smart_factors_.find(tf.pt_id);
+
+                if (factor_it == smart_factors_.end()) {
+                    factor = util::allocate_aligned<SmartProjectionFactor>(I_T_C_,
+                                                                        calibration_,
+                                                                        reprojection_error_threshold_);
+                    smart_factors_[tf.pt_id] = factor;
+                    
+                } else {
+                    factor = factor_it->second;
+                }
+
+                Eigen::Vector2d msmt(tf.pt.x, tf.pt.y);
+                Eigen::Matrix2d msmt_noise = cam_sigma_ * Eigen::Matrix2d::Identity();
+
+                factor->addMeasurement(frame->graph_node(), msmt, msmt_noise);
+
+                if (factor->nMeasurements() >= 5 && !factor->inGraph()) {
+                    graph_->addFactor(factor);
+                }
+            } else {
+                MultiProjectionFactor::Ptr factor;
+                Vector3dNode::Ptr landmark_node;
+
+                auto factor_it = multi_factors_.find(tf.pt_id);
+
+                if (factor_it == multi_factors_.end()) {
+                    landmark_node = util::allocate_aligned<Vector3dNode>(Symbol('g', tf.pt_id));
+                    factor = util::allocate_aligned<MultiProjectionFactor>(landmark_node,
+                                                                        I_T_C_,
+                                                                        calibration_,
+                                                                        reprojection_error_threshold_);
+                    landmark_nodes_[tf.pt_id] = landmark_node;
+                    multi_factors_[tf.pt_id] = factor;
+                } else {
+                    factor = factor_it->second;
+                    landmark_node = landmark_nodes_[tf.pt_id];
+                }
+
+                Eigen::Vector2d msmt(tf.pt.x, tf.pt.y);
+                Eigen::Matrix2d msmt_noise = cam_sigma_ * Eigen::Matrix2d::Identity();
+
+                factor->addMeasurement(frame->graph_node(), msmt, msmt_noise);
+
+                if (factor->nMeasurements() >= 5 && !factor->inGraph()) {
+                    // weird but we do not want to manage whether or not the landmark is in the graph.
+                    // let the factor do it itself.
+                    // graph_->addNode(landmark_node);
+                    graph_->addFactor(factor);
+                }
+
+            }
+        }
+    }
 }
 
 void GeometricFeatureHandler::loadParameters()
@@ -54,9 +143,18 @@ void GeometricFeatureHandler::loadParameters()
         return;
     }
 
+    if (!pnh_.getParam("reprojection_error_threshold", reprojection_error_threshold_) || 
+        !pnh_.getParam("use_smart_projection_factors", use_smart_projection_factors_) || 
+        !pnh_.getParam("cam_sigma", cam_sigma_)) {
+        ROS_ERROR("Error: unable to get geometric feature handler parameters.");
+        return;
+    }
+
     tracker_ = util::allocate_aligned<FeatureTracker>(tracker_params_);
 
     tracker_->setCameraCalibration(fx, fy, s, u0, v0, k1, k2, p1, p2);
+
+    calibration_ = boost::make_shared<CameraCalibration>(fx, fy, s, u0, v0, k1, k2, p1, p2);
 }
 
 void GeometricFeatureHandler::imageCallback(const sensor_msgs::ImageConstPtr& msg)
@@ -93,8 +191,6 @@ void GeometricFeatureHandler::extractKeypointsThread()
             img_queue_.pop_front();
         }
 
-        tracker_->extractKeypointsDescriptors(new_frame);
-
-        tracker_->addImage(new_frame);
+        tracker_->addImage(std::move(new_frame));
     }
 }

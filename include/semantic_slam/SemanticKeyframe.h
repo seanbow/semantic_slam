@@ -36,6 +36,9 @@ public:
     Pose3& odometry() { return odometry_; }
     const Pose3& odometry() const { return odometry_; }
 
+    Eigen::MatrixXd& odometry_covariance() { return odometry_covariance_; }
+    const Eigen::MatrixXd& odometry_covariance() const { return odometry_covariance_; }
+
     CeresFactorPtr& spine_factor() { return spine_factor_; }
     const CeresFactorPtr& spine_factor() const { return spine_factor_; }
 
@@ -71,6 +74,7 @@ private:
     bool measurements_processed_;
 
     Pose3 odometry_;
+    Eigen::MatrixXd odometry_covariance_;
     Pose3 pose_;
     Eigen::MatrixXd pose_covariance_;
 

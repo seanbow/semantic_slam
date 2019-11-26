@@ -16,7 +16,12 @@ CeresProjectionFactor::CeresProjectionFactor(SE3NodePtr camera_node,
                                      msmt_covariance, 
                                      body_T_sensor.rotation(),
                                      body_T_sensor.translation(),
-                                     *calibration);
+                                     calibration);
+}
+
+CeresProjectionFactor::~CeresProjectionFactor()
+{
+    delete cf_;
 }
 
 void CeresProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)

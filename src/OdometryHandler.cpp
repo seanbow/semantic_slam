@@ -64,6 +64,21 @@ Pose3 OdometryHandler::msgToPose3(const nav_msgs::Odometry& msg)
     return G_p;
 }
 
+Eigen::MatrixXd OdometryHandler::extractOdometryCovariance(const nav_msgs::Odometry& msg) const
+{
+    Eigen::Matrix<double, 6, 6> cov_tmp;
+    boostArrayToEigen<6,6>(msg.pose.covariance, cov_tmp);
+
+    // Odometry message ordering is [p q] but we want it [q p]
+    Eigen::MatrixXd cov(6,6);
+    cov.block<3,3>(0,0) = cov_tmp.block<3,3>(3,3);
+    cov.block<3,3>(0,3) = cov_tmp.block<3,3>(3,0);
+    cov.block<3,3>(3,0) = cov_tmp.block<3,3>(0,3);
+    cov.block<3,3>(3,3) = cov_tmp.block<3,3>(0,0);
+
+    return cov;
+}
+
 SemanticKeyframe::Ptr OdometryHandler::findNearestKeyframe(ros::Time t)
 {
     ros::Duration shortest_duration = ros::DURATION_MAX;
@@ -107,6 +122,43 @@ bool OdometryHandler::getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3&
     Pose3 odom2 = msgToPose3(msg);
 
     T12 = odom1.inverse() * odom2;
+
+    return true;
+}
+
+bool OdometryHandler::getRelativePoseJacobianEstimate(ros::Time t1, ros::Time t2, Eigen::MatrixXd& H12)
+{
+    // Assume here that t1 is not too far ahead of nodes that are already in the graph, so:
+    // auto node1 = boost::static_pointer_cast<SE3Node>(graph_->findNearestNode(node_chr_, t1));
+    auto kf1 = findNearestKeyframe(t1);
+
+    if (!kf1) return false;
+
+    Eigen::MatrixXd odom_cov1 = kf1->odometry_covariance();
+
+    // And assume now (TODO) that t2 IS too far ahead of nodes so we just have to look in the
+    // message queue for its odometry information
+    if (msg_queue_.size() < 2) return false;
+
+    auto msg_it = msg_queue_.begin();
+    while (msg_it->header.stamp < t2 && msg_it != msg_queue_.end()) {
+        msg_it++;
+    }
+
+    if (msg_it == msg_queue_.end()) {
+        return false;
+    }
+
+    nav_msgs::Odometry msg = *msg_it;
+
+    Eigen::MatrixXd odom_cov2 = extractOdometryCovariance(msg);
+
+    Eigen::LLT<Eigen::MatrixXd> chol1(odom_cov1);
+    Eigen::LLT<Eigen::MatrixXd> chol2(odom_cov2);
+
+    Eigen::MatrixXd L1 = chol1.matrixL();
+
+    H12 = chol2.matrixL() * L1.inverse();
 
     return true;
 }
@@ -170,6 +222,12 @@ SemanticKeyframe::Ptr OdometryHandler::createKeyframe(ros::Time time)
 
     nav_msgs::Odometry msg = msg_queue_.front();
 
+    if (keyframes_.empty()) {
+        // This is the first keyframe -- create the origin frame
+        SemanticKeyframe::Ptr frame = originKeyframe(msg_queue_.front().header.stamp);
+        return frame;
+    }
+
     bool good_msg = false;
 
     {
@@ -203,6 +261,8 @@ SemanticKeyframe::Ptr OdometryHandler::createKeyframe(ros::Time time)
 
     Pose3 G_p_now = msgToPose3(msg);
     keyframe->odometry() = G_p_now;
+
+    keyframe->odometry_covariance() = extractOdometryCovariance(msg);
 
     Pose3 relp = last_keyframe->odometry().between(G_p_now);
 
@@ -241,10 +301,12 @@ SemanticKeyframe::Ptr OdometryHandler::createKeyframe(ros::Time time)
     return keyframe;
 }
 
-SemanticKeyframe::Ptr OdometryHandler::originKeyframe() {
-    SemanticKeyframe::Ptr kf = util::allocate_aligned<SemanticKeyframe>(Symbol(node_chr_, 0), ros::Time(0));
+SemanticKeyframe::Ptr OdometryHandler::originKeyframe(ros::Time time) {
+    SemanticKeyframe::Ptr kf = util::allocate_aligned<SemanticKeyframe>(Symbol(node_chr_, 0), time);
 
     kf->odometry() = Pose3::Identity();
+    kf->pose() = Pose3::Identity();
+    kf->graph_node()->pose() = Pose3::Identity();
     keyframes_.push_back(kf);
 
     return kf;

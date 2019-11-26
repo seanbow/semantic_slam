@@ -7,6 +7,7 @@ enum class FactorType {
     STRUCTURE = 2,
 
     SMART_PROJECTION = 3,
+    DUMB_PROJECTION = 31,
 
     ODOMETRY = 4,
     PRIOR = 5,

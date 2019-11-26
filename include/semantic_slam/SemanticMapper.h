@@ -86,6 +86,11 @@ public:
 
     const std::vector<SemanticKeyframe::Ptr>& keyframes() { return keyframes_; }
 
+    bool needToComputeCovariances();
+
+    SemanticKeyframe::Ptr getKeyframeByIndex(int index);
+    SemanticKeyframe::Ptr getKeyframeByKey(Key key);
+
 private:
     boost::shared_ptr<FactorGraph> graph_;
     std::mutex graph_mutex_; // wish this could be a shared_mutex
@@ -111,7 +116,10 @@ private:
     SemanticKeyframe::Ptr next_keyframe_;
 
     Eigen::MatrixXd last_kf_covariance_;
+    ros::Time last_kf_covariance_time_;
     aligned_map<int, Eigen::MatrixXd> Plxs_;
+    size_t Plxs_index_;
+    ros::Time Plxs_time_;
 
     std::unordered_set<int> unfrozen_kfs_;
     std::unordered_set<int> unfrozen_objs_;
