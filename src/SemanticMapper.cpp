@@ -205,21 +205,39 @@ void SemanticMapper::freezeNonCovisible(const std::vector<SemanticKeyframe::Ptr>
     // }
     // std::cout << std::endl;
 
+    // In case of a loop closure there may be frames i and j are covisible but some frame i < k < j is
+    // not covisible with i or j. So we need to make sure that we unfreeze these intermediate
+    // frames as well.
+    int min_frame = std::numeric_limits<int>::max();
+    int max_frame = std::numeric_limits<int>::lowest();
+    for (auto id : unfrozen_kfs_) {
+        min_frame = std::min(min_frame, id);
+        max_frame = std::max(max_frame, id);
+    }
+
     std::lock_guard<std::mutex> lock(graph_mutex_);
 
-    for (const auto& kf : keyframes_) {
-        if (!kf->inGraph()) continue;
+    for (int i = 0; i < keyframes_.size(); ++i) {
+        if (!keyframes_[i]->inGraph()) continue;
 
-        if (unfrozen_kfs_.count(kf->index())) {
-            graph_->setNodeVariable(kf->graph_node());
+        if (i >= min_frame && i <= max_frame) {
+            graph_->setNodeVariable(keyframes_[i]->graph_node());
         } else {
-            graph_->setNodeConstant(kf->graph_node());
+            graph_->setNodeConstant(keyframes_[i]->graph_node());
         }
     }
 
+    // for (const auto& kf : keyframes_) {
+    //     if (!kf->inGraph()) continue;
+
+    //     if (unfrozen_kfs_.count(kf->index())) {
+    //         graph_->setNodeVariable(kf->graph_node());
+    //     } else {
+    //         graph_->setNodeConstant(kf->graph_node());
+    //     }
+    // }
+
     // now objects
-    // Why is this broken??
-    /*
     for (const auto& obj : estimated_objects_) {
         if (!obj->inGraph()) continue;
 
@@ -229,7 +247,7 @@ void SemanticMapper::freezeNonCovisible(const std::vector<SemanticKeyframe::Ptr>
             obj->setConstantInGraph();
         }
     }
-    */
+    
 }
 
 void SemanticMapper::unfreezeAll()
@@ -374,11 +392,15 @@ void SemanticMapper::prepareGraphNodes()
     std::lock(map_lock, graph_lock);
 
     for (auto& kf : keyframes_) {
-        kf->graph_node()->pose() = kf->pose();
+        if (kf->inGraph()) {
+            kf->graph_node()->pose() = kf->pose();
+        }
     }
 
     for (auto& obj : estimated_objects_) {
-        obj->prepareGraphNode();
+        if (obj->inGraph()) {
+            obj->prepareGraphNode();
+        }
     }
 }
 
@@ -388,12 +410,41 @@ void SemanticMapper::commitGraphSolution()
     std::unique_lock<std::mutex> graph_lock(graph_mutex_, std::defer_lock);
     std::lock(map_lock, graph_lock);
 
+    // Find the latest keyframe in the graph optimization to check the computed transformation
+    SemanticKeyframe::Ptr last_in_graph;
+    for (int i = keyframes_.size() - 1; i >= 0; --i) {
+        if (keyframes_[i]->inGraph()) {
+            last_in_graph = keyframes_[i];
+            break;
+        }
+    }
+
+    const Pose3& old_pose = last_in_graph->pose();
+    const Pose3& new_pose = last_in_graph->graph_node()->pose();
+
+    Pose3 new_T_old = new_pose * old_pose.inverse();
+
+    // ROS_INFO_STREAM("Pose difference = " << new_T_old);
+
     for (auto& kf : keyframes_) {
-        kf->pose() = kf->graph_node()->pose();
+        if (kf->inGraph()) {
+            kf->pose() = kf->graph_node()->pose();
+        } else {
+            // Keyframes not yet in the graph will be later so just propagate the computed
+            // transform forward
+            kf->pose() = new_T_old * kf->pose();
+            // ROS_ERROR_STREAM("KF not in graph");
+        }
     }
 
     for (auto& obj : estimated_objects_) {
-        obj->commitGraphSolution();
+        if (obj->inGraph()) {
+            obj->commitGraphSolution();
+        } else if (!obj->bad()) {
+            // Update the object based on recomputed camera poses
+            // ROS_ERROR_STREAM("OBJ not in graph");
+            obj->optimizeStructure();
+        }
     }
 }
 

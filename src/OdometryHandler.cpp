@@ -18,7 +18,7 @@ void OdometryHandler::setup()
 
     ROS_INFO_STREAM("Subscribing to topic " << odometry_topic);
 
-    subscriber_ = nh_.subscribe(odometry_topic, 1000, &OdometryHandler::msgCallback, this);
+    subscriber_ = nh_.subscribe(odometry_topic, 10000, &OdometryHandler::msgCallback, this);
 
     received_msgs_ = 0;
     last_keyframe_index_ = 0;

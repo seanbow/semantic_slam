@@ -313,6 +313,7 @@ target_link_libraries(semantic_slam_node
     ObjectMeshPresenter
     GeometricMapPresenter
     SemanticKeyframe
+    profiler
     ${BASE_LIBS}
 )
 

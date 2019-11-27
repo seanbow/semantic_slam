@@ -189,48 +189,11 @@ bool SmartProjectionFactor::Evaluate(double const* const* parameters,
     // Eigen::MatrixXd Q = qr.householderQ();
     // Eigen::MatrixXd basis = Q.rightCols(num_residuals());
 
-    // std::cout << "Q = \n" << Q << "\n Q'*H = \n" << Q.transpose()*Hpoint << std::endl;
-    // std::cout << "basis' * H = \n" << basis.transpose() * Hpoint << std::endl;
-    // std::cout << "Q1'*H =\n" << Q.leftCols(3).transpose()*Hpoint << std::endl;
-    // std::cout << "Hpose = \n" << Hpose << "\n basis' * Hpose = \n" << basis.transpose() * Hpose << std::endl;
-
     Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXd> cod(Hpoint.transpose());
     Eigen::MatrixXd V = cod.matrixZ().transpose();
     // Eigen::MatrixXd basis = V.block(0, cod.rank(), V.rows(), V.cols() - cod.rank());
     Eigen::MatrixXd basis = V.block(0, 3, V.rows(), num_residuals());
     basis.applyOnTheLeft(cod.colsPermutation());
-
-    // std::cout << "cod rank = " << cod.rank() << ", nmeasurements = " << nMeasurements() << std::endl;
-    // std::cout << "basis = \n" << basis << "\n Hpoint = \n" << Hpoint << std::endl;
-    // std::cout << "basis' * H = \n" << basis.transpose() * Hpoint << std::endl;
-
-
-/*
-    Eigen::FullPivLU<Eigen::MatrixXd> lu(Hpoint.transpose());
-    Eigen::MatrixXd basis = lu.kernel();
-
-    if (lu.dimensionOfKernel() > 2*nMeasurements() - 3) {
-        // Degenerate case for some reason, fill in zeros
-        residuals.setZero();
-        if (jacobians) {
-            for (int i = 0; i < nMeasurements(); ++i) {
-                if (jacobians[2*i]) {
-                    Eigen::Map<JacobianType> Dr_dq(jacobians[2*i], num_residuals(), 4);
-                    Dr_dq.setZero();
-                }
-
-                if (jacobians[2*i + 1]) {
-                    Eigen::Map<JacobianType> Dr_dp(jacobians[2*i + 1], num_residuals(), 3);
-                    Dr_dp.setZero();
-                }
-            }
-        }
-
-        return true;
-    }
-*/
-
-
 
     Hpose.applyOnTheLeft(basis.transpose());
     // full_residual.applyOnTheLeft(basis.transpose());

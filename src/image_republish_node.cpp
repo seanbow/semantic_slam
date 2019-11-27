@@ -77,7 +77,7 @@ int main(int argc, char** argv)
     // Use PublisherPlugin::publish as the subscriber callback
     typedef void (Plugin::*PublishMemFn)(const sensor_msgs::ImageConstPtr&) const;
     PublishMemFn pub_mem_fn = &Plugin::publish;
-    sub = it.subscribe(in_topic, 1000, boost::bind(pub_mem_fn, pub.get(), _1), pub, in_transport);
+    sub = it.subscribe(in_topic, 10000, boost::bind(pub_mem_fn, pub.get(), _1), pub, in_transport);
 
     ros::spin();
   }

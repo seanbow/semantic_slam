@@ -16,7 +16,7 @@ void GeometricFeatureHandler::setup()
     last_img_seq_ = -1;
 
     image_transport::ImageTransport it(nh_);
-    img_sub_ = it.subscribe(image_topic, 1000, &GeometricFeatureHandler::imageCallback, this);
+    img_sub_ = it.subscribe(image_topic, 10000, &GeometricFeatureHandler::imageCallback, this);
 
     loadParameters();
 
@@ -107,9 +107,7 @@ void GeometricFeatureHandler::processPendingFrames()
                 factor->addMeasurement(frame->graph_node(), msmt, msmt_noise);
 
                 if (factor->nMeasurements() >= 5 && !factor->inGraph()) {
-                    // weird but we do not want to manage whether or not the landmark is in the graph.
-                    // let the factor do it itself.
-                    // graph_->addNode(landmark_node);
+                    graph_->addNode(landmark_node);
                     graph_->addFactor(factor);
                 }
 

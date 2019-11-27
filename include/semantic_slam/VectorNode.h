@@ -63,7 +63,10 @@ VectorNode<Dim>::VectorNode(Symbol sym, boost::optional<ros::Time> time, size_t 
 template <int Dim>
 void VectorNode<Dim>::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
-    problem->AddParameterBlock(vector_.data(), vector_.size());
+    // since we don't need to set a local parameterization, just do nothing here...
+    // will automatically be added if we're included in a factor and this way we don't have to
+    // worry about adding a vector with NaNs or something
+    // problem->AddParameterBlock(vector_.data(), vector_.size());
 }
 
 using Vector2dNode = VectorNode<2>;
