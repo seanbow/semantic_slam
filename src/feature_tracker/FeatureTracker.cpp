@@ -94,6 +94,7 @@ FeatureTracker::addKeyframeTime(ros::Time t, std::vector<FeatureTracker::Tracked
     }
 
     // Extract new features in the previous keyframe
+
     addNewKeyframeFeatures(image_buffer_[last_kf_index]);
     
     // And track them forward
@@ -149,6 +150,7 @@ void FeatureTracker::trackFeaturesForward(int idx1)
 
     // Match keypoints from old image to new
     // First collect the old keypoints/descriptors from the actual tracks
+
     std::vector<cv::KeyPoint> kps1;
     cv::Mat descriptors1(frame1.feature_tracks.size(), frame1.descriptors.cols, frame1.descriptors.type());
 
@@ -179,6 +181,8 @@ void FeatureTracker::trackFeaturesForward(int idx1)
     // Remove outliers 
     Eigen::Matrix<bool, 1, Eigen::Dynamic> inliers;
     size_t n_inliers = five_ransac_.computeInliers(pts1, pts2, inliers);
+
+    // std::cout << "Proportion of inliers = " << n_inliers / (double)indices1.size() << std::endl;
 
     for (int i = 0; i < indices1.size(); ++i) {
         if (inliers(i)) {

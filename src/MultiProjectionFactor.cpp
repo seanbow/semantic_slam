@@ -60,6 +60,8 @@ void MultiProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> probl
     in_graph_ = true;
     problem_ = problem;
 
+    triangulate();
+
     if (triangulation_good_) {
         residual_id_ = problem->AddResidualBlock(this, NULL, parameter_blocks_);
         problem->AddParameterBlock(landmark_node_->vector().data(), 3);
@@ -101,9 +103,9 @@ void MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
 
     set_num_residuals(2 * nMeasurements());
 
-    triangulate();
+    // triangulate();
 
-    if (in_graph_ && triangulation_good_) {
+    if (in_graph_) {
         addToProblem(problem_);
     }
 }

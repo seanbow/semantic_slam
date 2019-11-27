@@ -870,7 +870,7 @@ SemanticMapper::getPlx(Key key1, Key key2)
     auto it = Plxs_.find(Symbol(key1).index());
     if (it != Plxs_.end()) {
         const Eigen::MatrixXd& Plx = it->second;
-        return Plx * H12.transpose();
+        return H12 * Plx * H12.transpose();
     } else {
         return Eigen::MatrixXd::Zero(9,9);
     }
