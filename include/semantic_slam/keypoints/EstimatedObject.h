@@ -119,7 +119,7 @@ public:
 
   // double getStructureError() const;
 
-  Eigen::MatrixXd getPlx(Key l_key, Key x_key);
+  Eigen::MatrixXd getPlx(Key l_key, Key x_key) const;
 
   int64_t findKeypointByClass(uint64_t classid) const;
   int64_t findKeypointByKey(Key key) const;
@@ -197,7 +197,7 @@ private:
   Eigen::VectorXd basis_coefficients_;
 
   boost::shared_ptr<StructureOptimizationProblem> structure_problem_;
-  std::mutex problem_mutex_;
+  mutable std::mutex problem_mutex_;
 
   SemanticMapper* mapper_;
 

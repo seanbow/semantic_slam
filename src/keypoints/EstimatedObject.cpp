@@ -6,6 +6,7 @@
 #include "semantic_slam/VectorNode.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/SemanticMapper.h"
+#include "semantic_slam/Camera.h"
 
 #include <unordered_set>
 
@@ -291,27 +292,14 @@ EstimatedObject::optimizeStructure()
 
 
 Eigen::MatrixXd
-EstimatedObject::getPlx(Key l_key, Key x_key)
+EstimatedObject::getPlx(Key l_key, Key x_key) const
 {
-  // TODO TODO!
-  // Eigen::Matrix<double, 9, 9> cov = Eigen::Matrix<double, 9, 9>::Zero();
-  // cov.block<3,3>(6,6) = 0.05 * Eigen::Matrix3d::Identity();
-  // return cov;
 
   size_t kp_match_index = findKeypointByKey(l_key);
   const auto& kp = keypoints_[kp_match_index];
 
-  if (params_.include_objects_in_graph && in_graph_) {
-    // TODO should we recompute this every time or do it one batch??
-      auto kp_node = kp->graph_node();
-      auto camera_node = graph_->getNode<SE3Node>(x_key);
-
-      if (graph_->computeMarginalCovariance({kp_node, camera_node})) {
-        return graph_->getMarginalCovariance(kp_node, camera_node);
-      } else {
-        ROS_WARN_STREAM(fmt::format("Error: covariance calculation for object {} failed.", id()));
-      }
-
+  if (in_graph_) {
+    return mapper_->getPlx(l_key, x_key);
   } 
 
   if (!structure_problem_) {
@@ -337,6 +325,10 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
     return std::numeric_limits<double>::max();
   }
 
+  auto keyframe = mapper_->getKeyframeByKey(msmt.observed_key);
+  Pose3 G_T_I = keyframe->pose();
+  Camera camera(G_T_I.compose(I_T_C_), camera_calibration_);
+
   std::vector<double> matched_distances;
 
   for (size_t i = 0; i < msmt.keypoint_measurements.size(); ++i) {
@@ -350,8 +342,20 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
     if (kp_match_index >= 0) {
       if (keypoints_[kp_match_index]->initialized() &&
           !keypoints_[kp_match_index]->bad()) {
-        double d =
-          keypoints_[kp_match_index]->computeMahalanobisDistance(kp_msmt);
+
+        Eigen::Vector2d zhat = camera.project(keypoints_[kp_match_index]->position());
+        Eigen::Vector2d residual = msmt.keypoint_measurements[i].pixel_measurement - zhat;
+        double px_sigma = msmt.keypoint_measurements[i].pixel_sigma;
+        Eigen::Matrix2d R = px_sigma * px_sigma * Eigen::Matrix2d::Identity();
+
+        Eigen::Matrix<double, 2, 9> H = computeProjectionJacobian(G_T_I, 
+                                                                  I_T_C_, 
+                                                                  keypoints_[kp_match_index]->position());
+
+        Eigen::MatrixXd Plx = getPlx(sym::L(keypoints_[kp_match_index]->id()), Symbol(msmt.observed_key));
+        double d = residual.transpose() * (H*Plx*H.transpose() + R).lu().solve(residual);
+        // double d =
+        //   keypoints_[kp_match_index]->computeMahalanobisDistance(kp_msmt);
         matched_distances.push_back(d);
       }
     }

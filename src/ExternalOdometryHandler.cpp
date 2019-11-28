@@ -1,4 +1,4 @@
-#include "semantic_slam/OdometryHandler.h"
+#include "semantic_slam/ExternalOdometryHandler.h"
 
 // #include <gtsam/slam/PriorFactor.h>
 // #include <gtsam/slam/BetweenFactor.h>
@@ -10,7 +10,7 @@
 
 using namespace std::string_literals;
 
-void OdometryHandler::setup()
+void ExternalOdometryHandler::setup()
 {
     ROS_INFO("Starting odometry handler.");
     std::string odometry_topic;
@@ -18,7 +18,7 @@ void OdometryHandler::setup()
 
     ROS_INFO_STREAM("Subscribing to topic " << odometry_topic);
 
-    subscriber_ = nh_.subscribe(odometry_topic, 10000, &OdometryHandler::msgCallback, this);
+    subscriber_ = nh_.subscribe(odometry_topic, 10000, &ExternalOdometryHandler::msgCallback, this);
 
     received_msgs_ = 0;
     last_keyframe_index_ = 0;
@@ -28,7 +28,7 @@ void OdometryHandler::setup()
     max_node_period_ = ros::Duration(0.5); // seconds
 }
 
-void OdometryHandler::msgCallback(const nav_msgs::Odometry::ConstPtr& msg)
+void ExternalOdometryHandler::msgCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
 	received_msgs_++;
 
@@ -47,7 +47,7 @@ void OdometryHandler::msgCallback(const nav_msgs::Odometry::ConstPtr& msg)
     // cv_->notify_all();
 }
 
-Pose3 OdometryHandler::msgToPose3(const nav_msgs::Odometry& msg)
+Pose3 ExternalOdometryHandler::msgToPose3(const nav_msgs::Odometry& msg) const
 {
     auto p_msg = msg.pose.pose.position;
     auto q_msg = msg.pose.pose.orientation;
@@ -64,7 +64,7 @@ Pose3 OdometryHandler::msgToPose3(const nav_msgs::Odometry& msg)
     return G_p;
 }
 
-Eigen::MatrixXd OdometryHandler::extractOdometryCovariance(const nav_msgs::Odometry& msg) const
+Eigen::MatrixXd ExternalOdometryHandler::extractOdometryCovariance(const nav_msgs::Odometry& msg) const
 {
     Eigen::Matrix<double, 6, 6> cov_tmp;
     boostArrayToEigen<6,6>(msg.pose.covariance, cov_tmp);
@@ -79,7 +79,7 @@ Eigen::MatrixXd OdometryHandler::extractOdometryCovariance(const nav_msgs::Odome
     return cov;
 }
 
-SemanticKeyframe::Ptr OdometryHandler::findNearestKeyframe(ros::Time t)
+SemanticKeyframe::Ptr ExternalOdometryHandler::findNearestKeyframe(ros::Time t)
 {
     ros::Duration shortest_duration = ros::DURATION_MAX;
     SemanticKeyframe::Ptr kf = nullptr;
@@ -94,7 +94,7 @@ SemanticKeyframe::Ptr OdometryHandler::findNearestKeyframe(ros::Time t)
     return kf;
 }
 
-bool OdometryHandler::getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3& T12)
+bool ExternalOdometryHandler::getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3& T12)
 {
     // Assume here that t1 is not too far ahead of nodes that are already in the graph, so:
     // auto node1 = boost::static_pointer_cast<SE3Node>(graph_->findNearestNode(node_chr_, t1));
@@ -126,44 +126,44 @@ bool OdometryHandler::getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3&
     return true;
 }
 
-bool OdometryHandler::getRelativePoseJacobianEstimate(ros::Time t1, ros::Time t2, Eigen::MatrixXd& H12)
-{
-    // Assume here that t1 is not too far ahead of nodes that are already in the graph, so:
-    // auto node1 = boost::static_pointer_cast<SE3Node>(graph_->findNearestNode(node_chr_, t1));
-    auto kf1 = findNearestKeyframe(t1);
+// bool ExternalOdometryHandler::getRelativePoseJacobianEstimate(ros::Time t1, ros::Time t2, Eigen::MatrixXd& H12)
+// {
+//     // Assume here that t1 is not too far ahead of nodes that are already in the graph, so:
+//     // auto node1 = boost::static_pointer_cast<SE3Node>(graph_->findNearestNode(node_chr_, t1));
+//     auto kf1 = findNearestKeyframe(t1);
 
-    if (!kf1) return false;
+//     if (!kf1) return false;
 
-    Eigen::MatrixXd odom_cov1 = kf1->odometry_covariance();
+//     Eigen::MatrixXd odom_cov1 = kf1->odometry_covariance();
 
-    // And assume now (TODO) that t2 IS too far ahead of nodes so we just have to look in the
-    // message queue for its odometry information
-    if (msg_queue_.size() < 2) return false;
+//     // And assume now (TODO) that t2 IS too far ahead of nodes so we just have to look in the
+//     // message queue for its odometry information
+//     if (msg_queue_.size() < 2) return false;
 
-    auto msg_it = msg_queue_.begin();
-    while (msg_it->header.stamp < t2 && msg_it != msg_queue_.end()) {
-        msg_it++;
-    }
+//     auto msg_it = msg_queue_.begin();
+//     while (msg_it->header.stamp < t2 && msg_it != msg_queue_.end()) {
+//         msg_it++;
+//     }
 
-    if (msg_it == msg_queue_.end()) {
-        return false;
-    }
+//     if (msg_it == msg_queue_.end()) {
+//         return false;
+//     }
 
-    nav_msgs::Odometry msg = *msg_it;
+//     nav_msgs::Odometry msg = *msg_it;
 
-    Eigen::MatrixXd odom_cov2 = extractOdometryCovariance(msg);
+//     Eigen::MatrixXd odom_cov2 = extractOdometryCovariance(msg);
 
-    Eigen::LLT<Eigen::MatrixXd> chol1(odom_cov1);
-    Eigen::LLT<Eigen::MatrixXd> chol2(odom_cov2);
+//     Eigen::LLT<Eigen::MatrixXd> chol1(odom_cov1);
+//     Eigen::LLT<Eigen::MatrixXd> chol2(odom_cov2);
 
-    Eigen::MatrixXd L1 = chol1.matrixL();
+//     Eigen::MatrixXd L1 = chol1.matrixL();
 
-    H12 = chol2.matrixL() * L1.inverse();
+//     H12 = chol2.matrixL() * L1.inverse();
 
-    return true;
-}
+//     return true;
+// }
 
-// CeresNodePtr OdometryHandler::getSpineNode(ros::Time time)
+// CeresNodePtr ExternalOdometryHandler::getSpineNode(ros::Time time)
 // {
 //     auto node = graph_->findFirstNodeAfterTime(node_chr_, time);
 
@@ -176,8 +176,8 @@ bool OdometryHandler::getRelativePoseJacobianEstimate(ros::Time t1, ros::Time t2
 //     }
 // }
 
-// CeresNodePtr OdometryHandler::attachSpineNode(ros::Time time)
-SemanticKeyframe::Ptr OdometryHandler::createKeyframe(ros::Time time)
+// CeresNodePtr ExternalOdometryHandler::attachSpineNode(ros::Time time)
+SemanticKeyframe::Ptr ExternalOdometryHandler::createKeyframe(ros::Time time)
 {
     // Integrate up to time and attach a node corresponding to it
 
@@ -301,7 +301,7 @@ SemanticKeyframe::Ptr OdometryHandler::createKeyframe(ros::Time time)
     return keyframe;
 }
 
-SemanticKeyframe::Ptr OdometryHandler::originKeyframe(ros::Time time) {
+SemanticKeyframe::Ptr ExternalOdometryHandler::originKeyframe(ros::Time time) {
     SemanticKeyframe::Ptr kf = util::allocate_aligned<SemanticKeyframe>(Symbol(node_chr_, 0), time);
 
     kf->odometry() = Pose3::Identity();
@@ -310,40 +310,4 @@ SemanticKeyframe::Ptr OdometryHandler::originKeyframe(ros::Time time) {
     keyframes_.push_back(kf);
 
     return kf;
-}
-
-void OdometryHandler::update() {
-    // Update the spine if our messages are exceeding our max period without a node
-
-    // or not...
-
-    /*
-    nav_msgs::Odometry last_msg;
-    {
-        std::lock_guard<std::mutex> guard(mutex_);
-        if (msg_queue_.size() < 2) return;
-        last_msg = msg_queue_.back();
-    }
-
-    // ROS_INFO_STREAM("Msg queue size: " << msg_queue_.size());
-
-    SE3NodePtr last_odom_node = graph_->findLastNode<SE3Node>(node_chr_);
-
-
-    if (!last_odom_node) {
-        // No "spine" yet -- add if the time spanned by the messages currently in the queue 
-        // is greater than the max period
-        ros::Duration queue_time = last_msg.header.stamp - msg_queue_.front().header.stamp;
-        if (queue_time > max_node_period_) {
-            // attachSpineNode(msg_queue_.front().header.stamp + max_node_period_);
-        }
-    } else {
-        ros::Duration time_since_node = last_msg.header.stamp - *last_odom_node->time();
-
-        if (time_since_node > max_node_period_) {
-            // attachSpineNode(*last_odom_node->time() + max_node_period_);
-        }
-    }
-    */
-
 }

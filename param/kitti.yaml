@@ -1,11 +1,14 @@
 ## Camera intrinsics
 cam_model: Pinhole
-cam_height: 720
-cam_width: 1280
-cam_fx: 679.6778564453125
-cam_fy: 679.6778564453125
-cam_cx: 637.9580078125
-cam_cy: 354.5067138671875
+cam_height: 375
+cam_width: 1242
+
+# kitti 05
+cam_fx: 707.0912
+cam_fy: 707.0912
+cam_cx: 601.8873
+cam_cy: 183.1104
+
 cam_d0: 0.0
 cam_d1: 0.0
 cam_d2: 0.0
@@ -15,8 +18,9 @@ cam_d3: 0.0
 
 ### Extrinsics
 
-I_p_C: [0.0, 0.03, 0.0]
-I_q_C: [-0.500, 0.500, -0.500, 0.500]
+I_p_C: [0.0, 0.0, 0.0]
+
+I_q_C: [-0.5, 0.5, -0.5, 0.5] # IMU x forward, y left, z up <-> camera x right, y down, z forward
 
 
 ## Feature_tracker parameters
@@ -30,14 +34,14 @@ sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = mo
 ### Geometric feature parameters
 cam_sigma: 4
 reprojection_error_threshold: 4
-use_smart_projection_factors: true
+use_smart_projection_factors: false
 
 ### Semantic measurement parameters
 keypoint_msmt_sigma: 10                 # keypoint measurement sigma (pixels)
 keypoint_initialization_depth_sigma: 2  # meters
 
 min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph
-min_landmark_observations: 4           # minimum number of observations needed for a keypoint before estimating depth and including in optimization
+min_landmark_observations: 3           # minimum number of observations needed for a keypoint before estimating depth and including in optimization
 
 ### Semantic object optimization parameters
 structure_regularization_factor: 10     # lambda in structure optimization term lambda * ||c||^2
@@ -64,7 +68,7 @@ constraint_weight_threshold: 0.8        # if the weight of a constraint (i.e., a
 new_landmark_weight_threshold: 0.9      # if the weight of the last column in the weights matrix for a measurement is greater than this value, add a new object to the estimated_objects_ vector
 
 ## Object classes
-model_names: ["gascan", "chair", "pelican", "tableclosed", "cart", "ladder"]
+model_names: ["car"]
 model_directory: "/home/kodlab/catkin_ws/src/object_pose_detection/semslam/semslam/models/objects/"
 
 gravity: [0, 0, -9.81]

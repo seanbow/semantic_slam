@@ -15,7 +15,7 @@ public:
     virtual ~Handler() { };
 
     virtual void setup() = 0;
-    virtual void update() = 0;
+    virtual void update() { }
 
     // virtual CeresNodePtr getSpineNode(ros::Time time) { return nullptr; }
 

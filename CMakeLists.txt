@@ -209,8 +209,8 @@ target_link_libraries(CeresStructureFactor
   ${CERES_LIBRARIES}
 )
 
-add_library(OdometryHandler src/OdometryHandler.cpp)
-target_link_libraries(OdometryHandler
+add_library(ExternalOdometryHandler src/ExternalOdometryHandler.cpp)
+target_link_libraries(ExternalOdometryHandler
   CeresBetweenFactor
   ${CERES_LIBRARIES}
 )
@@ -304,7 +304,7 @@ target_link_libraries(semantic_slam_node
     ${Boost_LIBRARIES}
     ${CERES_LIBRARIES}
     FactorGraph
-    OdometryHandler
+    ExternalOdometryHandler
     GeometricFeatureHandler
     FeatureTracker
     SemanticMapper
@@ -319,6 +319,11 @@ target_link_libraries(semantic_slam_node
 
 add_executable(image_republish_node src/image_republish_node.cpp)
 target_link_libraries(image_republish_node
+    ${catkin_LIBRARIES}
+)
+
+add_executable(kitti_data_node src/kitti_data_node.cpp)
+target_link_libraries(kitti_data_node
     ${catkin_LIBRARIES}
 )
 

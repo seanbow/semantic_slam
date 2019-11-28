@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 
 #include "semantic_slam/SemanticMapper.h"
-#include "semantic_slam/OdometryHandler.h"
+#include "semantic_slam/ExternalOdometryHandler.h"
 #include "semantic_slam/PosePresenter.h"
 #include "semantic_slam/TrajectoryPresenter.h"
 #include "semantic_slam/ObjectMeshPresenter.h"
@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
     
     // FactorGraphSupervisor supervisor;
 
-    auto odom_handler = util::allocate_aligned<OdometryHandler>();
+    auto odom_handler = util::allocate_aligned<ExternalOdometryHandler>();
 
     auto mapper = util::allocate_aligned<SemanticMapper>();
     mapper->setOdometryHandler(odom_handler);

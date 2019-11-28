@@ -20,7 +20,7 @@
 #include <unordered_set>
 // #include <gtsam/geometry/Pose3.h>
 
-class OdometryHandler;
+class ExternalOdometryHandler;
 class GeometricFeatureHandler;
 
 class SemanticMapper
@@ -61,9 +61,9 @@ public:
     void visualizeObjectMeshes() const;
     void visualizeObjects() const;
 
-    bool keepFrame(ros::Time time);
+    bool keepFrame(const object_pose_interface_msgs::KeypointDetections& msg);
 
-    void setOdometryHandler(boost::shared_ptr<OdometryHandler> odom);
+    void setOdometryHandler(boost::shared_ptr<ExternalOdometryHandler> odom);
     void setGeometricFeatureHandler(boost::shared_ptr<GeometricFeatureHandler> odom);
 
     void addPresenter(boost::shared_ptr<Presenter> presenter);
@@ -128,7 +128,7 @@ private:
 
     std::vector<EstimatedObject::Ptr> estimated_objects_;
 
-    boost::shared_ptr<OdometryHandler> odometry_handler_;
+    boost::shared_ptr<ExternalOdometryHandler> odometry_handler_;
     boost::shared_ptr<GeometricFeatureHandler> geom_handler_;
 
     // A list of tracking IDs that are associated with each estimated object

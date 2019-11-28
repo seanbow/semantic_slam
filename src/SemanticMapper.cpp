@@ -1,6 +1,6 @@
 
 #include "semantic_slam/SemanticMapper.h"
-#include "semantic_slam/OdometryHandler.h"
+#include "semantic_slam/ExternalOdometryHandler.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/MLDataAssociator.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
@@ -57,7 +57,7 @@ void SemanticMapper::setup()
     // vis_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("keypoint_objects/object_markers", 10);
 }
 
-void SemanticMapper::setOdometryHandler(boost::shared_ptr<OdometryHandler> odom) {
+void SemanticMapper::setOdometryHandler(boost::shared_ptr<ExternalOdometryHandler> odom) {
     odometry_handler_ = odom;
     odom->setGraph(graph_);
     odom->setup();
@@ -167,8 +167,8 @@ void SemanticMapper::processGeometricFeatureTracks(const std::vector<SemanticKey
 
     auto t2 = high_resolution_clock::now();
 
-    ROS_INFO_STREAM("Tracking features took " 
-        << duration_cast<microseconds>(t2 - t1).count()/1000.0 << " ms." << std::endl);
+    // ROS_INFO_STREAM("Tracking features took " 
+    //     << duration_cast<microseconds>(t2 - t1).count()/1000.0 << " ms." << std::endl);
 }
 
 void SemanticMapper::freezeNonCovisible(const std::vector<SemanticKeyframe::Ptr>& target_frames)
@@ -356,21 +356,21 @@ void SemanticMapper::computeCovariances()
     for (const auto& obj : estimated_objects_) {
         if (obj->inGraph()) { // && unfrozen_objs_.count(obj->id())) {
             for (const auto& kp : obj->getKeypoints()) {
-                kp->covariance() = graph_->getMarginalCovariance(kp->graph_node());
+                kp->covariance() = graph_->getMarginalCovariance({kp->graph_node()});
             }
         }
     }
 
     if (added_keyframe) {
-        keyframes_[kf_index]->covariance() = graph_->getMarginalCovariance(keyframes_[kf_index]->graph_node());
+        keyframes_[kf_index]->covariance() = graph_->getMarginalCovariance({keyframes_[kf_index]->graph_node()});
         last_kf_covariance_ = keyframes_[kf_index]->covariance();
         last_kf_covariance_time_ = keyframes_[kf_index]->time();
 
         for (const auto& obj : estimated_objects_) {
             if (obj->inGraph()) { // && unfrozen_objs_.count(obj->id())) {
                 for (const auto& kp : obj->getKeypoints()) {
-                    Plxs_[kp->id()] = graph_->getMarginalCovariance(keyframes_[kf_index]->graph_node(),
-                                                                    kp->graph_node());
+                    Plxs_[kp->id()] = graph_->getMarginalCovariance({keyframes_[kf_index]->graph_node(),
+                                                                    kp->graph_node()});
                 }
             }
         }
@@ -553,7 +553,8 @@ bool SemanticMapper::loadParameters()
         !pnh_.getParam("mahal_thresh_assign", params_.mahal_thresh_assign) ||
         !pnh_.getParam("mahal_thresh_init", params_.mahal_thresh_init) ||
         !pnh_.getParam("keypoint_initialization_depth_sigma", params_.keypoint_initialization_depth_sigma) ||
-        !pnh_.getParam("constraint_weight_threshold", params_.constraint_weight_threshold)) {
+        !pnh_.getParam("constraint_weight_threshold", params_.constraint_weight_threshold) ||
+        !pnh_.getParam("keypoint_msmt_sigma", params_.keypoint_msmt_sigma)) {
 
         ROS_ERROR("Unable to load object handler parameters");
         return false;
@@ -562,17 +563,19 @@ bool SemanticMapper::loadParameters()
     return true;
 }
 
-bool SemanticMapper::keepFrame(ros::Time time)
+bool SemanticMapper::keepFrame(const object_pose_interface_msgs::KeypointDetections& msg)
 {
     if (keyframes_.empty()) return true;
+
+    // if (msg.detections.size() > 0) return true;
 
     auto last_keyframe = keyframes_.back();
 
     Pose3 relpose;
-    bool got_relpose = odometry_handler_->getRelativePoseEstimate(last_keyframe->time(), time, relpose);
+    bool got_relpose = odometry_handler_->getRelativePoseEstimate(last_keyframe->time(), msg.header.stamp, relpose);
 
     if (!got_relpose) {
-        ROS_WARN_STREAM("Too few odometry messages received to get keyframe relative pose");
+        // ROS_WARN_STREAM("Too few odometry messages received to get keyframe relative pose");
         return true;
     }
 
@@ -609,7 +612,7 @@ bool SemanticMapper::haveNextKeyframe()
     while (!msg_queue_.empty()) {
         const auto& msg = msg_queue_.front();
 
-        if (keepFrame(msg.header.stamp)) {
+        if (keepFrame(msg)) {
             return true;
         } else {
             msg_queue_.pop_front();
@@ -630,7 +633,7 @@ bool SemanticMapper::tryFetchNextKeyframe()
         while (!msg_queue_.empty() && !got_msg) {
             msg = msg_queue_.front();
 
-            if (keepFrame(msg.header.stamp)) {
+            if (keepFrame(msg)) {
                 next_keyframe_ = odometry_handler_->createKeyframe(msg.header.stamp);
                 if (next_keyframe_) {
                     next_keyframe_->image_time = msg.header.stamp;
@@ -711,7 +714,7 @@ bool SemanticMapper::updateNextKeyframeObjects()
             }
         }
 
-        // std::cout << "Mahals:\n" << mahals << std::endl;
+        std::cout << "Mahals:\n" << mahals << std::endl;
     
         Eigen::MatrixXd weights_matrix = MLDataAssociator(params_).computeConstraintWeights(mahals);
 
@@ -820,9 +823,8 @@ SemanticMapper::processObjectDetectionMessage(const object_pose_interface_msgs::
             kp_msmt.kp_class_id = i;
 
             // TODO what here?
-            kp_msmt.pixel_sigma = 0.05 * bbox_dim;
-
-            // std::cout << "pixel sigma = " << kp_msmt.pixel_sigma << std::endl;
+            // kp_msmt.pixel_sigma = 0.05 * bbox_dim;
+            kp_msmt.pixel_sigma = params_.keypoint_msmt_sigma;
 
             if (kp_msmt.score > params_.keypoint_activation_threshold)
             {
@@ -933,9 +935,6 @@ bool SemanticMapper::updateObjects(SemanticKeyframe::Ptr kf,
                                         msmt.obj_name,
                                         weights(k, weights.cols() - 1)));
 
-            // ROS_INFO_STREAM("Measurement " << k << ": initializing new object " << estimated_objects_.size() - 1 << ", class "
-            //                                 << msmt.obj_name << ", weight " << weights(k, weights.cols() - 1));
-
             object_track_ids_[msmt.track_id] = estimated_objects_.size() - 1;
         }
     }
@@ -951,10 +950,6 @@ bool SemanticMapper::updateObjects(SemanticKeyframe::Ptr kf,
                                     DefaultKeyFormatter(msmt.observed_key),
                                     known_da.second,
                                     estimated_objects_[known_da.second]->obj_name()));
-
-        // ROS_INFO_STREAM("Measurement " << known_da.first << ": adding factors from "
-        //                             << DefaultKeyFormatter(msmt.observed_key) << " to object "
-        //                             << known_da.second << " with weight 1 [tracked]");
 
         estimated_objects_[known_da.second]->addKeypointMeasurements(msmt, 1.0);
 
@@ -1046,117 +1041,6 @@ SemanticKeyframe::Ptr SemanticMapper::getKeyframeByKey(Key key)
 {
     return keyframes_[Symbol(key).index()];
 }
-
-// double
-// SemanticMapper::computeMahalanobisDistance(const ObjectMeasurement& msmt, 
-//                                            const EstimatedObject::Ptr& obj)
-// {
-//   // if (msmt.class_id != classid_) return std::numeric_limits<double>::max();
-//   // ROS_WARN_STREAM("Computing mahal for object " << id());
-//   if (msmt.obj_name != obj->obj_name()) {
-//     // ROS_WARN_STREAM("Object id " << id() << " name " << obj_name_
-//     //                              << " != measurement class " << msmt.obj_name);
-//     return std::numeric_limits<double>::max();
-//   }
-
-//   std::vector<double> matched_distances;
-
-//   for (size_t i = 0; i < msmt.keypoint_measurements.size(); ++i) {
-//     if (!msmt.keypoint_measurements[i].observed)
-//       continue;
-
-//     const auto& kp_msmt = msmt.keypoint_measurements[i];
-
-//     int kp_match_index = obj->findKeypointByClass(msmt.keypoint_measurements[i].kp_class_id);
-
-//     if (kp_match_index >= 0) {
-//       if (!obj->keypoints()[kp_match_index]->bad()) {
-//         double d = computeMahalanobisDistance(kp_msmt, obj->keypoints()[kp_match_index]);
-//         matched_distances.push_back(d);
-//       }
-//     }
-//   }
-
-//   if (matched_distances.size() == 0)
-//     return std::numeric_limits<double>::max();
-
-//   double distance = 0.0;
-//   for (auto& x : matched_distances)
-//     distance += x;
-
-//   double factor = mahalanobisMultiplicativeFactor(2 * matched_distances.size());
-
-//   // ROS_INFO_STREAM(" Mahal distance " << distance << " * factor " << factor <<
-//   // " = " << distance * factor);
-
-//   return distance * factor;
-// }
-
-// double SemanticMapper::computeMahalanobisDistance(const KeypointMeasurement& msmt,
-//                                                   const EstimatedKeypoint::Ptr& kp)
-// {
-//   if (kp->bad())
-//   {
-//     ROS_WARN_STREAM("Mahalanobis distance called for BAD landmark " << id());
-//     return std::numeric_limits<double>::max();
-//   }
-
-//     Pose3 G_T_I = keyframes_[Symbol(msmt.measured_key).index()]->pose();
-
-//   Camera camera(G_T_I.compose(I_T_C_));
-//   Eigen::Vector2d zhat;
-
-//   try
-//   {
-//     zhat = camera.project(kp->position());
-//   }
-//   catch (CheiralityException& e)
-//   {
-//     return std::numeric_limits<double>::max();
-//   }
-
-//   // ROS_WARN_STREAM("Computing mahal for object " << parent_->id() << "; kp " << id());
-
-//   // check if visible
-//   // if (fabs(zhat(0)) > 1.25 || fabs(zhat(1)) > 1.25) {
-//   //     // clearly not in frame
-//   //     return std::numeric_limits<double>::max();
-//   // }
-
-//   Eigen::Vector2d residual = msmt.normalized_measurement - zhat;
-
-//   Eigen::Matrix<double, 2, 9> H = computeProjectionJacobian(G_T_I.rotation().toRotationMatrix(), 
-//                                                             G_T_I.translation(),
-//                                                             I_T_C_.rotation().toRotationMatrix(), 
-//                                                             kp->position());
-
-//   Eigen::Matrix2d R = Eigen::Matrix2d::Zero();
-//   double px_sigma = msmt.pixel_sigma;
-//   R(0, 0) = px_sigma * px_sigma / (camera_calibration_->fx() * camera_calibration_->fx());
-//   R(1, 1) = px_sigma * px_sigma / (camera_calibration_->fy() * camera_calibration_->fy());
-
-//   // std::cout << "R = \n" << R << std::endl;
-
-//   // Eigen::Matrix2d S = H * Plx * H.transpose() + R;
-//   // double mahal = residual.transpose() * S.inverse() * residual;
-
-//   Eigen::MatrixXd Plx = Eigen::MatrixXd::Zero(9,9);
-
-//   if (!kp->inGraph()) {
-//     Eigen::MatrixXd Plx = kp->parent_object()->getPlx(sym::L(id()), Symbol(msmt.measured_key));
-//   } else {
-//     // TODO TODO ugh
-//     Plx.block<3,3>(0,0) = global_covariance_;
-//   }
-
-
-//   // std::cout << "Plx for landmark " << id() << ": " << std::endl;
-//   // std::cout << Plx << std::endl;
-
-//   double mahal = residual.transpose() * (H * Plx * H.transpose() + R).lu().solve(residual);
-
-//   return mahal;
-// }
 
 void SemanticMapper::visualizeObjectMeshes() const
 {

@@ -45,8 +45,8 @@ public:
 
     Eigen::MatrixXd getMarginalCovariance(const Key& key) const;
     Eigen::MatrixXd getMarginalCovariance(const Key& key1, const Key& key2) const;
-    Eigen::MatrixXd getMarginalCovariance(CeresNodePtr node) const;
-    Eigen::MatrixXd getMarginalCovariance(CeresNodePtr node1, CeresNodePtr node2) const;
+    // Eigen::MatrixXd getMarginalCovariance(CeresNodePtr node) const;
+    Eigen::MatrixXd getMarginalCovariance(const std::vector<CeresNodePtr>& nodes) const;
 
     CeresNodePtr findLastNodeBeforeTime(unsigned char symbol_chr, ros::Time time);
     CeresNodePtr findFirstNodeAfterTime(unsigned char symbol_chr, ros::Time time);

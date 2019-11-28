@@ -3,64 +3,32 @@
 #include "semantic_slam/Common.h"
 #include "semantic_slam/Handler.h"
 #include "semantic_slam/pose_math.h"
-#include "semantic_slam/SemanticKeyframe.h"
 
-#include <nav_msgs/Odometry.h>
-#include <mutex>
-#include <deque>
-#include <unordered_map>
-// #include <gtsam/geometry/Pose3.h>
+#include <vector>
+
+class SemanticKeyframe;
 
 class OdometryHandler : public Handler
 {
 public:
-    void setup();
+    OdometryHandler();
 
-    void update();
+    virtual void setup() = 0;
 
-    void msgCallback(const nav_msgs::Odometry::ConstPtr& msg);
+    virtual boost::shared_ptr<SemanticKeyframe> originKeyframe(ros::Time time) = 0;
 
-    Pose3 msgToPose3(const nav_msgs::Odometry& msg);
+    virtual boost::shared_ptr<SemanticKeyframe> createKeyframe(ros::Time time) = 0;
 
-    // CeresNodePtr getSpineNode(ros::Time time);
+    virtual bool getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3& T12) = 0;
 
-    // CeresNodePtr attachSpineNode(ros::Time time);
+protected:
 
-    SemanticKeyframe::Ptr originKeyframe(ros::Time time);
-
-    SemanticKeyframe::Ptr createKeyframe(ros::Time time);
-
-    SemanticKeyframe::Ptr findNearestKeyframe(ros::Time time);
-
-    bool getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3& T12);
-
-    bool getRelativePoseJacobianEstimate(ros::Time t1, ros::Time t2, Eigen::MatrixXd& J);
-
-    // inherit constructor
-    using Handler::Handler;
-
-private:
-    ros::Subscriber subscriber_;
-
-	std::deque<nav_msgs::Odometry> msg_queue_;
-
-    std::vector<SemanticKeyframe::Ptr> keyframes_;
-
-    std::mutex mutex_;
-
-    Pose3 last_odom_;
-    ros::Time last_time_;
-    size_t last_keyframe_index_;
-    
-    size_t received_msgs_;
-    size_t last_msg_seq_;
-
-    unsigned char node_chr_;
-    ros::Duration max_node_period_;
-
-    Eigen::MatrixXd extractOdometryCovariance(const nav_msgs::Odometry& msg) const;
-
-public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+    std::vector<boost::shared_ptr<SemanticKeyframe>> keyframes_;
 
 };
+
+OdometryHandler::OdometryHandler()
+    : Handler()
+{
+
+}

@@ -3,24 +3,19 @@
 <launch>
 
     <!-- Arguments -->
-    <arg name="cam_topic"                           default="/zed/zed_node/rgb/image_rect_color"/>
-    <arg name="raw_cam_topic"                       default="/zed/zed_node/rgb/relay" />
-    <arg name="cam_info_topic"                      default="/zed/zed_node/rgb/camera_info"/>
-    <arg name="image_transport"                     default="raw"/>
+    <arg name="cam_topic"                           default="/cam0/image_raw"/>
+    <arg name="cam_info_topic"                      default="/cam1/camera_info"/>
 
-    <arg name="imu_topic"                           default="/zed/zed_node/imu/data_raw"/>
-    <arg name="odom_topic"                          default="/zed/zed_node/odom"/>
+    <arg name="odom_topic"                          default="/viso_pose/relative_pose"/>
 
     <arg name="global_frame"						            default="/odom"/>
     <arg name="robot_frame"							            default="/base_link"/>
-    <arg name="imu_frame"							              default="/zed_imu_link"/>
 
     <!-- <arg name="calib_file"                          default="$(find semslam)/param/turtlebot.yaml"/> -->
 
-    <arg name="calib_file"                          default="$(find semantic_slam)/param/zed.yaml"/>
+    <arg name="calib_file"                          default="$(find semantic_slam)/param/kitti.yaml"/>
 
     <arg name="detected_objects_topic"              default="/darknet_ros/bounding_boxes"/>
-    <arg name="detected_objects_topic_republished"  default="bounding_boxes_republished"/>
     <arg name="keypoint_topic"                      default="img_keypoints"/>
 
     <arg name="yolo"                                default="true"/>
@@ -35,7 +30,7 @@
     <arg name="reset_on_detection" default="true" />
     <arg name="filter_2class" default="true" />
     <arg name="detection_conf_threshold" default="0.80" />
-    <arg name="f2f_match_threshold" default="0.80" />
+    <arg name="f2f_match_threshold" default="0.8" />
     <arg name="missed_detection_threshold" default="0" />
     <arg name="visualize" default="true" />
 
@@ -43,13 +38,10 @@
 
     <node pkg="semantic_slam" type="semantic_slam_node" name="semantic_slam" output="screen"
                 launch-prefix="" >
-        <!-- <env name="CPUPROFILE" value="/tmp/prof.out" /> -->
-
         <param name="odom_topic" value="$(arg odom_topic)" />
 
-        <param name="image_topic"                   value="$(arg raw_cam_topic)"/>
+        <param name="image_topic"                   value="$(arg cam_topic)"/>
 
-        <!-- Camera calibration file -->
         <rosparam file="$(arg calib_file)"/>
     </node>
 
@@ -62,10 +54,10 @@
 
 
     <include file="$(find darknet_ros)/launch/darknet_ros.launch">
-        <arg name="image" value="$(arg raw_cam_topic)" />
-        <arg name="ros_param_file"  value="$(find darknet_ros)/config/test.yaml"/>
+        <arg name="image" value="$(arg cam_topic)" />
+        <arg name="ros_param_file"  value="$(find darknet_ros)/config/kitti.yaml"/>
 
-        <arg name="network_param_file" value="$(find darknet_ros)/config/yolov3-voc-test.yaml" />
+        <arg name="network_param_file" value="$(find darknet_ros)/config/yolov3.yaml" />
     </include>
 
     <!-- Launch detection republisher -->
@@ -77,7 +69,7 @@
     <node pkg="opencv_object_tracking"
                     type="opencv_object_tracking_node" name="object_tracker" output="screen">
         <param name="platform" value="zed" />
-        <param name="image_topic" value="$(arg raw_cam_topic)" />
+        <param name="image_topic" value="$(arg cam_topic)" />
         <param name="detection_topic" value="$(arg detected_objects_topic)" />
         <param name="use_image_topic" value="$(arg use_image_topic)" />
         <param name="use_detection_topic" value="$(arg use_detection_topic)" />
@@ -91,10 +83,25 @@
     </node>
 
     <!-- Launch keypoint detector -->
-    <node name="keypoint_detector" pkg="object_keypoint_detector" type="keypoint_detector_torch.py" 
+    <node name="keypoint_detector" pkg="object_keypoint_detector" type="keypoint_detector.py" 
                     required="true" output="log">
 
-        <param name="image_topic"                   value="$(arg raw_cam_topic)"/>
+        <param name="image_topic"                   value="$(arg cam_topic)"/>
+        <remap from="pose_estimator/img_keypoints"  to="semslam/$(arg keypoint_topic)"/>
+        <remap from="detected_objects"              to="object_tracker/tracked_objects"/>
+
+        <param name="model_type"                    value="large"/>
+        <param name="num_keypoints_file"            value="$(find object_keypoint_detector)/keypoint_description/pascal_num_keypoints.txt"/>
+        <param name="model_path"                    value="$(find object_keypoint_detector)/models/pascal.pt"/>
+
+        <param name="target_framerate"              value="10" />
+    </node>
+
+    <!-- Launch keypoint detector -->
+    <!-- <node name="keypoint_detector" pkg="object_keypoint_detector" type="keypoint_detector_torch.py" 
+                    required="true" output="screen">
+
+        <param name="image_topic"                   value="$(arg cam_topic)"/>
         <remap from="pose_estimator/img_keypoints"  to="semslam/$(arg keypoint_topic)"/>
         <remap from="detected_objects"              to="object_tracker/tracked_objects"/>
 
@@ -103,18 +110,19 @@
         <param name="model_path"                    value="$(find object_keypoint_detector)/models/model_20_multiple.t7"/>
 
         <param name="target_framerate"              value="10" />
+    </node> -->
+
+    <node pkg="semantic_slam" type="kitti_data_node" name="kitti_data_node" output="screen">
+        <param name="data_dir" value="/mnt/MyBook/ubuntu_home/data/dataset/sequences/05" />
+        <param name="delay" value="5" />
     </node>
 
-    <node name="republish_left"  type="image_republish_node" pkg="semantic_slam" 
-            args="compressed in:=/zed/zed_node/rgb/image_rect_color 
-                  raw out:=$(arg raw_cam_topic)" />
+    <node pkg="viso_pose" type="viso_node" name="viso_node" output="screen">
+        <param name="viso_px_sigma" value="4" />
 
-    <!-- 2019-10-23-11-41-52.bag or 2019-10-23-13-16-11.bag -->
-    <node pkg="rosbag" type="play" name="rosbag_player" output="log" 
-            args="--clock /mnt/data/turtlebot/2019-10-23-11-41-52.bag
-                  --delay 5
-                  --queue 10000" />
+        <rosparam file="$(arg calib_file)" />
+    </node>
 
-    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find semantic_slam)/rviz/test.rviz" />
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find semantic_slam)/rviz/kitti.rviz" />
 
 </launch>
