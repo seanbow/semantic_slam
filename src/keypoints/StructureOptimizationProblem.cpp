@@ -38,13 +38,14 @@ StructureOptimizationProblem::getObjectPose() const
   return object_pose_;
 }
 
-Eigen::Matrix<double, 9, 9>
-StructureOptimizationProblem::getPlx(size_t landmark_index,
-                                     size_t camera_index)
+Eigen::MatrixXd
+StructureOptimizationProblem::getPlx(size_t camera_index)
 {
-  Eigen::Matrix<double, 9, 9> cov = Eigen::Matrix<double, 9, 9>::Zero();
+  size_t Plx_dim = 6 + 3*m_;
 
-  double Pll[9], Plq[9], Plp[9], Pqq[9], Pqp[9], Ppp[9];
+  Eigen::MatrixXd cov = Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
+
+  double buf[36];
 
   if (!have_covariance_) {
     computeCovariances();
@@ -62,7 +63,8 @@ StructureOptimizationProblem::getPlx(size_t landmark_index,
   // } 
   
   if (!have_covariance_) {
-    cov.block<3,3>(6,6) = Eigen::Matrix3d::Identity();
+    cov = Eigen::MatrixXd::Identity(Plx_dim, Plx_dim);
+    cov.bottomRightCorner<3,3>() = Eigen::Matrix3d::Zero();
     return cov;
   }
 
@@ -90,43 +92,75 @@ StructureOptimizationProblem::getPlx(size_t landmark_index,
     camera_index = closest_index;
   }
 
-  covariance_->GetCovarianceBlock(kps_[landmark_index]->data(),
-                                  kps_[landmark_index]->data(), Pll);
+  std::vector<double*> parameter_blocks;
+  std::vector<size_t> block_sizes;
+  for (auto& kp : kps_) {
+    parameter_blocks.push_back(kp->data());
+    block_sizes.push_back(3);
+  }
 
-  covariance_->GetCovarianceBlockInTangentSpace(
-    kps_[landmark_index]->data(),
-    camera_poses_.at(camera_index).rotation_data(), Plq);
+  parameter_blocks.push_back(camera_poses_.at(camera_index).rotation_data());
+  block_sizes.push_back(3);
+  parameter_blocks.push_back(camera_poses_.at(camera_index).translation_data());
+  block_sizes.push_back(3);
 
-  covariance_->GetCovarianceBlock(
-    kps_[landmark_index]->data(),
-    camera_poses_.at(camera_index).translation_data(), Plp);
+  size_t index_i = 0;
+  size_t index_j = 0;
 
-  covariance_->GetCovarianceBlockInTangentSpace(
-    camera_poses_.at(camera_index).rotation_data(),
-    camera_poses_.at(camera_index).rotation_data(), Pqq);
+  using RowMajorMatrixXd = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
-  covariance_->GetCovarianceBlockInTangentSpace(
-    camera_poses_.at(camera_index).rotation_data(),
-    camera_poses_.at(camera_index).translation_data(), Pqp);
+  for (int i = 0; i < parameter_blocks.size(); ++i) {
+    for (int j = i; j < parameter_blocks.size(); ++j) {
+      covariance_->GetCovarianceBlockInTangentSpace(parameter_blocks[i], parameter_blocks[j], buf);
+      cov.block(index_i, index_j, block_sizes[i], block_sizes[j])
+          = Eigen::Map<RowMajorMatrixXd>(buf, block_sizes[i], block_sizes[j]);
 
-  covariance_->GetCovarianceBlock(
-    camera_poses_.at(camera_index).translation_data(),
-    camera_poses_.at(camera_index).translation_data(), Ppp);
+      index_j += block_sizes[j];
+    }
 
-  cov.block<3, 3>(0, 0) =
-    Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Pll);
-  cov.block<3, 3>(0, 3) =
-    Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Plq);
-  cov.block<3, 3>(0, 6) =
-    Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Plp);
-  cov.block<3, 3>(3, 3) =
-    Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Pqq);
-  cov.block<3, 3>(3, 6) =
-    Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Pqp);
-  cov.block<3, 3>(6, 6) =
-    Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Ppp);
+    index_i += block_sizes[i];
+    index_j = index_i;
+  }
 
   return cov.selfadjointView<Eigen::Upper>();
+
+  // covariance_->GetCovarianceBlock(kps_[landmark_index]->data(),
+  //                                 kps_[landmark_index]->data(), Pll);
+
+  // covariance_->GetCovarianceBlockInTangentSpace(
+  //   kps_[landmark_index]->data(),
+  //   camera_poses_.at(camera_index).rotation_data(), Plq);
+
+  // covariance_->GetCovarianceBlock(
+  //   kps_[landmark_index]->data(),
+  //   camera_poses_.at(camera_index).translation_data(), Plp);
+
+  // covariance_->GetCovarianceBlockInTangentSpace(
+  //   camera_poses_.at(camera_index).rotation_data(),
+  //   camera_poses_.at(camera_index).rotation_data(), Pqq);
+
+  // covariance_->GetCovarianceBlockInTangentSpace(
+  //   camera_poses_.at(camera_index).rotation_data(),
+  //   camera_poses_.at(camera_index).translation_data(), Pqp);
+
+  // covariance_->GetCovarianceBlock(
+  //   camera_poses_.at(camera_index).translation_data(),
+  //   camera_poses_.at(camera_index).translation_data(), Ppp);
+
+  // cov.block<3, 3>(0, 0) =
+  //   Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Pll);
+  // cov.block<3, 3>(0, 3) =
+  //   Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Plq);
+  // cov.block<3, 3>(0, 6) =
+  //   Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Plp);
+  // cov.block<3, 3>(3, 3) =
+  //   Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Pqq);
+  // cov.block<3, 3>(3, 6) =
+  //   Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Pqp);
+  // cov.block<3, 3>(6, 6) =
+  //   Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Ppp);
+
+  // return cov.selfadjointView<Eigen::Upper>();
 }
 
 StructureOptimizationProblem::StructureOptimizationProblem(
@@ -288,55 +322,20 @@ StructureOptimizationProblem::computeCovariances()
 
   covariance_ = boost::make_shared<ceres::Covariance>(cov_options);
 
-
-  std::vector<std::pair<const double*, const double*>> covariance_blocks;
-
-  // Only compute Pll for now???
-
-  // for (auto& kp : kps_) {
-  //   covariance_blocks.push_back(
-  //     std::make_pair(kp->data(), kp->data())
-  //   );
-  // }
-
-
-  
+  std::vector<const double*> blocks;
   for (auto& camera_pose_pair : camera_poses_) {
-    covariance_blocks.push_back(
-      std::make_pair(camera_pose_pair.second.translation_data(),
-                     camera_pose_pair.second.translation_data()));
-
-    covariance_blocks.push_back(
-      std::make_pair(camera_pose_pair.second.rotation_data(),
-                     camera_pose_pair.second.rotation_data()));
-
-    covariance_blocks.push_back(
-      std::make_pair(camera_pose_pair.second.translation_data(),
-                     camera_pose_pair.second.rotation_data()));
-
-    for (auto& kp : kps_) {
-      covariance_blocks.push_back(
-        std::make_pair(camera_pose_pair.second.translation_data(), kp->data()));
-
-      covariance_blocks.push_back(
-        std::make_pair(camera_pose_pair.second.rotation_data(), kp->data()));
-    }
+    blocks.push_back(camera_pose_pair.second.translation_data());
+    blocks.push_back(camera_pose_pair.second.rotation_data());
   }
 
   for (auto& kp : kps_) {
-    covariance_blocks.push_back(std::make_pair(kp->data(), kp->data()));
+    blocks.push_back(kp->data());
   }
 
-  covariance_blocks.push_back(std::make_pair(object_pose_.translation_data(),
-                                             object_pose_.translation_data()));
+  blocks.push_back(object_pose_.rotation_data());
+  blocks.push_back(object_pose_.translation_data());
 
-  covariance_blocks.push_back(
-    std::make_pair(object_pose_.rotation_data(), object_pose_.rotation_data()));
-
-  covariance_blocks.push_back(
-    std::make_pair(object_pose_.rotation_data(), object_pose_.translation_data()));
-
-  bool succeeded = covariance_->Compute(covariance_blocks, &ceres_problem_);
+  bool succeeded = covariance_->Compute(blocks, &ceres_problem_);
 
   if (!succeeded) {
     ROS_WARN_STREAM("Covariance computation failed");

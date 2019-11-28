@@ -91,6 +91,8 @@ public:
     SemanticKeyframe::Ptr getKeyframeByIndex(int index);
     SemanticKeyframe::Ptr getKeyframeByKey(Key key);
 
+    EstimatedObject::Ptr getObjectByKey(Key key);
+
 private:
     boost::shared_ptr<FactorGraph> graph_;
     std::mutex graph_mutex_; // wish this could be a shared_mutex

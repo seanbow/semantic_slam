@@ -57,6 +57,8 @@ struct ObjectParams
 
   int min_object_n_keypoints;  //< minimum number of observed/estimated keypoints to consider an object good
 
+  int min_observed_keypoints_to_initialize;
+
   char object_symbol_char;
   char keypoint_symbol_char;
   char spur_node_symbol_char;

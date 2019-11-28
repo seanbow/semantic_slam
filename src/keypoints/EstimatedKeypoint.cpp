@@ -510,13 +510,24 @@ double EstimatedKeypoint::computeMahalanobisDistance(const KeypointMeasurement& 
   // Eigen::Matrix2d S = H * Plx * H.transpose() + R;
   // double mahal = residual.transpose() * S.inverse() * residual;
 
-  Eigen::MatrixXd Plx = Eigen::MatrixXd::Zero(9,9);
+  Eigen::MatrixXd Plx_full = parent_->getPlx(sym::O(parent_->id()), Symbol(msmt.measured_key));
 
-  if (!in_graph_) {
-    Plx = parent_->getPlx(sym::L(id()), Symbol(msmt.measured_key));
-  } else {
-    Plx = mapper_->getPlx(sym::L(id()), Symbol(msmt.measured_key));
+  // this is dumb
+  // figure out which index we are in Plx...
+  int our_index = 0;
+  for (int i = 0; i < parent_->keypoints().size(); ++i) {
+    if (parent_->keypoints()[i]->id() == id()) {
+      our_index = i;
+      break;
+    }
   }
+
+  size_t x_index = 3 * parent_->keypoints().size();
+  Eigen::MatrixXd Plx(9,9);
+  Plx.topLeftCorner<3,3>() = Plx_full.block<3,3>(3*our_index, 3*our_index);
+  Plx.bottomRightCorner<6,6>() = Plx_full.block<6,6>(x_index, x_index);
+  Plx.block<3,6>(0,3) = Plx_full.block<3,6>(3*our_index, x_index);
+  Plx.block<6,3>(3,0) = Plx_full.block<6,3>(x_index, 3*our_index);
 
 
   // std::cout << "Plx for landmark " << id() << ": " << std::endl;

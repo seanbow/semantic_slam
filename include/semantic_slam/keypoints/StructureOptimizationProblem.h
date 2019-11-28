@@ -38,8 +38,8 @@ public:
 
   // Here landmark_index is the *local class id* of the landmark within this object
   // camera_index is the *global* camera pose id
-  Eigen::Matrix<double, 9, 9> getPlx(size_t landmark_index,
-                                     size_t camera_index);
+  Eigen::MatrixXd getPlx(size_t camera_index);
+
   Eigen::VectorXd getBasisCoefficients() const;
 
   void computeCovariances();

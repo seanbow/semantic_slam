@@ -367,12 +367,23 @@ void SemanticMapper::computeCovariances()
         last_kf_covariance_time_ = keyframes_[kf_index]->time();
 
         for (const auto& obj : estimated_objects_) {
-            if (obj->inGraph()) { // && unfrozen_objs_.count(obj->id())) {
-                for (const auto& kp : obj->getKeypoints()) {
-                    Plxs_[kp->id()] = graph_->getMarginalCovariance({keyframes_[kf_index]->graph_node(),
-                                                                    kp->graph_node()});
-                }
+            if (!obj->inGraph()) continue;
+
+            std::vector<CeresNodePtr> kp_nodes;
+            for (const auto& kp : obj->keypoints()) {
+                kp_nodes.push_back(kp->graph_node());
             }
+
+            kp_nodes.push_back(keyframes_[kf_index]->graph_node());
+
+            Plxs_[obj->id()] = graph_->getMarginalCovariance(kp_nodes);
+
+            // if (obj->inGraph()) { // && unfrozen_objs_.count(obj->id())) {
+            //     for (const auto& kp : obj->getKeypoints()) {
+            //         Plxs_[kp->id()] = graph_->getMarginalCovariance({keyframes_[kf_index]->graph_node(),
+            //                                                         kp->graph_node()});
+            //     }
+            // }
         }
 
         Plxs_time_ = keyframes_[kf_index]->time();
@@ -554,7 +565,8 @@ bool SemanticMapper::loadParameters()
         !pnh_.getParam("mahal_thresh_init", params_.mahal_thresh_init) ||
         !pnh_.getParam("keypoint_initialization_depth_sigma", params_.keypoint_initialization_depth_sigma) ||
         !pnh_.getParam("constraint_weight_threshold", params_.constraint_weight_threshold) ||
-        !pnh_.getParam("keypoint_msmt_sigma", params_.keypoint_msmt_sigma)) {
+        !pnh_.getParam("keypoint_msmt_sigma", params_.keypoint_msmt_sigma) ||
+        !pnh_.getParam("min_observed_keypoints_to_initialize", params_.min_observed_keypoints_to_initialize)) {
 
         ROS_ERROR("Unable to load object handler parameters");
         return false;
@@ -845,6 +857,12 @@ SemanticMapper::processObjectDetectionMessage(const object_pose_interface_msgs::
     return object_measurements;
 }
 
+EstimatedObject::Ptr
+SemanticMapper::getObjectByKey(Key key)
+{
+    return estimated_objects_[Symbol(key).index()];
+}
+
 Eigen::MatrixXd
 SemanticMapper::getPlx(Key key1, Key key2)
 {
@@ -866,15 +884,20 @@ SemanticMapper::getPlx(Key key1, Key key2)
     Eigen::LLT<Eigen::MatrixXd> llt2(Px2);
 
     Eigen::MatrixXd chol1 = llt1.matrixL();
-    Eigen::MatrixXd H12 = Eigen::MatrixXd::Identity(9,9);
-    H12.block<6,6>(3,3) = llt2.matrixL() * chol1.inverse();
+
+    auto obj = getObjectByKey(key1);
+
+    size_t Plx_dim = 6 + 3*obj->keypoints().size();
+
+    Eigen::MatrixXd H12 = Eigen::MatrixXd::Identity(Plx_dim, Plx_dim);
+    H12.bottomRightCorner<6,6>() = llt2.matrixL() * chol1.inverse();
 
     auto it = Plxs_.find(Symbol(key1).index());
     if (it != Plxs_.end()) {
         const Eigen::MatrixXd& Plx = it->second;
         return H12 * Plx * H12.transpose();
     } else {
-        return Eigen::MatrixXd::Zero(9,9);
+        return Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
     }
 
     // EstimatedKeypoint::Ptr kp = nullptr;
@@ -913,7 +936,16 @@ bool SemanticMapper::updateObjects(SemanticKeyframe::Ptr kf,
 
     for (size_t k = 0; k < measurement_index.size(); ++k)
     {
-        if (weights(k, weights.cols() - 1) >= params_.new_landmark_weight_threshold)
+        // count the number of observed keypoints
+        size_t n_observed_keypoints = 0;
+        for (auto& kp_msmt : measurements[measurement_index[k]].keypoint_measurements) {
+            if (kp_msmt.observed) {
+                n_observed_keypoints++;
+            }
+        }
+
+        if (weights(k, weights.cols() - 1) >= params_.new_landmark_weight_threshold
+                && n_observed_keypoints >= params_.min_observed_keypoints_to_initialize)
         {
             auto& msmt = measurements[measurement_index[k]];
 

@@ -292,14 +292,10 @@ EstimatedObject::optimizeStructure()
 
 
 Eigen::MatrixXd
-EstimatedObject::getPlx(Key l_key, Key x_key) const
+EstimatedObject::getPlx(Key o_key, Key x_key) const
 {
-
-  size_t kp_match_index = findKeypointByKey(l_key);
-  const auto& kp = keypoints_[kp_match_index];
-
   if (in_graph_) {
-    return mapper_->getPlx(l_key, x_key);
+    return mapper_->getPlx(o_key, x_key);
   } 
 
   if (!structure_problem_) {
@@ -309,7 +305,7 @@ EstimatedObject::getPlx(Key l_key, Key x_key) const
   Symbol x_symbol(x_key);
 
   std::lock_guard<std::mutex> lock(problem_mutex_);
-  Eigen::MatrixXd Plx = structure_problem_->getPlx(kp->classid(), x_symbol.index());
+  Eigen::MatrixXd Plx = structure_problem_->getPlx(x_symbol.index());
 
   return Plx;
 }
@@ -327,53 +323,130 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
 
   auto keyframe = mapper_->getKeyframeByKey(msmt.observed_key);
   Pose3 G_T_I = keyframe->pose();
-  Camera camera(G_T_I.compose(I_T_C_), camera_calibration_);
+  Eigen::MatrixXd Hpose_compose;
+  Camera camera(G_T_I.compose(I_T_C_, Hpose_compose), camera_calibration_);
 
   std::vector<double> matched_distances;
 
+  Eigen::MatrixXd Plx = getPlx(sym::O(id()), msmt.observed_key);
+
+  // assemble the keypoint measurement vector & Jacobians
+  Eigen::VectorXd msmt_vec = Eigen::VectorXd::Zero(2 * keypoints_.size());
+  Eigen::VectorXd residuals = Eigen::VectorXd::Zero(2 * keypoints_.size());
+  Eigen::MatrixXd H = Eigen::MatrixXd::Zero(2 * keypoints_.size(), Plx.rows());
+  Eigen::VectorXd R_sqrt_vec = Eigen::VectorXd::Zero(2 * keypoints_.size());
+
+  // Hpose will be in the *ambient* (4-dimensional) quaternion space.
+  // Want it in the *tangent* (3-dimensional) space.
+  Eigen::Matrix<double, 4, 3, Eigen::RowMajor> Hquat_space;
+  ceres::EigenQuaternionParameterization local_param;
+  local_param.ComputeJacobian(G_T_I.rotation_data(), Hquat_space.data());
+
+  // Index of x into Plx...
+  size_t x_index = 3 * keypoints_.size();
+
+  size_t n_observed = 0;
   for (size_t i = 0; i < msmt.keypoint_measurements.size(); ++i) {
-    if (!msmt.keypoint_measurements[i].observed)
+    if (!msmt.keypoint_measurements[i].observed) {
+      // We can just leave the residual vector zero & pick a lower-dimensional chi-2 distribution
       continue;
+    }
 
-    const auto& kp_msmt = msmt.keypoint_measurements[i];
+    int kp_index = findKeypointByClass(msmt.keypoint_measurements[i].kp_class_id);
+    if (kp_index < 0) {
+      ROS_ERROR("Unable to find matching keypoint for measurement??");
+    }
 
-    int kp_match_index =
-      findKeypointByClass(msmt.keypoint_measurements[i].kp_class_id);
-    if (kp_match_index >= 0) {
-      if (keypoints_[kp_match_index]->initialized() &&
-          !keypoints_[kp_match_index]->bad()) {
+    const auto& kp = keypoints_[kp_index];
 
-        Eigen::Vector2d zhat = camera.project(keypoints_[kp_match_index]->position());
-        Eigen::Vector2d residual = msmt.keypoint_measurements[i].pixel_measurement - zhat;
-        double px_sigma = msmt.keypoint_measurements[i].pixel_sigma;
-        Eigen::Matrix2d R = px_sigma * px_sigma * Eigen::Matrix2d::Identity();
+    try {
 
-        Eigen::Matrix<double, 2, 9> H = computeProjectionJacobian(G_T_I, 
-                                                                  I_T_C_, 
-                                                                  keypoints_[kp_match_index]->position());
+      Eigen::MatrixXd Hpose, Hpoint;
+      Eigen::Vector2d zhat = camera.project(kp->position(), Hpose, Hpoint);
 
-        Eigen::MatrixXd Plx = getPlx(sym::L(keypoints_[kp_match_index]->id()), Symbol(msmt.observed_key));
-        double d = residual.transpose() * (H*Plx*H.transpose() + R).lu().solve(residual);
-        // double d =
-        //   keypoints_[kp_match_index]->computeMahalanobisDistance(kp_msmt);
-        matched_distances.push_back(d);
-      }
+      residuals.segment<2>(2*kp_index) = msmt.keypoint_measurements[i].pixel_measurement - zhat;
+      R_sqrt_vec.segment<2>(2*kp_index) = msmt.keypoint_measurements[i].pixel_sigma * Eigen::Vector2d::Ones();
+
+      // std::cout << "H size = " << H.rows() << " x " << H.cols() << std::endl;
+      // std::cout << "Hpoint size = " << Hpoint.rows() << " x " << Hpoint.cols() << std::endl;
+      // std::cout << "Hpose size = " << Hpose.rows() << " x " << Hpose.cols() << std::endl;
+      // std::cout << "Hpose_compose size = " << Hpose_compose.rows() << " x " << Hpose_compose.cols() << std::endl;
+      // std::cout << "kp_index = " << kp_index << std::endl;
+      // std::cout << "x_index = " << x_index << std::endl;
+
+      // Hl
+      H.block<2,3>(2*kp_index, 3*kp_index) = Hpoint;
+      // Hq
+      H.block<2,3>(2*kp_index, x_index) = Hpose * Hpose_compose.leftCols<4>() * Hquat_space;
+      // Hp
+      H.block<2,3>(2*kp_index, x_index + 3) = Hpose * Hpose_compose.rightCols<3>();
+
+      n_observed++;
+
+    } catch (CheiralityException& e) {
+      // TODO should we ignore this or should we add a high value or something
     }
   }
 
-  if (matched_distances.size() == 0)
+  Eigen::MatrixXd R = R_sqrt_vec.array().pow(2).matrix().asDiagonal();
+
+  double mahal = residuals.transpose() * (H*Plx*H.transpose() + R).ldlt().solve(residuals);
+
+  double factor = mahalanobisMultiplicativeFactor(2 * n_observed);
+
+  ROS_INFO_STREAM(" Mahal distance " << mahal << " * factor " << factor << " = " << mahal * factor);
+
+  // right now if all the points are behind the camera (clearly wrong object) the residuals
+  // vector will be all zero...
+  if (n_observed == 0) {
     return std::numeric_limits<double>::max();
+  }
 
-  double distance = 0.0;
-  for (auto& x : matched_distances)
-    distance += x;
+  return mahal * factor;
 
-  double factor = mahalanobisMultiplicativeFactor(2 * matched_distances.size());
+  // for (size_t i = 0; i < msmt.keypoint_measurements.size(); ++i) {
+  //   if (!msmt.keypoint_measurements[i].observed)
+  //     continue;
+
+  //   const auto& kp_msmt = msmt.keypoint_measurements[i];
+
+  //   int kp_match_index =
+  //     findKeypointByClass(msmt.keypoint_measurements[i].kp_class_id);
+  //   if (kp_match_index >= 0) {
+  //     if (keypoints_[kp_match_index]->initialized() &&
+  //         !keypoints_[kp_match_index]->bad()) {
+
+  //       Eigen::Vector2d zhat = camera.project(keypoints_[kp_match_index]->position());
+  //       Eigen::Vector2d residual = msmt.keypoint_measurements[i].pixel_measurement - zhat;
+  //       double px_sigma = msmt.keypoint_measurements[i].pixel_sigma;
+  //       Eigen::Matrix2d R = px_sigma * px_sigma * Eigen::Matrix2d::Identity();
+
+  //       Eigen::Matrix<double, 2, 9> H = computeProjectionJacobian(G_T_I, 
+  //                                                                 I_T_C_, 
+  //                                                                 keypoints_[kp_match_index]->position());
+
+  //       Eigen::MatrixXd Plx = getPlx(sym::L(keypoints_[kp_match_index]->id()), Symbol(msmt.observed_key));
+  //       double d = residual.transpose() * (H*Plx*H.transpose() + R).lu().solve(residual);
+  //       // double d =
+  //       //   keypoints_[kp_match_index]->computeMahalanobisDistance(kp_msmt);
+  //       matched_distances.push_back(d);
+  //     }
+  //   }
+  // }
+
+  // if (matched_distances.size() == 0)
+  //   return std::numeric_limits<double>::max();
+
+  // double distance = 0.0;
+  // for (auto& x : matched_distances)
+  //   distance += x;
+
+  // double factor = mahalanobisMultiplicativeFactor(2 * matched_distances.size());
 
   // ROS_INFO_STREAM(" Mahal distance " << distance << " * factor " << factor <<
   // " = " << distance * factor);
 
-  return distance * factor;
+  // return distance * factor;
 }
 
 

@@ -28,16 +28,17 @@ sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = mo
 ## Semslam parameters
 
 ### Geometric feature parameters
-cam_sigma: 4
+cam_sigma: 5
 reprojection_error_threshold: 4
 use_smart_projection_factors: true
 
 ### Semantic measurement parameters
-keypoint_msmt_sigma: 10                 # keypoint measurement sigma (pixels)
+keypoint_msmt_sigma: 15                 # keypoint measurement sigma (pixels)
 keypoint_initialization_depth_sigma: 2  # meters
 
 min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph
 min_landmark_observations: 4           # minimum number of observations needed for a keypoint before estimating depth and including in optimization
+min_observed_keypoints_to_initialize: 4
 
 ### Semantic object optimization parameters
 structure_regularization_factor: 10     # lambda in structure optimization term lambda * ||c||^2
@@ -51,7 +52,7 @@ include_objects_in_graph: true
 # deviations from the calculated object structure
 structure_error_coefficient: 1000
 
-keypoint_activation_threshold: 0.6     # threshold above which to consider a keypoint observed
+keypoint_activation_threshold: 0.65     # threshold above which to consider a keypoint observed
 
 camera_range: 10                        # meters
 
