@@ -14,8 +14,8 @@ FactorGraph::FactorGraph()
     // solver_options_.trust_region_strategy_type = ceres::DOGLEG;
     // solver_options_.dogleg_type = ceres::SUBSPACE_DOGLEG;
 
-    solver_options_.function_tolerance = 1e-4;
-    solver_options_.gradient_tolerance = 1e-8;
+    // solver_options_.function_tolerance = 1e-4;
+    // solver_options_.gradient_tolerance = 1e-8;
 
 
     solver_options_.linear_solver_type = ceres::ITERATIVE_SCHUR;
@@ -76,7 +76,8 @@ bool FactorGraph::solve(bool verbose)
         std::cout << "Schur structure used: " << summary.schur_structure_used << std::endl;
     }
 
-    return summary.IsSolutionUsable();
+    // return summary.IsSolutionUsable();
+    return summary.termination_type == ceres::CONVERGENCE;
 }
 
 void FactorGraph::addNode(CeresNodePtr node)
@@ -116,18 +117,25 @@ void FactorGraph::addFactors(std::vector<CeresFactorPtr> factors)
 
 void FactorGraph::removeNode(CeresNodePtr node)
 {
-    bool found = false;
-    for (auto it = nodes_.begin(); it != nodes_.end(); ++it) {
-        if (node->key() == it->second->key()) {
-            nodes_.erase(it);
-            found = true;
-            break;
-        }
+    auto it = nodes_.find(node->key());
+    if (it != nodes_.end()) {
+        nodes_.erase(it);
     }
 
-    node->removeFromProblem(problem_);
-
     modified_ = true;
+
+    // bool found = false;
+    // for (auto it = nodes_.begin(); it != nodes_.end(); ++it) {
+    //     if (node->key() == it->second->key()) {
+    //         nodes_.erase(it);
+    //         found = true;
+    //         break;
+    //     }
+    // }
+
+    // node->removeFromProblem(problem_);
+
+    // modified_ = true;
 }
 
 void FactorGraph::removeFactor(CeresFactorPtr factor)

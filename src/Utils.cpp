@@ -145,6 +145,40 @@ Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Pose3& G_T_I,
   return H;
 }
 
+inline Eigen::MatrixXd erase_column_indices(const Eigen::MatrixXd& data, std::vector<size_t>& indices) {
+  if (indices.empty()) return data;
+
+  Eigen::MatrixXd newmat(data.rows(), data.cols() - indices.size());
+
+  std::sort(indices.begin(), indices.end());
+
+  auto index_it = indices.begin();
+  size_t new_col_idx = 0;
+  for (size_t i = 0; i < static_cast<size_t>(data.cols()); ++i) {
+    if (i == *index_it) index_it++;
+    else newmat.col(new_col_idx++) = data.col(i);
+  }
+
+  return newmat;
+}
+
+inline Eigen::MatrixXd erase_row_indices(const Eigen::MatrixXd& data, std::vector<size_t>& indices) {
+  if (indices.empty()) return data;
+
+  Eigen::MatrixXd newmat(data.rows() - indices.size(), data.cols());
+
+  std::sort(indices.begin(), indices.end());
+
+  auto index_it = indices.begin();
+  size_t new_row_idx = 0;
+  for (size_t i = 0; i < static_cast<size_t>(data.rows()); ++i) {
+    if (i == *index_it) index_it++;
+    else newmat.row(new_row_idx++) = data.row(i);
+  }
+
+  return newmat;
+}
+
 // Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Eigen::Matrix3d& G_R_I,
 //                                           const Eigen::Vector3d& G_t_I,
 //                                           const Eigen::Matrix3d& I_R_C,

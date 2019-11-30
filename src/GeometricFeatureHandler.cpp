@@ -22,7 +22,7 @@ void GeometricFeatureHandler::setup()
 
     running_ = true;
 
-    work_thread_ = std::thread(&GeometricFeatureHandler::extractKeypointsThread, this);
+    // work_thread_ = std::thread(&GeometricFeatureHandler::extractKeypointsThread, this);
 }
 
 void GeometricFeatureHandler::update()
@@ -161,34 +161,35 @@ void GeometricFeatureHandler::imageCallback(const sensor_msgs::ImageConstPtr& ms
         ROS_ERROR_STREAM("[Tracker] dropped image message, non-sequential sequence numbers, received " << msg->header.seq << ", expected " << last_img_seq_ + 1);
     }
 
-    {
-        std::lock_guard<std::mutex> lock(queue_mutex_);
-        img_queue_.push_back(msg);
-    }
-    // ROS_INFO_STREAM("IMAGE time = " << msg->header.stamp);
+    // {
+    //     std::lock_guard<std::mutex> lock(queue_mutex_);
+    //     img_queue_.push_back(msg);
+    // }
 
-    queue_cv_.notify_all();
+    // queue_cv_.notify_all();
 
     last_img_seq_ = msg->header.seq;
 
-    // tracker_->addImage(msg);
+    FeatureTracker::Frame new_frame;
+    new_frame.image = msg;
+    tracker_->addImage(std::move(new_frame));
 }
 
-void GeometricFeatureHandler::extractKeypointsThread()
-{
-    while (ros::ok() && running_) {
+// void GeometricFeatureHandler::extractKeypointsThread()
+// {
+//     while (ros::ok() && running_) {
 
-        FeatureTracker::Frame new_frame;
+//         FeatureTracker::Frame new_frame;
 
-        {
-            std::unique_lock<std::mutex> lock(queue_mutex_);
+//         {
+//             std::unique_lock<std::mutex> lock(queue_mutex_);
 
-            queue_cv_.wait(lock, [&] { return !img_queue_.empty(); });
+//             queue_cv_.wait(lock, [&] { return !img_queue_.empty(); });
 
-            new_frame.image = img_queue_.front();
-            img_queue_.pop_front();
-        }
+//             new_frame.image = img_queue_.front();
+//             img_queue_.pop_front();
+//         }
 
-        tracker_->addImage(std::move(new_frame));
-    }
-}
+//         tracker_->addImage(std::move(new_frame));
+//     }
+// }

@@ -67,6 +67,7 @@ void VectorNode<Dim>::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     // will automatically be added if we're included in a factor and this way we don't have to
     // worry about adding a vector with NaNs or something
     // problem->AddParameterBlock(vector_.data(), vector_.size());
+    active_ = true;
 }
 
 using Vector2dNode = VectorNode<2>;

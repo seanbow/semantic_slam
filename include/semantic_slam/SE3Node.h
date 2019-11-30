@@ -6,7 +6,7 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
 
-// #include "semantic_slam/ceres_quaternion_parameterization.h"
+#include "semantic_slam/ceres_quaternion_parameterization.h"
 #include "semantic_slam/pose_math.h"
 
 
@@ -48,7 +48,8 @@ SE3Node::SE3Node(Symbol sym, boost::optional<ros::Time> time)
     parameter_blocks_.push_back(pose_.rotation_data());
     parameter_block_sizes_.push_back(4);
     parameter_block_local_sizes_.push_back(3);
-    local_parameterizations_.push_back(new ceres::EigenQuaternionParameterization);
+    local_parameterizations_.push_back(new QuaternionLocalParameterization);
+    // local_parameterizations_.push_back(new ceres::EigenQuaternionParameterization);
 
     parameter_blocks_.push_back(pose_.translation_data());
     parameter_block_sizes_.push_back(3);
@@ -62,8 +63,10 @@ SE3Node::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     problem->AddParameterBlock(pose_.rotation_data(), 4);
 
     // ceres::Problem takes ownership of the new parameterization
-    // problem->SetParameterization(pose_.rotation_data(), new QuaternionLocalParameterization);
-    problem->SetParameterization(pose_.rotation_data(), new ceres::EigenQuaternionParameterization);
+    problem->SetParameterization(pose_.rotation_data(), local_parameterizations_[0]);
+    // problem->SetParameterization(pose_.rotation_data(), new ceres::EigenQuaternionParameterization);
 
     problem->AddParameterBlock(pose_.translation_data(), 3);
+
+    active_ = true;
 }

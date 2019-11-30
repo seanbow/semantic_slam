@@ -30,7 +30,7 @@
     <arg name="reset_on_detection" default="true" />
     <arg name="filter_2class" default="true" />
     <arg name="detection_conf_threshold" default="0.80" />
-    <arg name="f2f_match_threshold" default="0.8" />
+    <arg name="f2f_match_threshold" default="0.5" />
     <arg name="missed_detection_threshold" default="0" />
     <arg name="visualize" default="true" />
 
@@ -95,6 +95,8 @@
         <param name="model_path"                    value="$(find object_keypoint_detector)/models/pascal.pt"/>
 
         <param name="target_framerate"              value="10" />
+
+        <rosparam file="$(arg calib_file)"/>
     </node>
 
     <!-- Launch keypoint detector -->

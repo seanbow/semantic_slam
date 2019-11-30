@@ -109,20 +109,20 @@ void SemanticMapper::processMessagesUpdateObjectsThread()
 
         if (haveNextKeyframe()) {
 
-            tryFetchNextKeyframe();
+            SemanticKeyframe::Ptr next_keyframe = tryFetchNextKeyframe();
 
-            if (next_keyframe_) {
+            if (next_keyframe) {
 
-                updateNextKeyframeObjects();
+                updateKeyframeObjects(next_keyframe);
 
-                next_keyframe_->updateConnections();
-                next_keyframe_->measurements_processed() = true;
+                next_keyframe->updateConnections();
+                next_keyframe->measurements_processed() = true;
 
                 for (auto& p : presenters_) p->present(keyframes_, estimated_objects_);
             }
 
         } else {
-            ros::Duration(0.01).sleep();
+            ros::Duration(0.001).sleep();
         }
     }
 
@@ -147,7 +147,7 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
                 if (needToComputeCovariances()) computeCovariances();
             }
         } else {
-            ros::Duration(0.01).sleep();
+            ros::Duration(0.001).sleep();
         }
     }
 
@@ -430,6 +430,10 @@ void SemanticMapper::commitGraphSolution()
         }
     }
 
+    // for (auto& kf : keyframes_) {
+    //     std::cout << kf->graph_node()->pose().rotation().coeffs().norm() << std::endl;
+    // }
+
     const Pose3& old_pose = last_in_graph->pose();
     const Pose3& new_pose = last_in_graph->graph_node()->pose();
 
@@ -440,6 +444,7 @@ void SemanticMapper::commitGraphSolution()
     for (auto& kf : keyframes_) {
         if (kf->inGraph()) {
             kf->pose() = kf->graph_node()->pose();
+            kf->pose().rotation().normalize();
         } else {
             // Keyframes not yet in the graph will be later so just propagate the computed
             // transform forward
@@ -566,7 +571,9 @@ bool SemanticMapper::loadParameters()
         !pnh_.getParam("keypoint_initialization_depth_sigma", params_.keypoint_initialization_depth_sigma) ||
         !pnh_.getParam("constraint_weight_threshold", params_.constraint_weight_threshold) ||
         !pnh_.getParam("keypoint_msmt_sigma", params_.keypoint_msmt_sigma) ||
-        !pnh_.getParam("min_observed_keypoints_to_initialize", params_.min_observed_keypoints_to_initialize)) {
+        !pnh_.getParam("min_observed_keypoints_to_initialize", params_.min_observed_keypoints_to_initialize) ||
+        !pnh_.getParam("keyframe_translation_threshold", params_.keyframe_translation_threshold) ||
+        !pnh_.getParam("keyframe_rotation_threshold", params_.keyframe_rotation_threshold)) {
 
         ROS_ERROR("Unable to load object handler parameters");
         return false;
@@ -591,11 +598,8 @@ bool SemanticMapper::keepFrame(const object_pose_interface_msgs::KeypointDetecti
         return true;
     }
 
-    double translation_threshold = 0.1;
-    double rotation_threshold = 10; // degrees
-
-    if (relpose.translation().norm() > translation_threshold ||
-        2*std::acos(relpose.rotation().w()) > rotation_threshold) {
+    if (relpose.translation().norm() > params_.keyframe_translation_threshold ||
+        2*std::acos(relpose.rotation().w())*180/3.14159 > params_.keyframe_rotation_threshold) {
         return true;
     } else {
         return false;
@@ -632,28 +636,27 @@ bool SemanticMapper::haveNextKeyframe()
     }
 }
 
-bool SemanticMapper::tryFetchNextKeyframe()
+SemanticKeyframe::Ptr 
+SemanticMapper::tryFetchNextKeyframe()
 {
     object_pose_interface_msgs::KeypointDetections msg;
-    next_keyframe_ = nullptr;
-
-    bool got_msg = false;
+    SemanticKeyframe::Ptr next_keyframe = nullptr;
 
     {
         std::lock_guard<std::mutex> lock(queue_mutex_);
 
-        while (!msg_queue_.empty() && !got_msg) {
+        while (!msg_queue_.empty()) {
             msg = msg_queue_.front();
 
             if (keepFrame(msg)) {
-                next_keyframe_ = odometry_handler_->createKeyframe(msg.header.stamp);
-                if (next_keyframe_) {
-                    next_keyframe_->image_time = msg.header.stamp;
-                    got_msg = true;
+                next_keyframe = odometry_handler_->createKeyframe(msg.header.stamp);
+                if (next_keyframe) {
+                    msg_queue_.pop_front();
+                    break;
                 } else {
                     // Want to keep this keyframe but odometry handler can't make
                     // it for us yet -- try again later
-                    return false;
+                    return nullptr;
                 }
             }
 
@@ -661,34 +664,34 @@ bool SemanticMapper::tryFetchNextKeyframe()
         }
     }
 
-    if (!got_msg) return false;
+    if (next_keyframe) {
+        next_keyframe->measurements = processObjectDetectionMessage(msg, next_keyframe->key());
+    }
 
-    next_keyframe_->measurements = processObjectDetectionMessage(msg, next_keyframe_->key());
-
-    return true;
+    return next_keyframe;
 }
 
-bool SemanticMapper::updateNextKeyframeObjects()
+bool SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
 {
-    if (!next_keyframe_) return false;
+    if (!frame) return false;
 
     std::lock_guard<std::mutex> lock(map_mutex_);
 
-    keyframes_.push_back(next_keyframe_);
+    keyframes_.push_back(frame);
 
     // TODO fix this bad approximation 
-    next_keyframe_->covariance() = last_kf_covariance_;
+    frame->covariance() = last_kf_covariance_;
 
-    if (next_keyframe_->measurements.size() > 0) {
+    if (frame->measurements.size() > 0) {
 
         // Create the list of measurements we need to associate.
         // Identify which measurements have been tracked from already known objects
         std::vector<size_t> measurement_index;
         std::map<size_t, size_t> known_das;
 
-        for (size_t i = 0; i < next_keyframe_->measurements.size(); ++i) 
+        for (size_t i = 0; i < frame->measurements.size(); ++i) 
         {
-            auto known_id_it = object_track_ids_.find(next_keyframe_->measurements[i].track_id);
+            auto known_id_it = object_track_ids_.find(frame->measurements[i].track_id);
             if (known_id_it == object_track_ids_.end()) {
                 // track not known, perform actual data association
                 measurement_index.push_back(i);
@@ -700,7 +703,7 @@ bool SemanticMapper::updateNextKeyframeObjects()
 
         // Create the list of objects we need to associate.
         // count visible landmarks & create mapping from list of visible to list of all
-        std::vector<bool> visible = predictVisibleObjects(next_keyframe_);
+        std::vector<bool> visible = predictVisibleObjects(frame);
         size_t n_visible = 0;
         std::vector<size_t> object_index;
         for (size_t j = 0; j < estimated_objects_.size(); ++j)
@@ -708,7 +711,7 @@ bool SemanticMapper::updateNextKeyframeObjects()
             if (visible[j])
             {
                 n_visible++;
-                estimated_objects_[j]->setIsVisible(next_keyframe_);
+                estimated_objects_[j]->setIsVisible(frame);
                 object_index.push_back(j);
             }
         }
@@ -722,7 +725,7 @@ bool SemanticMapper::updateNextKeyframeObjects()
                 // mahals(i,j) = computeMahalanobisDistance(keyframe->measurements[measurement_index[i]],
                                                         //  estimated_objects_[object_index[j]]);
                 mahals(i, j) = estimated_objects_[object_index[j]]->computeMahalanobisDistance(
-                                                                        next_keyframe_->measurements[measurement_index[i]]);
+                                                                        frame->measurements[measurement_index[i]]);
             }
         }
 
@@ -730,8 +733,8 @@ bool SemanticMapper::updateNextKeyframeObjects()
     
         Eigen::MatrixXd weights_matrix = MLDataAssociator(params_).computeConstraintWeights(mahals);
 
-        updateObjects(next_keyframe_, 
-                        next_keyframe_->measurements, 
+        updateObjects(frame, 
+                        frame->measurements, 
                         measurement_index, 
                         known_das, 
                         weights_matrix, 
@@ -751,6 +754,7 @@ SemanticMapper::processObjectDetectionMessage(const object_pose_interface_msgs::
         auto model_it = object_models_.find(detection.obj_name);
         if (model_it == object_models_.end()) {
             ROS_WARN_STREAM("No object model for class " << detection.obj_name);
+            continue;
         }
 
         geometry::ObjectModelBasis model = model_it->second;

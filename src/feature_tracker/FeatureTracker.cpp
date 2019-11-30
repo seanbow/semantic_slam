@@ -2,6 +2,7 @@
 
 #include "semantic_slam/feature_tracker/FeatureTracker.h"
 #include "semantic_slam/feature_tracker/FivePointRansac.h"
+#include "semantic_slam/feature_tracker/ORBextractor.h"
 
 // -- ROS -- 
 #include <ros/ros.h>
@@ -11,6 +12,7 @@
 #include <opencv/cv.h>
 // #include <opencv2/features2d.hpp>
 #include <cv_bridge/cv_bridge.h>
+#include <opencv2/features2d/features2d.hpp>
 
 // -- general --
 #include <string>
@@ -40,14 +42,14 @@ FeatureTracker::FeatureTracker(const Params& params)
     orb_ = boost::make_shared<ORB_SLAM2::ORBextractor>(2000, 1.2, 8, 20, 7);
 
     image_transport::ImageTransport it(nh_);
-    pub_marked_images_ = it.advertise("marked_image", 10);
+    pub_marked_images_ = it.advertise("marked_image", 1);
 
     // keyframe_dR_ = Eigen::Matrix3d::Identity();
 }
 
 void FeatureTracker::addImage(Frame&& new_frame)
 {
-    extractKeypointsDescriptors(new_frame);
+    // extractKeypointsDescriptors(new_frame);
 
     {
         std::lock_guard<std::mutex> lock(buffer_mutex_);
@@ -80,7 +82,7 @@ FeatureTracker::addKeyframeTime(ros::Time t, std::vector<FeatureTracker::Tracked
     }
 
     if (this_kf_index < 0) {
-        // ROS_ERROR_STREAM("Unable to find image for time " << t);
+        ROS_ERROR_STREAM("Unable to find image for time " << t);
         // ROS_ERROR_STREAM("Last buffer time = " << image_buffer_.back().image->header.stamp);
         // last_keyframe_time_ = t;
         return false;
@@ -119,6 +121,8 @@ void FeatureTracker::extractKeypointsDescriptors(Frame& frame)
     cv_bridge::CvImageConstPtr cv_image;
     cv::Mat img;
 
+    // TIME_TIC;
+
     try {
         cv_image = cv_bridge::toCvShare(frame.image, "bgr8");
         cv::cvtColor(cv_image->image, img, CV_BGR2GRAY);
@@ -128,6 +132,8 @@ void FeatureTracker::extractKeypointsDescriptors(Frame& frame)
     }
 
     (*orb_)(img, cv::Mat(), frame.keypoints, frame.descriptors);
+
+    // ROS_INFO_STREAM("Extraction took " << TIME_TOC << " ms.");
 
     // ROS_INFO_STREAM("Extracted " << frame.keypoints.size() << " ORB keypoints");
 }
@@ -144,6 +150,10 @@ void FeatureTracker::trackFeaturesForward(int idx1)
 
     const Frame& frame1 = image_buffer_[idx1];
     Frame& frame2 = image_buffer_[idx2];
+
+    if (frame2.keypoints.size() == 0) {
+        extractKeypointsDescriptors(frame2);
+    }
 
     const auto& kps2 = frame2.keypoints;
     const auto& descriptors2 = frame2.descriptors;
@@ -203,7 +213,7 @@ void FeatureTracker::trackFeaturesForward(int idx1)
 
     // ROS_INFO_STREAM("RANSAC: From " << pts1.size() << " features to " << frame2.feature_tracks.size() << " inliers.");
 
-    // (testing) publish marked image with new tracks
+    // publish marked image with new tracks
     
     cv::Mat color_img;
     try {
@@ -239,9 +249,15 @@ void FeatureTracker::trackFeaturesForward(int idx1)
     img_msg.encoding = sensor_msgs::image_encodings::BGR8;
 
     pub_marked_images_.publish(img_msg.toImageMsg());
+
+    // ROS_INFO_STREAM("Published image.");
 }
 
 void FeatureTracker::addNewKeyframeFeatures(Frame& frame) {
+
+    if (frame.keypoints.size() == 0) {
+        extractKeypointsDescriptors(frame);
+    }
 
     // sort by keypoint strength to the best ones only
     std::vector<size_t> idx(frame.keypoints.size());

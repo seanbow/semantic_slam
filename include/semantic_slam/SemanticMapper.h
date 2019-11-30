@@ -33,8 +33,8 @@ public:
     void anchorOrigin();
 
     bool haveNextKeyframe();
-    bool tryFetchNextKeyframe();
-    bool updateNextKeyframeObjects();
+    SemanticKeyframe::Ptr tryFetchNextKeyframe();
+    bool updateKeyframeObjects(SemanticKeyframe::Ptr frame);
     void tryAddObjectsToGraph();
     bool tryOptimize();
 
@@ -115,7 +115,7 @@ private:
 
     unsigned char node_chr_;
 
-    SemanticKeyframe::Ptr next_keyframe_;
+    // SemanticKeyframe::Ptr next_keyframe_;
 
     Eigen::MatrixXd last_kf_covariance_;
     ros::Time last_kf_covariance_time_;

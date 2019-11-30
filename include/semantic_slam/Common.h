@@ -59,6 +59,9 @@ struct ObjectParams
 
   int min_observed_keypoints_to_initialize;
 
+  double keyframe_translation_threshold;
+  double keyframe_rotation_threshold;
+
   char object_symbol_char;
   char keypoint_symbol_char;
   char spur_node_symbol_char;

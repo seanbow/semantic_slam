@@ -40,6 +40,9 @@ min_object_n_keypoints: 5               # minimum number of observed keypoints n
 min_landmark_observations: 4           # minimum number of observations needed for a keypoint before estimating depth and including in optimization
 min_observed_keypoints_to_initialize: 4
 
+keyframe_translation_threshold: 0.1
+keyframe_rotation_threshold: 10 # degrees
+
 ### Semantic object optimization parameters
 structure_regularization_factor: 10     # lambda in structure optimization term lambda * ||c||^2
 robust_estimator_parameter: 1.5

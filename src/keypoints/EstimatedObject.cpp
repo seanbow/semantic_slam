@@ -394,7 +394,7 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
 
   double factor = mahalanobisMultiplicativeFactor(2 * n_observed);
 
-  ROS_INFO_STREAM(" Mahal distance " << mahal << " * factor " << factor << " = " << mahal * factor);
+  // ROS_INFO_STREAM(" Mahal distance " << mahal << " * factor " << factor << " = " << mahal * factor);
 
   // right now if all the points are behind the camera (clearly wrong object) the residuals
   // vector will be all zero...
@@ -542,6 +542,16 @@ void
 EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
                                          double weight)
 {
+  // compute mahalanobis distance...
+  if (structure_problem_) {
+    double mahal_d = computeMahalanobisDistance(msmt);
+    if (mahal_d < chi2inv95(2)) {
+      ROS_INFO_STREAM("Adding measurement with mahal = " << mahal_d);
+    } else {
+      return;
+    }
+  }
+
   measurements_.push_back(msmt);
 
   auto keyframe = mapper_->keyframes()[Symbol(msmt.observed_key).index()];

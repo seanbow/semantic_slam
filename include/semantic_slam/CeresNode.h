@@ -21,6 +21,8 @@ public:
     virtual size_t dim() const = 0;
     virtual size_t local_dim() const = 0;
 
+    bool active() const { return active_; }
+
     boost::optional<ros::Time> time() const { return time_; }
 
     const std::vector<double*>& parameter_blocks() const { return parameter_blocks_; }
@@ -39,6 +41,8 @@ protected:
     std::vector<size_t> parameter_block_local_sizes_;
     std::vector<ceres::LocalParameterization*> local_parameterizations_;
 
+    bool active_;
+
     Key key_;
     boost::optional<ros::Time> time_;
 };
@@ -47,7 +51,8 @@ using CeresNodePtr = CeresNode::Ptr;
 
 CeresNode::CeresNode(Key key, boost::optional<ros::Time> time)
     : key_(key),
-      time_(time)
+      time_(time),
+      active_(false)
 {
     
 }
@@ -57,4 +62,6 @@ void CeresNode::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
     for (double* block : parameter_blocks_) {
         problem->RemoveParameterBlock(block);
     }
+
+    active_ = false;
 }

@@ -47,6 +47,8 @@ bool QuaternionLocalParameterization::Plus(const double* x_ptr, const double* de
 
     Eigen::Map<const Eigen::Quaterniond> q(x_ptr);
     Eigen::Map<Eigen::Quaterniond> x_plus_delta(x_plus_delta_ptr);
+
+    x_plus_delta = (dq * q).normalized();
     
     return true;
 }

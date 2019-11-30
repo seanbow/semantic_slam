@@ -13,7 +13,7 @@
 // #include <gtsam/slam/ProjectionFactor.h>
 // #include <gtsam/geometry/Cal3DS2.h>
 
-#include <boost/function.hpp>
+// #include <boost/function.hpp>
 #include <boost/preprocessor/arithmetic/sub.hpp>
 #include <boost/optional.hpp>
 
@@ -37,10 +37,16 @@
 } while(0)
 
 #define TIME_TIC std::chrono::high_resolution_clock::time_point TIMER_NAME_GEN = std::chrono::high_resolution_clock::now()
-#define TIME_TOC(name) do {\
-    std::chrono::duration<double, std::milli> _semslam_tictoc_duration = std::chrono::high_resolution_clock::now() - TIMER_NAME_REF; \
-    ROS_INFO_STREAM(name << " took " << _semslam_tictoc_duration.count() << " milliseconds."); \
-  } while(0)
+// #define TIME_TOC(name) do {\
+//     std::chrono::duration<double, std::milli> _semslam_tictoc_duration = std::chrono::high_resolution_clock::now() - TIMER_NAME_REF; \
+//     ROS_INFO_STREAM(name << " took " << _semslam_tictoc_duration.count() << " milliseconds."); \
+//   } while(0)
+
+#define TIME_TOC ([&] {\
+    std::chrono::duration<double, std::micro> _semslam_tictoc_duration \
+      = std::chrono::high_resolution_clock::now() - TIMER_NAME_REF; \
+    return _semslam_tictoc_duration.count() / 1000.0;\
+  })()
 
 namespace util {
 
@@ -233,82 +239,52 @@ inline Container<Value,Allocator> erase_indices(const Container<Value,Allocator>
     return ret;
 }
 
-inline Eigen::MatrixXd erase_column_indices(const Eigen::MatrixXd& data, std::vector<size_t>& indices) {
-  if (indices.empty()) return data;
+inline Eigen::MatrixXd erase_column_indices(const Eigen::MatrixXd& data, std::vector<size_t>& indices);
 
-  Eigen::MatrixXd newmat(data.rows(), data.cols() - indices.size());
+inline Eigen::MatrixXd erase_row_indices(const Eigen::MatrixXd& data, std::vector<size_t>& indices);
 
-  std::sort(indices.begin(), indices.end());
+// template <typename T> 
+// std::vector<boost::shared_ptr<T> >
+// makeVectorUnique(const std::vector<boost::shared_ptr<T> >& vec, boost::function<bool(const T&, const T&)> equals) {
+//   std::vector<boost::shared_ptr<T> > out;
+//   std::vector<bool> invalid(vec.size(),false);
 
-  auto index_it = indices.begin();
-  size_t new_col_idx = 0;
-  for (size_t i = 0; i < static_cast<size_t>(data.cols()); ++i) {
-    if (i == *index_it) index_it++;
-    else newmat.col(new_col_idx++) = data.col(i);
-  }
+//   for (size_t i = 0; i < vec.size(); ++i) {
+//     if (invalid[i]) continue;
+//     out.push_back(vec[i]);
+//     for (size_t j = i + 1; j < vec.size(); ++j) {
+//       if (equals( *vec[i], *vec[j] )) invalid[j] = true;
+//     }
+//   }
 
-  return newmat;
-}
+//   return out;
+// }
 
-inline Eigen::MatrixXd erase_row_indices(const Eigen::MatrixXd& data, std::vector<size_t>& indices) {
-  if (indices.empty()) return data;
+// template <typename T> 
+// std::vector<T>
+// makeVectorUnique(const std::vector<T>& vec, boost::function<bool(const T&, const T&)> equals) {
+//   std::vector<T> out;
+//   std::vector<bool> invalid(vec.size(),false);
 
-  Eigen::MatrixXd newmat(data.rows() - indices.size(), data.cols());
+//   for (size_t i = 0; i < vec.size(); ++i) {
+//     if (invalid[i]) continue;
+//     out.push_back(vec[i]);
+//     for (size_t j = i + 1; j < vec.size(); ++j) {
+//       if (equals( vec[i], vec[j] )) invalid[j] = true;
+//     }
+//   }
 
-  std::sort(indices.begin(), indices.end());
+//   return out;
+// }
 
-  auto index_it = indices.begin();
-  size_t new_row_idx = 0;
-  for (size_t i = 0; i < static_cast<size_t>(data.rows()); ++i) {
-    if (i == *index_it) index_it++;
-    else newmat.row(new_row_idx++) = data.row(i);
-  }
-
-  return newmat;
-}
-
-template <typename T> 
-std::vector<boost::shared_ptr<T> >
-makeVectorUnique(const std::vector<boost::shared_ptr<T> >& vec, boost::function<bool(const T&, const T&)> equals) {
-  std::vector<boost::shared_ptr<T> > out;
-  std::vector<bool> invalid(vec.size(),false);
-
-  for (size_t i = 0; i < vec.size(); ++i) {
-    if (invalid[i]) continue;
-    out.push_back(vec[i]);
-    for (size_t j = i + 1; j < vec.size(); ++j) {
-      if (equals( *vec[i], *vec[j] )) invalid[j] = true;
-    }
-  }
-
-  return out;
-}
-
-template <typename T> 
-std::vector<T>
-makeVectorUnique(const std::vector<T>& vec, boost::function<bool(const T&, const T&)> equals) {
-  std::vector<T> out;
-  std::vector<bool> invalid(vec.size(),false);
-
-  for (size_t i = 0; i < vec.size(); ++i) {
-    if (invalid[i]) continue;
-    out.push_back(vec[i]);
-    for (size_t j = i + 1; j < vec.size(); ++j) {
-      if (equals( vec[i], vec[j] )) invalid[j] = true;
-    }
-  }
-
-  return out;
-}
-
-template <typename T> 
-bool isItemInContainer(const boost::shared_ptr<T>& item, const std::vector<boost::shared_ptr<T> >& vec, boost::function<bool(const T&, const T&)> equals) {
-  // T must implement .equals()
-  for (auto it = vec.begin(); it != vec.end(); ++it) {
-    if (equals(*(*it), *item)) return true;
-  }
-  return false;
-}
+// template <typename T> 
+// bool isItemInContainer(const boost::shared_ptr<T>& item, const std::vector<boost::shared_ptr<T> >& vec, boost::function<bool(const T&, const T&)> equals) {
+//   // T must implement .equals()
+//   for (auto it = vec.begin(); it != vec.end(); ++it) {
+//     if (equals(*(*it), *item)) return true;
+//   }
+//   return false;
+// }
 
 template <typename T>
 struct RosParamType {

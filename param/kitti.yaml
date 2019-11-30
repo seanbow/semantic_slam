@@ -24,7 +24,7 @@ I_q_C: [-0.5, 0.5, -0.5, 0.5] # IMU x forward, y left, z up <-> camera x right, 
 
 
 ## Feature_tracker parameters
-ransac_iterations: 25      # number of iterations in essential matrix estimating ransac loop
+ransac_iterations: 35       # number of iterations in essential matrix estimating ransac loop
 feature_spacing: 10         # minimum pixel distance between extracted features. i.e. an upper bound of sorts on feature density
 max_features_per_im: 500    # maximum number of features to keep per image
 sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = more permissive
@@ -32,21 +32,25 @@ sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = mo
 ## Semslam parameters
 
 ### Geometric feature parameters
-cam_sigma: 4
+cam_sigma: 6
 reprojection_error_threshold: 4
-use_smart_projection_factors: false
+use_smart_projection_factors: true
 
 ### Semantic measurement parameters
-keypoint_msmt_sigma: 10                 # keypoint measurement sigma (pixels)
+keypoint_msmt_sigma: 15                 # keypoint measurement sigma (pixels)
 keypoint_initialization_depth_sigma: 2  # meters
 
 min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph
 min_landmark_observations: 3           # minimum number of observations needed for a keypoint before estimating depth and including in optimization
+min_observed_keypoints_to_initialize: 4
+
+keyframe_translation_threshold: 0.5
+keyframe_rotation_threshold: 10 # degrees
 
 ### Semantic object optimization parameters
 structure_regularization_factor: 10     # lambda in structure optimization term lambda * ||c||^2
 robust_estimator_parameter: 1.5
-include_objects_in_graph: true
+include_objects_in_graph: false
 
 # Error in the structure factor due to misalignment is defined as 
 # || L - R*S - t ||_W
@@ -55,9 +59,9 @@ include_objects_in_graph: true
 # deviations from the calculated object structure
 structure_error_coefficient: 1000
 
-keypoint_activation_threshold: 0.6     # threshold above which to consider a keypoint observed
+keypoint_activation_threshold: 0.1     # threshold above which to consider a keypoint observed
 
-camera_range: 10                        # meters
+# camera_range: 10                        # meters
 
 mahal_thresh_assign: 4                  # Mahalanobis distance below which to assign data (MLDataAssociator)
 mahal_thresh_init: 25                   # Mahalanobis distance above which to assign new mapped landmarks (MLDataAssociator)

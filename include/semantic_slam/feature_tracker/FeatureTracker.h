@@ -15,12 +15,16 @@
 #include <boost/optional.hpp>
 
 #include <opencv/cv.h>
-#include <opencv2/features2d/features2d.hpp>
+// #include <opencv2/features2d/features2d.hpp>
 // #include <svo_msgs/Keyframe.h>
 
 #include "semantic_slam/feature_tracker/FivePointRansac.h"
 #include "semantic_slam/feature_tracker/TwoPointRansac.h"
-#include "semantic_slam/feature_tracker/ORBextractor.h"
+// #include "semantic_slam/feature_tracker/ORBextractor.h"
+
+namespace ORB_SLAM2 {
+    class ORBextractor;
+}
 
 class FeatureTracker {
 public:
@@ -130,7 +134,7 @@ private:
 
     size_t n_features_extracted_;
 
-    cv::Ptr<cv::FeatureDetector> detector_;
+    // cv::Ptr<cv::FeatureDetector> detector_;
     boost::shared_ptr<ORB_SLAM2::ORBextractor> orb_;
 
     std::deque<sensor_msgs::Imu::ConstPtr> imu_queue_;

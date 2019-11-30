@@ -241,8 +241,6 @@ SemanticKeyframe::Ptr ExternalOdometryHandler::createKeyframe(ros::Time time)
         }
 
         if (!msg_queue_.empty() && msg_queue_.front().header.stamp > time) {
-            msg = msg_queue_.front();
-            msg_queue_.pop_front();
             good_msg = true;
         }
     }
@@ -255,14 +253,17 @@ SemanticKeyframe::Ptr ExternalOdometryHandler::createKeyframe(ros::Time time)
 
     last_time_ = msg.header.stamp;
 
-    SemanticKeyframe::Ptr keyframe = util::allocate_aligned<SemanticKeyframe>(keyframe_symbol, last_time_);
+    SemanticKeyframe::Ptr keyframe = util::allocate_aligned<SemanticKeyframe>(keyframe_symbol, msg.header.stamp);
     SemanticKeyframe::Ptr last_keyframe = keyframes_.back();
     keyframes_.push_back(keyframe);
 
     Pose3 G_p_now = msgToPose3(msg);
+    G_p_now.rotation().normalize();
     keyframe->odometry() = G_p_now;
 
     keyframe->odometry_covariance() = extractOdometryCovariance(msg);
+
+    keyframe->image_time = time;
 
     Pose3 relp = last_keyframe->odometry().between(G_p_now);
 
@@ -274,7 +275,7 @@ SemanticKeyframe::Ptr ExternalOdometryHandler::createKeyframe(ros::Time time)
 
     // TODO use more accurate relative covariance information...
     // Eigen::Matrix6d cov;
-    double sigma_p = 0.05;
+    double sigma_p = 0.03;
     double sigma_q = 0.005;
     Eigen::VectorXd sigmas(6);
     sigmas << sigma_q, sigma_q, sigma_q, sigma_p, sigma_p, sigma_p;
@@ -297,6 +298,8 @@ SemanticKeyframe::Ptr ExternalOdometryHandler::createKeyframe(ros::Time time)
     //         << *node->time() << " (requested t = " << time << ")");
 
     last_keyframe_index_++;
+
+    ROS_INFO_STREAM("Created keyframe with time " << keyframe->time() << " and image time " << keyframe->image_time);
 
     return keyframe;
 }

@@ -29,7 +29,7 @@ void GeometricMapPresenter::present(const std::vector<SemanticKeyframe::Ptr>& ke
     Eigen::Vector3d rgb_color(153, 0, 76);
     rgb_color /= 255;
 
-    double scale = 0.1;
+    double scale = 1;
     points.scale.x = scale;
     points.scale.y = scale;
     points.color.r = rgb_color(0);
@@ -51,7 +51,7 @@ void GeometricMapPresenter::present(const std::vector<SemanticKeyframe::Ptr>& ke
 
         auto node = graph_->getNode<Vector3dNode>(Symbol('g', i));
 
-        if (!node || !node->vector().allFinite()) continue;
+        if (!node || !!node->active() || !node->vector().allFinite()) continue;
 
         if (node->vector().norm() > 1e4) continue;
 

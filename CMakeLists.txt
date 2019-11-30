@@ -166,14 +166,19 @@ add_library(GeometricMapPresenter src/GeometricMapPresenter.cpp)
 add_library(EstimatedObject src/keypoints/EstimatedObject.cpp)
 
 add_library(EstimatedKeypoint src/keypoints/EstimatedKeypoint.cpp)
-target_link_libraries(EstimatedKeypoint
-    ${BASE_LIBS}
-    ${CERES_FACTORS}
-)
+#target_link_libraries(EstimatedKeypoint
+#    ${BASE_LIBS}
+ #   ${CERES_FACTORS}
+#)
 
 add_library(SemanticKeyframe src/SemanticKeyframe.cpp)
 
 add_library(munkres src/munkres.cpp)
+
+add_library(SimpleObjectTracker src/SimpleObjectTracker.cpp)
+target_link_libraries(SimpleObjectTracker
+  ${catkin_LIBRARIES}
+)
 
 add_library(MLDataAssociator src/MLDataAssociator.cpp)
 target_link_libraries(MLDataAssociator
@@ -191,12 +196,14 @@ target_link_libraries(SemanticMapper
   EstimatedObject
   EstimatedKeypoint
   StructureOptimizationProblem
-  GeometricFeatureHandler
+  Utils
+#  GeometricFeatureHandler
   MLDataAssociator
-  SemanticKeyframe
+#  SemanticKeyframe
   FactorGraph
-  ${CERES_LIBRARIES}
-  ${BASE_LIBS}
+  ${CERES_FACTORS}
+#  ${CERES_LIBRARIES}
+#  ${BASE_LIBS}
 )
 
 
@@ -227,6 +234,11 @@ target_link_libraries(semantic_slam_node
     # ${GTSAM_LIBRARIES}
     ${Boost_LIBRARIES}
     ${CERES_LIBRARIES}
+    StructureOptimizationProblem
+    MLDataAssociator
+    FactorGraph
+    geometry
+    munkres
     FactorGraph
     ExternalOdometryHandler
     GeometricFeatureHandler
@@ -237,7 +249,6 @@ target_link_libraries(semantic_slam_node
     ObjectMeshPresenter
     GeometricMapPresenter
     SemanticKeyframe
-    profiler
     ${BASE_LIBS}
 )
 
@@ -249,6 +260,12 @@ target_link_libraries(image_republish_node
 add_executable(kitti_data_node src/kitti_data_node.cpp)
 target_link_libraries(kitti_data_node
     ${catkin_LIBRARIES}
+)
+
+add_executable(object_tracking_node src/object_tracking_node.cpp)
+target_link_libraries(object_tracking_node
+  ${catkin_LIBRARIES}
+  SimpleObjectTracker
 )
 
 ## Rename C++ executable without prefix
