@@ -7,6 +7,10 @@
 #include "semantic_slam/VectorNode.h"
 #include "semantic_slam/keypoints/geometry.h"
 
+namespace semslam {
+class StructureFactor;
+}
+
 class CeresStructureFactor : public CeresFactor
 {
 public:
@@ -24,6 +28,9 @@ public:
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
     void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
+    boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
+
+
 private:
     geometry::ObjectModelBasis model_;
 
@@ -32,6 +39,8 @@ private:
     VectorXdNodePtr coefficient_node_;
 
     double lambda_;
+
+    boost::shared_ptr<semslam::StructureFactor> gtsam_factor_;
 
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

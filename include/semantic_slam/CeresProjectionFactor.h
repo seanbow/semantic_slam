@@ -26,9 +26,16 @@ public:
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
     void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
+    boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
+
 private:
     SE3NodePtr camera_node_;
     Vector3dNodePtr landmark_node_;
+
+    Eigen::Vector2d image_coords_;
+    Eigen::Matrix2d covariance_;
+    boost::shared_ptr<CameraCalibration> calibration_;
+    Pose3 body_T_sensor_;
 
     bool robust_loss_;
 };

@@ -87,3 +87,8 @@ Eigen::Vector2d CameraCalibration::calibrate(const Eigen::Vector2d& p) const
 
     return Eigen::Vector2d(x,y);
 }
+
+CameraCalibration::operator gtsam::Cal3DS2() const
+{
+    return gtsam::Cal3DS2(fx_,fy_,s_,u0_,v0_,k1_,k2_,p1_,p2_);
+}

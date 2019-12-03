@@ -3,6 +3,8 @@
 #include <eigen3/Eigen/Core>
 #include <boost/optional.hpp>
 
+#include <gtsam/geometry/Cal3DS2.h>
+
 // Camera calibration data & utilities
 
 class CameraCalibration {
@@ -40,6 +42,8 @@ public:
 
     // Convert distorted image coordinates to intrinsic coordinates
     Eigen::Vector2d calibrate(const Eigen::Vector2d& p) const;
+
+    operator gtsam::Cal3DS2() const;
 };
 
 

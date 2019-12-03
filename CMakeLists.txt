@@ -13,7 +13,7 @@ add_compile_options(-g3 -O3 -march=native)
 find_package(catkin REQUIRED
     roscpp
     roslib
-    # gtsam
+    gtsam
     cv_bridge
     image_transport
     rosfmt
@@ -21,7 +21,7 @@ find_package(catkin REQUIRED
     darknet_ros_msgs
 )
 
-# find_package(GTSAM REQUIRED)
+find_package(GTSAM REQUIRED)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
@@ -61,7 +61,7 @@ catkin_package(
 include_directories(
     include
     ${catkin_INCLUDE_DIRS}
-#    ${GTSAM_INCLUDE_DIR}
+    ${GTSAM_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
 )
 
@@ -97,7 +97,7 @@ target_link_libraries(FeatureTracker
   ${catkin_LIBRARIES}
 )
 
-# add_library(StructureFactor src/keypoints/gtsam/StructureFactor.cpp)
+add_library(StructureFactor src/keypoints/gtsam/StructureFactor.cpp)
 # add_library(StructureProjectionFactor src/keypoints/gtsam/StructureProjectionFactor.cpp)
 
 # add_executable(test_structure_factor src/test_structure_factor.cpp)
@@ -133,6 +133,7 @@ target_link_libraries(CeresBetweenFactor
 
 add_library(CeresStructureFactor src/CeresStructureFactor.cpp)
 target_link_libraries(CeresStructureFactor
+  StructureFactor
   ${CERES_LIBRARIES}
 )
 
@@ -258,6 +259,7 @@ target_link_libraries(semantic_slam_node
     ObjectMeshPresenter
     GeometricMapPresenter
     SemanticKeyframe
+    gtsam
     ${BASE_LIBS}
 )
 

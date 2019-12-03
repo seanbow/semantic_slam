@@ -1,6 +1,9 @@
 #include "semantic_slam/CeresProjectionFactor.h"
 #include "semantic_slam/ceres_cost_terms/ceres_projection.h"
 
+#include <gtsam/slam/ProjectionFactor.h>
+#include <gtsam/geometry/Cal3DS2.h>
+
 CeresProjectionFactor::CeresProjectionFactor(SE3NodePtr camera_node,
                           Vector3dNodePtr landmark_node,
                           const Eigen::Vector2d& image_coords,
@@ -12,7 +15,11 @@ CeresProjectionFactor::CeresProjectionFactor(SE3NodePtr camera_node,
     : CeresFactor(FactorType::PROJECTION, tag),
       camera_node_(camera_node),
       landmark_node_(landmark_node),
-      robust_loss_(use_huber)
+      robust_loss_(use_huber),
+      image_coords_(image_coords),
+      covariance_(msmt_covariance),
+      calibration_(calibration),
+      body_T_sensor_(body_T_sensor)
 {
     cf_ = ProjectionCostTerm::Create(image_coords, 
                                      msmt_covariance, 
@@ -46,4 +53,21 @@ void CeresProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> probl
 void CeresProjectionFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
 {
     problem->RemoveResidualBlock(residual_id_);
+}
+
+
+boost::shared_ptr<gtsam::NonlinearFactor> 
+CeresProjectionFactor::getGtsamFactor() const
+{
+    auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(covariance_);
+    auto gtsam_calib = util::allocate_aligned<gtsam::Cal3DS2>(*calibration_);
+
+    return util::allocate_aligned<gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3DS2>>(
+        image_coords_,
+        gtsam_noise,
+        camera_node_->key(),
+        landmark_node_->key(),
+        gtsam_calib,
+        gtsam::Pose3(body_T_sensor_)
+    );
 }

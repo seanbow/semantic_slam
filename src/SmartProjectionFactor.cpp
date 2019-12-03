@@ -1,5 +1,7 @@
 #include "semantic_slam/SmartProjectionFactor.h"
 
+#include <gtsam/slam/SmartProjectionPoseFactor.h>
+
 SmartProjectionFactor::SmartProjectionFactor(const Pose3& body_T_sensor,
                                             boost::shared_ptr<CameraCalibration> calibration,
                                             double reprojection_error_threshold,
@@ -16,6 +18,22 @@ SmartProjectionFactor::SmartProjectionFactor(const Pose3& body_T_sensor,
     // Parameter block ordering:
     // camera poses (q1 p1), (q2 p2), ...
     // [q1 p1 q2 p2 ... qn pn]
+
+    // TODO get the real value
+    auto gtsam_noise = gtsam::noiseModel::Isotropic::Sigma(2, 4);
+
+    gtsam::SmartProjectionParams projection_params;
+    projection_params.degeneracyMode = gtsam::DegeneracyMode::ZERO_ON_DEGENERACY;
+    projection_params.linearizationMode = gtsam::LinearizationMode::HESSIAN;
+    projection_params.setLandmarkDistanceThreshold(1e6);
+    projection_params.setRankTolerance(1e-2);
+    projection_params.triangulation.dynamicOutlierRejectionThreshold = reprojection_error_threshold;
+
+    gtsam_factor_ = util::allocate_aligned<GtsamFactorType>(gtsam_noise,
+                                                            util::allocate_aligned<gtsam::Cal3DS2>(*calibration),
+                                                            gtsam::Pose3(body_T_sensor),
+                                                            projection_params);
+                                                            
 }
 
 size_t SmartProjectionFactor::nMeasurements() const
@@ -126,6 +144,9 @@ void SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
     if (in_graph_ && triangulation_good_) {
         addToProblem(problem_);
     }
+
+    // gtsam support
+    gtsam_factor_->add(pixel_coords, body_pose_node->key());
 }
 
 bool SmartProjectionFactor::Evaluate(double const* const* parameters, 
@@ -216,4 +237,11 @@ bool SmartProjectionFactor::Evaluate(double const* const* parameters,
     residuals = basis.transpose() * full_residual;
 
     return true;
+}
+
+
+boost::shared_ptr<gtsam::NonlinearFactor> 
+SmartProjectionFactor::getGtsamFactor() const
+{
+    return gtsam_factor_;
 }

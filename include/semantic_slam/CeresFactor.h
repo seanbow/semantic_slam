@@ -5,6 +5,10 @@
 
 #include <ceres/ceres.h>
 
+namespace gtsam {
+class NonlinearFactor;
+}
+
 class CeresFactor
 {
 public:
@@ -15,6 +19,10 @@ public:
 
     FactorType type() const { return type_; }
     int tag() const { return tag_; }
+
+    virtual boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const { 
+        throw std::logic_error("unimplemented");
+    }
 
     virtual bool operator==(const CeresFactor& other) const;
 

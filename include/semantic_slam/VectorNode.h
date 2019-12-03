@@ -9,6 +9,9 @@
 // #include "semantic_slam/ceres_quaternion_parameterization.h"
 #include "semantic_slam/pose_math.h"
 
+#include <gtsam/base/GenericValue.h>
+#include <gtsam/base/VectorSpace.h> // for type traits
+
 template <int Dim>
 class VectorNode : public CeresNode
 {
@@ -26,6 +29,8 @@ public:
     const VectorType& vector() const { return vector_; }
     VectorType& vector() { return vector_; }
 
+    boost::shared_ptr<gtsam::Value> getGtsamValue() const;
+
     using Ptr = boost::shared_ptr<This>;
     
     static constexpr size_t SizeAtCompileTime = Dim;
@@ -39,6 +44,14 @@ public:
 
 template <int Dim>
 using VectorNodePtr = typename VectorNode<Dim>::Ptr;
+
+template <int Dim>
+boost::shared_ptr<gtsam::Value>
+VectorNode<Dim>::getGtsamValue() const
+{
+    return util::allocate_aligned<gtsam::GenericValue<VectorType>>(vector_);
+    // return util::allocate_aligned<gtsam::Value>(vector_);
+}
 
 template <int Dim>
 VectorNode<Dim>::VectorNode(Symbol sym, boost::optional<ros::Time> time, size_t runtime_size)

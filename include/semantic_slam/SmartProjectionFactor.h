@@ -12,6 +12,15 @@
 #include <ceres/ceres.h>
 #include <eigen3/Eigen/Core>
 
+namespace gtsam {
+
+template <typename Calibration>
+class SmartProjectionPoseFactor;
+
+class Cal3DS2;
+
+}
+
 class SmartProjectionFactor : public CeresFactor, public ceres::CostFunction
 {
 public:
@@ -40,6 +49,8 @@ public:
 
     bool decideIfTriangulate(const aligned_vector<Pose3>& body_poses) const;
 
+    boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
+
 private:
     mutable Eigen::Vector3d landmark_position_;
     Pose3 I_T_C_;
@@ -63,6 +74,9 @@ private:
     boost::shared_ptr<ceres::Problem> problem_;
 
     mutable bool triangulation_good_;
+
+    using GtsamFactorType = gtsam::SmartProjectionPoseFactor<gtsam::Cal3DS2>;
+    boost::shared_ptr<GtsamFactorType> gtsam_factor_;
 
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

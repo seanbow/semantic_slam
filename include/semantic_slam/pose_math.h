@@ -4,6 +4,8 @@
 
 #include <boost/optional.hpp>
 
+#include <gtsam/geometry/Pose3.h>
+
 class Pose3
 {
 public:
@@ -54,6 +56,8 @@ public:
   double z() const { return translation()[2]; }
 
   friend std::ostream &operator<<(std::ostream &os, const Pose3& p);
+
+  operator gtsam::Pose3() const;
 
 private:
   Eigen::Quaterniond q_;
@@ -255,4 +259,9 @@ std::ostream &operator<<(std::ostream &os, const Pose3& pose) {
   const Eigen::Vector3d& t = pose.translation();
   os << "t: [" << t(0) << ", " << t(1) << ", " << t(2) << "]\';\n";
   return os;
+}
+
+Pose3::operator gtsam::Pose3() const
+{
+  return gtsam::Pose3(gtsam::Rot3(rotation()), translation());
 }

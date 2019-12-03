@@ -7,6 +7,12 @@
 // #include <gtsam/inference/Symbol.h>
 #include <ros/ros.h>
 
+// #include <gtsam/base/Value.h>
+
+namespace gtsam{
+class Value;
+}
+
 class CeresNode {
 public:
 
@@ -22,6 +28,10 @@ public:
 
     virtual size_t dim() const = 0;
     virtual size_t local_dim() const = 0;
+
+    virtual boost::shared_ptr<gtsam::Value> getGtsamValue() const { 
+        throw std::logic_error("unimplemented"); 
+    }
 
     bool active() const { return active_; }
 
