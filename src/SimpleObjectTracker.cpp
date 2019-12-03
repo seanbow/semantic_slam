@@ -61,7 +61,7 @@ void SimpleObjectTracker::detectionCallback(const sensor_msgs::ImageConstPtr& im
         darknet_ros_msgs::BoundingBox det_msg = det;
         det_msg.header = msg->header;
 
-        if (idx == -1) {
+        if (idx == -1 || idx >= detected_set.size()) {
             // not found, initialize a new object
             TrackedObject object;
             object.object_name = det.Class;
@@ -137,7 +137,11 @@ int SimpleObjectTracker::getTrackingIndex(const std::string& name, const cv::Rec
         }
     }
 
-    return best_index;
+    if (best_match > f2f_match_thresh_) {
+        return best_index;
+    } else {
+        return -1;
+    }
 }
 
 double SimpleObjectTracker::calculateMatchRate(const cv::Rect2d& r1, const cv::Rect2d& r2)
@@ -158,12 +162,12 @@ double SimpleObjectTracker::calculateMatchRate(const cv::Rect2d& r1, const cv::R
     
   // return overlap;
 
-  double match = overlap * (1 - deviate/len_diag);
-  std::cout << "MATCH " << match << std::endl;
-  return match;
+//   double match = overlap * (1 - deviate/len_diag);
+//   std::cout << "MATCH " << match << std::endl;
+//   return match;
 
   /* calculate the match rate. The more overlap, the more matching. Contrary, the more deviation, the less matching*/
   // std::cout << "MATCH RATE " << overlap*len_diag/deviate << std::endl;
-  // return overlap * len_diag / deviate;
+  return overlap * len_diag / deviate;
 }
   

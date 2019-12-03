@@ -60,7 +60,7 @@ void SmartProjectionFactor::triangulate(const aligned_vector<Pose3>& body_poses)
     }
 
     // double cond;
-    TriangulationResult triangulation = cameras.triangulateMeasurements(msmts_);
+    TriangulationResult triangulation = cameras.triangulateMeasurementsApproximate(msmts_, 25);
 
     if (triangulation.max_reprojection_error <= reprojection_error_threshold_ &&
             triangulation.status == TriangulationStatus::SUCCESS) {

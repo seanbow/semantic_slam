@@ -39,7 +39,29 @@ void MultiProjectionFactor::triangulate()
         }
 
         // double cond;
-        TriangulationResult triangulation = cameras.triangulateMeasurements(msmts_);
+        // TriangulationResult triangulation = cameras.triangulateMeasurements(msmts_);
+
+        TriangulationResult triangulation = cameras.triangulateMeasurementsApproximate(msmts_, 30);
+
+        // TriangulationResult triangulation = cameras.triangulateIterative(msmts_);
+
+        // check error
+        // if (triangulation.status == TriangulationStatus::FAILURE) {
+        //     ROS_INFO_STREAM("n frames = " << msmts_.size() << ", triangulation failed!!");
+        // } else if (triangulation.status == TriangulationStatus::BEHIND_CAMERA) {
+        //     ROS_INFO_STREAM("n frames = " << msmts_.size() << ", triangulation behind camera!!");
+        // }
+
+        // if (tri_iter.status != TriangulationStatus::SUCCESS) {
+        //     ROS_INFO_STREAM("n frames = " << msmts_.size() << ", iterative failed!!");
+        // }
+
+        // if (triangulation.status == TriangulationStatus::SUCCESS && tri_iter.status == TriangulationStatus::SUCCESS) {
+        //     double err = (triangulation.point - tri_iter.point).norm();
+        //     ROS_INFO_STREAM("n frames = " << msmts_.size() << ", Approximation error = " << err);
+        // }
+
+        // std::cout << "Normal:  " << triangulation.point.transpose() << "; iter = " << tri_iter.point.transpose() << std::endl;
 
         // TODO check that it's ok
 

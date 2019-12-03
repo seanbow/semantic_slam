@@ -53,8 +53,29 @@ void SemanticMapper::setup()
     loadCalibration();
     loadParameters();
 
+    ceres::Solver::Options solver_options;
+    solver_options.trust_region_strategy_type = ceres::DOGLEG;
+    // solver_options_.dogleg_type = ceres::SUBSPACE_DOGLEG;
 
-    // vis_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("keypoint_objects/object_markers", 10);
+    // solver_options_.function_tolerance = 1e-4;
+    // solver_options_.gradient_tolerance = 1e-8;
+
+    solver_options.max_num_iterations = 10;
+
+    // solver_options_.minimizer_type = ceres::LINE_SEARCH;
+
+    // solver_options_.linear_solver_type = ceres::ITERATIVE_SCHUR;
+    // solver_options_.preconditioner_type = ceres::SCHUR_JACOBI;
+    // solver_options_.use_explicit_schur_complement = true;
+
+    // solver_options_.linear_solver_type = ceres::CGNR;
+
+    // solver_options_.linear_solver_type = ceres::SPARSE_SCHUR;
+    // solver_options_.linear_solver_type = ceres::DENSE_SCHUR; // todo
+    // solver_options_.linear_solver_type = ceres::DENSE_QR; // todo
+    solver_options.num_threads = 4;
+
+    graph_->setSolverOptions(solver_options);
 }
 
 void SemanticMapper::setOdometryHandler(boost::shared_ptr<ExternalOdometryHandler> odom) {
@@ -136,10 +157,14 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
 
 
         if (new_frames.size() > 0) {
+            
             processGeometricFeatureTracks(new_frames);
+            
             tryAddObjectsToGraph();
+            
 
             freezeNonCovisible(new_frames);
+
             bool did_optimize = tryOptimize();
 
             if (did_optimize) {
@@ -156,16 +181,18 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
 
 void SemanticMapper::processGeometricFeatureTracks(const std::vector<SemanticKeyframe::Ptr>& new_keyframes)
 {
-    using namespace std::chrono;
-    auto t1 = high_resolution_clock::now();
+    // using namespace std::chrono;
+    // auto t1 = high_resolution_clock::now();
 
     for (auto& kf : new_keyframes) {
         geom_handler_->addKeyframe(kf);
     }
 
+    std::lock_guard<std::mutex> lock(graph_mutex_);
+
     geom_handler_->processPendingFrames();
 
-    auto t2 = high_resolution_clock::now();
+    // auto t2 = high_resolution_clock::now();
 
     // ROS_INFO_STREAM("Tracking features took " 
     //     << duration_cast<microseconds>(t2 - t1).count()/1000.0 << " ms." << std::endl);
@@ -252,6 +279,8 @@ void SemanticMapper::freezeNonCovisible(const std::vector<SemanticKeyframe::Ptr>
 
 void SemanticMapper::unfreezeAll()
 {
+    std::lock_guard<std::mutex> lock(graph_mutex_);
+
     for (const auto& kf : keyframes_) {
         if (!kf->inGraph()) continue;
 
@@ -277,6 +306,8 @@ SemanticMapper::addNewOdometryToGraph()
     //     keyframes_[0]->addToGraph(graph_);
     //     graph_->setNodeConstant(keyframes_[0]->graph_node());
     // }
+
+    std::lock_guard<std::mutex> lock(graph_mutex_);
 
     for (auto& kf : keyframes_) {
         if (!kf->inGraph() && kf->measurements_processed()) {
@@ -319,7 +350,41 @@ void SemanticMapper::computeCovariances()
 {
     std::lock_guard<std::mutex> lock(graph_mutex_);
 
-    auto t1 = std::chrono::high_resolution_clock::now();
+    TIME_TIC;
+
+    // Just compute the most recent keyframe??
+    SemanticKeyframe::Ptr frame = nullptr;
+
+    for (int i = keyframes_.size() - 1; i >= 0; --i) {
+        if (keyframes_[i]->inGraph()) {
+            frame = keyframes_[i];
+            break;
+        }
+    }
+
+    if (!frame) return;
+
+    bool cov_succeeded = graph_->computeMarginalCovariance({ frame->graph_node() });
+
+    if (!cov_succeeded) {
+        ROS_WARN("Covariance computation failed!");
+        return;
+    }
+
+    std::lock_guard<std::mutex> map_lock(map_mutex_);
+
+    frame->covariance() = graph_->getMarginalCovariance({ frame->graph_node() });
+    last_kf_covariance_ = frame->covariance();
+    last_kf_covariance_time_ = frame->time();
+
+    std::cout << "Covariance:\n" << last_kf_covariance_ << std::endl;
+
+    Plxs_time_ = frame->time();
+    Plxs_index_ = frame->index();
+
+    ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
+
+    /*
 
     // Collect all landmark parameter blocks...
     // TODO limit this somehow
@@ -394,6 +459,8 @@ void SemanticMapper::computeCovariances()
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
     ROS_INFO_STREAM(fmt::format("Computed covariances in {} ms.", duration.count()/1000.0));
+
+    */
 }
 
 void SemanticMapper::prepareGraphNodes() 
@@ -482,7 +549,7 @@ bool SemanticMapper::tryOptimize() {
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
     if (solve_succeeded) {
-        ROS_INFO_STREAM(fmt::format("Solved {} nodes and {} edges in {:.2f} ms.",
+        ROS_INFO_STREAM(fmt::format("*** Solved {} nodes and {} edges in {:.2f} ms. ***",
                                     graph_->num_nodes(), graph_->num_factors(), duration.count()/1000.0));
         // for (auto& p : presenters_) p->present();
         return true;
@@ -729,7 +796,7 @@ bool SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
             }
         }
 
-        std::cout << "Mahals:\n" << mahals << std::endl;
+        // std::cout << "Mahals:\n" << mahals << std::endl;
     
         Eigen::MatrixXd weights_matrix = MLDataAssociator(params_).computeConstraintWeights(mahals);
 
@@ -870,6 +937,49 @@ SemanticMapper::getObjectByKey(Key key)
 Eigen::MatrixXd
 SemanticMapper::getPlx(Key key1, Key key2)
 {
+    /*
+    TIME_TIC;
+    // Get most recent keyframe in graph
+    SemanticKeyframe::Ptr keyframe = nullptr;
+
+    for (int i = keyframes_.size() - 1; i >= 0; --i) {
+        if (keyframes_[i]->inGraph()) {
+            keyframe = keyframes_[i];
+            break;
+        }
+    }
+
+    // Collect landmarks & compute the covariances
+    auto obj = getObjectByKey(key1);
+
+    if (keyframe && obj && obj->inGraph()) {
+        std::vector<CeresNodePtr> nodes;
+        for (auto& kp : obj->keypoints()) {
+            nodes.push_back(kp->graph_node());
+        }
+        nodes.push_back(keyframe->graph_node());
+
+        std::lock_guard<std::mutex> lock(graph_mutex_);
+
+        bool cov_succeeded = graph_->computeMarginalCovariance(nodes);
+
+        if (cov_succeeded) {
+            Plxs_[obj->id()] = graph_->getMarginalCovariance(nodes);
+        }
+
+        ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
+    }
+
+    auto it = Plxs_.find(obj->id());
+    if (it != Plxs_.end()) {
+        const Eigen::MatrixXd& Plx = it->second;
+        return Plx;
+    } else {
+        size_t Plx_dim = 6 + 3*obj->keypoints().size();
+        return Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
+    }
+    */
+    
     // TODO fix this
 
     auto kf = getKeyframeByKey(key2);
@@ -903,25 +1013,6 @@ SemanticMapper::getPlx(Key key1, Key key2)
     } else {
         return Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
     }
-
-    // EstimatedKeypoint::Ptr kp = nullptr;
-
-    // // Find the landmark...
-    // for (auto& obj : estimated_objects_) {
-    //     int id = obj->findKeypointByKey(key2);
-
-    //     if (id > 0) {
-    //         kp = obj->keypoints()[id];
-    //     }
-    // }
-
-    // Eigen::MatrixXd cov = Eigen::MatrixXd::Zero(9,9);
-
-    // if (kp) {
-    //     cov.block<3,3>(0,0) = kp->covariance();
-    // } 
-
-    // return cov;
 }
 
 bool SemanticMapper::updateObjects(SemanticKeyframe::Ptr kf,

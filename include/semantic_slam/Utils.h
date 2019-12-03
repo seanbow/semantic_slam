@@ -4,7 +4,8 @@
 
 #include <ros/ros.h>
 // #include <gtsam/geometry/Pose3.h>
-#include <Eigen/Geometry>
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Geometry>
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/Imu.h>

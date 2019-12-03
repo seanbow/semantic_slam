@@ -18,6 +18,7 @@ public:
                           const Eigen::Matrix2d& msmt_covariance,
                           boost::shared_ptr<CameraCalibration> calibration,
                           const Pose3& body_T_sensor,
+                          bool use_huber = true,
                           int tag = 0);
 
     ~CeresProjectionFactor();
@@ -29,6 +30,7 @@ private:
     SE3NodePtr camera_node_;
     Vector3dNodePtr landmark_node_;
 
+    bool robust_loss_;
 };
 
 using CeresProjectionFactorPtr = CeresProjectionFactor::Ptr;

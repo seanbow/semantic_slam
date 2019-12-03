@@ -314,9 +314,12 @@ StructureResult optimizeStructureFromProjectionCoordinateDescent(const Eigen::Ma
 
     Eigen::JacobiSVD<Eigen::MatrixXd> svd(St * D * S.transpose(), Eigen::ComputeThinU | Eigen::ComputeThinV);
 
-    Eigen::Vector3d reflect(1, 1, sgn((svd.matrixU() * svd.matrixV().transpose()).determinant()));
+    Eigen::MatrixXd U = svd.matrixU();
+    Eigen::MatrixXd V = svd.matrixV();
 
-    R = svd.matrixU() * reflect.asDiagonal() * svd.matrixV().transpose();
+    Eigen::Vector3d reflect(1, 1, sgn((U * V.transpose()).determinant()));
+
+    R = U * reflect.asDiagonal() * V.transpose();
 
     // update C
     if (k > 0)

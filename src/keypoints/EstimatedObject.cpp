@@ -294,9 +294,9 @@ EstimatedObject::optimizeStructure()
 Eigen::MatrixXd
 EstimatedObject::getPlx(Key o_key, Key x_key) const
 {
-  if (in_graph_) {
-    return mapper_->getPlx(o_key, x_key);
-  } 
+  // if (in_graph_) {
+  //   return mapper_->getPlx(o_key, x_key);
+  // } 
 
   if (!structure_problem_) {
     throw std::logic_error("Tried to extract covariance information before structure optimization.");
@@ -543,7 +543,7 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
                                          double weight)
 {
   // compute mahalanobis distance...
-  if (structure_problem_) {
+  if (measurements_.size() >= 2) {
     double mahal_d = computeMahalanobisDistance(msmt);
     if (mahal_d < chi2inv95(2)) {
       ROS_INFO_STREAM("Adding measurement with mahal = " << mahal_d);

@@ -7,10 +7,12 @@ CeresProjectionFactor::CeresProjectionFactor(SE3NodePtr camera_node,
                           const Eigen::Matrix2d& msmt_covariance,
                           boost::shared_ptr<CameraCalibration> calibration,
                           const Pose3& body_T_sensor,
+                          bool use_huber,
                           int tag)
     : CeresFactor(FactorType::PROJECTION, tag),
       camera_node_(camera_node),
-      landmark_node_(landmark_node)
+      landmark_node_(landmark_node),
+      robust_loss_(use_huber)
 {
     cf_ = ProjectionCostTerm::Create(image_coords, 
                                      msmt_covariance, 
@@ -26,9 +28,13 @@ CeresProjectionFactor::~CeresProjectionFactor()
 
 void CeresProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
-    // TODO fix this
-    ceres::LossFunction* lf = new ceres::HuberLoss(1.5);
-    // ceres::LossFunction* lf = NULL;
+    ceres::LossFunction* lf;
+    if (robust_loss_) {
+        lf = new ceres::HuberLoss(1.5);
+    } else {
+        lf = NULL;
+    }
+
     residual_id_ = problem->AddResidualBlock(cf_, 
                                             lf, 
                                             camera_node_->pose().rotation_data(), 

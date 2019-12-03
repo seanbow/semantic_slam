@@ -5,6 +5,7 @@ project(semantic_slam)
 set(CMAKE_CXX_STANDARD 14)
 
 add_compile_options(-g3 -O3 -march=native)
+# add_compile_options(-g3 -O3)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -80,6 +81,8 @@ add_library(Utils src/Utils.cpp)
 add_library(Key src/Key.cpp)
 add_library(Symbol src/Symbol.cpp)
 add_library(CameraCalibration src/CameraCalibration.cpp)
+add_library(Camera src/Camera.cpp)
+add_library(CameraSet src/CameraSet.cpp)
 
 ## Feature Tracker ##
 add_library(TwoPointRansac src/feature_tracker/TwoPointRansac.cpp)
@@ -141,6 +144,7 @@ target_link_libraries(ExternalOdometryHandler
 
 add_library(MultiProjectionFactor src/MultiProjectionFactor.cpp)
 target_link_libraries(MultiProjectionFactor
+  CameraSet
   ${CERES_LIBRARIES}
   ${BASE_LIBS}
 )
@@ -164,6 +168,9 @@ add_library(ObjectMeshPresenter src/ObjectMeshPresenter.cpp)
 add_library(GeometricMapPresenter src/GeometricMapPresenter.cpp)
 
 add_library(EstimatedObject src/keypoints/EstimatedObject.cpp)
+target_link_libraries(EstimatedObject
+  Camera
+)
 
 add_library(EstimatedKeypoint src/keypoints/EstimatedKeypoint.cpp)
 #target_link_libraries(EstimatedKeypoint
@@ -197,7 +204,7 @@ target_link_libraries(SemanticMapper
   EstimatedKeypoint
   StructureOptimizationProblem
   Utils
-#  GeometricFeatureHandler
+  GeometricFeatureHandler
   MLDataAssociator
 #  SemanticKeyframe
   FactorGraph
@@ -235,8 +242,10 @@ target_link_libraries(semantic_slam_node
     ${Boost_LIBRARIES}
     ${CERES_LIBRARIES}
     StructureOptimizationProblem
+    Camera
     MLDataAssociator
     FactorGraph
+    CameraSet
     geometry
     munkres
     FactorGraph

@@ -43,6 +43,7 @@ void GeometricFeatureHandler::addKeyframe(const SemanticKeyframe::Ptr& frame)
 void GeometricFeatureHandler::processPendingFrames()
 {
     while (!kfs_to_process_.empty()) {
+
         auto frame = kfs_to_process_.front();
 
         std::vector<FeatureTracker::TrackedFeature> tracks;
@@ -54,7 +55,7 @@ void GeometricFeatureHandler::processPendingFrames()
         kfs_to_process_.pop_front();
 
         // For each feature tracked into this frame, either create or update its projection factor
-        
+
         for (int i = 0; i < tracks.size(); ++i) {
             const auto& tf = tracks[i];
 
@@ -74,6 +75,7 @@ void GeometricFeatureHandler::processPendingFrames()
                     factor = factor_it->second;
                 }
 
+
                 Eigen::Vector2d msmt(tf.pt.x, tf.pt.y);
                 Eigen::Matrix2d msmt_noise = cam_sigma_ * Eigen::Matrix2d::Identity();
 
@@ -82,6 +84,7 @@ void GeometricFeatureHandler::processPendingFrames()
                 if (factor->nMeasurements() >= 5 && !factor->inGraph()) {
                     graph_->addFactor(factor);
                 }
+
             } else {
                 MultiProjectionFactor::Ptr factor;
                 Vector3dNode::Ptr landmark_node;

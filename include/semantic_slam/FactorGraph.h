@@ -43,6 +43,10 @@ public:
     bool computeMarginalCovariance(const std::vector<Key>& keys);
     bool computeMarginalCovariance(const std::vector<CeresNodePtr>& nodes);
 
+    void setSolverOptions(ceres::Solver::Options opts);
+
+    void setNumThreads(int n_threads);
+
     Eigen::MatrixXd getMarginalCovariance(const Key& key) const;
     Eigen::MatrixXd getMarginalCovariance(const Key& key1, const Key& key2) const;
     // Eigen::MatrixXd getMarginalCovariance(CeresNodePtr node) const;

@@ -151,6 +151,8 @@ bool StructureCostTerm::unwhitenedError(T const* const* parameters, T* residuals
     residuals.template tail(k_) = c;
   }
 
+  // std::cout << "Computed residuals " << residuals.transpose() << std::endl;
+
   return true;
 }
 
@@ -177,7 +179,11 @@ bool StructureCostTerm::operator()(T const* const* parameters, T* residuals) con
   // p[1] = object position
   // p[2] through p[(2 + m_) - 1] = keypoint positions
   // p[2 + m_] = structure coefficients
+  // T r0 = residuals[0];
+
   unwhitenedError(parameters, residuals);
   whitenError(residuals);
+
+  // std::cout << "Residual 0: " << r0 << " -> " << residuals[0] << std::endl;
   return true;
 }

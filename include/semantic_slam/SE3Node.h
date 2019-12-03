@@ -45,6 +45,8 @@ using SE3NodePtr = SE3Node::Ptr;
 SE3Node::SE3Node(Symbol sym, boost::optional<ros::Time> time)
     : CeresNode(sym, time)
 {
+    pose_ = Pose3::Identity();
+    
     parameter_blocks_.push_back(pose_.rotation_data());
     parameter_block_sizes_.push_back(4);
     parameter_block_local_sizes_.push_back(3);

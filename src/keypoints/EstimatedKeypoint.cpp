@@ -381,7 +381,7 @@ void EstimatedKeypoint::addToGraphForced()
   if (in_graph_)
     return;
 
-  ROS_INFO_STREAM("Adding keypoint " << id() << " to graph [forced].");
+  // ROS_INFO_STREAM("Adding keypoint " << id() << " to graph [forced].");
 
   // note -- if we only have one measurement it's "unsafe" to add this alone as
   // the triangulation is underconstrained. but if we're adding it with object

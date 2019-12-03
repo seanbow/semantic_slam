@@ -30,8 +30,8 @@
     <arg name="reset_on_detection" default="true" />
     <arg name="filter_2class" default="true" />
     <arg name="detection_conf_threshold" default="0.80" />
-    <arg name="f2f_match_threshold" default="0.5" />
-    <arg name="missed_detection_threshold" default="0" />
+    <arg name="f2f_match_threshold" default="1.0" />
+    <arg name="missed_detection_threshold" default="2" />
     <arg name="visualize" default="true" />
 
     <param name="/yolo"                             value="$(arg yolo)" type="bool"/>
@@ -66,8 +66,8 @@
         <param name="detection_republished_topic"			value="$(arg detected_objects_topic_republished)"/>
     </node> -->
 
-    <node pkg="opencv_object_tracking"
-                    type="opencv_object_tracking_node" name="object_tracker" output="screen">
+    <node pkg="semantic_slam"
+                    type="object_tracking_node" name="object_tracker" output="screen" launch-prefix="">
         <param name="platform" value="zed" />
         <param name="image_topic" value="$(arg cam_topic)" />
         <param name="detection_topic" value="$(arg detected_objects_topic)" />

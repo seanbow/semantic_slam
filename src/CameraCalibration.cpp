@@ -8,30 +8,30 @@ CameraCalibration::CameraCalibration(double fx, double fy, double s, double u0, 
 
 }
 
-Eigen::Vector2d CameraCalibration::uncalibrate(const Eigen::Vector2d& p,
-                                               boost::optional<Eigen::MatrixXd&> Hpoint) const
-{
-    // Code borrowed from opencv's projectpoints function
-    double x = p(0), y = p(1);
-    double r2 = x*x + y*y;
-    double r4 = r2 * r2;
+// Eigen::Vector2d CameraCalibration::uncalibrate(const Eigen::Vector2d& p,
+//                                                boost::optional<Eigen::MatrixXd&> Hpoint) const
+// {
+//     // Code borrowed from opencv's projectpoints function
+//     double x = p(0), y = p(1);
+//     double r2 = x*x + y*y;
+//     double r4 = r2 * r2;
 
-    double a1 = 2*x*y;
-    double a2 = r2 + 2*x*x;
-    double a3 = r2 + 2*y*y;
+//     double a1 = 2*x*y;
+//     double a2 = r2 + 2*x*x;
+//     double a3 = r2 + 2*y*y;
 
-    double cdist = 1 + k1_*r2 + k2_*r4;
+//     double cdist = 1 + k1_*r2 + k2_*r4;
 
-    double xd0 = x*cdist + p1_*a1 + p2_*a2;
-    double yd0 = y*cdist + p1_*a3 + p2_*a1;
+//     double xd0 = x*cdist + p1_*a1 + p2_*a2;
+//     double yd0 = y*cdist + p1_*a3 + p2_*a1;
 
-    if (Hpoint) {
-        Duncalibrate(p, *Hpoint);
-    }
+//     if (Hpoint) {
+//         Duncalibrate(p, *Hpoint);
+//     }
 
-    return Eigen::Vector2d( fx_*xd0 + s_*yd0 + u0_, 
-                            fy_*yd0 + v0_ );
-}
+//     return Eigen::Vector2d( fx_*xd0 + s_*yd0 + u0_, 
+//                             fy_*yd0 + v0_ );
+// }
 
 void CameraCalibration::Duncalibrate(const Eigen::Vector2d& p, Eigen::MatrixXd& Hpoint) const
 {

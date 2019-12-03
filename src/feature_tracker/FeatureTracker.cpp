@@ -39,7 +39,7 @@ FeatureTracker::FeatureTracker(const Params& params)
     // orb_ = cv::ORB::create();
 
     // orb_ = boost::make_shared<ORB_SLAM2::ORBextractor>(2000, 1.2, 8, 15, 3);
-    orb_ = boost::make_shared<ORB_SLAM2::ORBextractor>(2000, 1.2, 8, 20, 7);
+    orb_ = boost::make_shared<ORB_SLAM2::ORBextractor>(1000, 1.2, 8, 20, 7);
 
     image_transport::ImageTransport it(nh_);
     pub_marked_images_ = it.advertise("marked_image", 1);

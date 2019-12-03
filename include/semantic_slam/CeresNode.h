@@ -10,6 +10,8 @@
 class CeresNode {
 public:
 
+    virtual ~CeresNode() { }
+
     virtual void addToProblem(boost::shared_ptr<ceres::Problem> problem) = 0;
     virtual void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 

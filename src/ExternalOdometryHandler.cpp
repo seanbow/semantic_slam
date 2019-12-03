@@ -299,7 +299,7 @@ SemanticKeyframe::Ptr ExternalOdometryHandler::createKeyframe(ros::Time time)
 
     last_keyframe_index_++;
 
-    ROS_INFO_STREAM("Created keyframe with time " << keyframe->time() << " and image time " << keyframe->image_time);
+    // ROS_INFO_STREAM("Created keyframe with time " << keyframe->time() << " and image time " << keyframe->image_time);
 
     return keyframe;
 }

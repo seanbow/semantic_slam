@@ -11,27 +11,23 @@ FactorGraph::FactorGraph()
     problem_options.enable_fast_removal = true;
     problem_ = boost::make_shared<ceres::Problem>(problem_options); 
 
-    // solver_options_.trust_region_strategy_type = ceres::DOGLEG;
-    // solver_options_.dogleg_type = ceres::SUBSPACE_DOGLEG;
-
-    // solver_options_.function_tolerance = 1e-4;
-    // solver_options_.gradient_tolerance = 1e-8;
-
-
-    solver_options_.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    solver_options_.preconditioner_type = ceres::SCHUR_JACOBI;
-    solver_options_.use_explicit_schur_complement = true;
-
-    // solver_options_.linear_solver_type = ceres::SPARSE_SCHUR;
-    // solver_options_.linear_solver_type = ceres::DENSE_SCHUR; // todo
-    // solver_options_.linear_solver_type = ceres::DENSE_QR; // todo
-    // solver_options_.minimizer_progress_to_stdout = true;
-    solver_options_.num_threads = 1;
-
     // set covariance options if needed...
     // covariance_options_....?
     covariance_options_.apply_loss_function = true;
+    covariance_options_.num_threads = 4;
+    covariance_options_.algorithm_type = ceres::SPARSE_CHOLESKY;
     covariance_ = boost::make_shared<ceres::Covariance>(covariance_options_);
+}
+
+void FactorGraph::setSolverOptions(ceres::Solver::Options solver_options)
+{
+    solver_options_ = solver_options;
+}
+
+void FactorGraph::setNumThreads(int n_threads)
+{
+    solver_options_.num_threads = n_threads;
+    covariance_options_.num_threads = n_threads;
 }
 
 bool FactorGraph::setNodeConstant(CeresNodePtr node)
@@ -76,8 +72,8 @@ bool FactorGraph::solve(bool verbose)
         std::cout << "Schur structure used: " << summary.schur_structure_used << std::endl;
     }
 
-    // return summary.IsSolutionUsable();
-    return summary.termination_type == ceres::CONVERGENCE;
+    return summary.IsSolutionUsable();
+    // return summary.termination_type == ceres::CONVERGENCE;
 }
 
 void FactorGraph::addNode(CeresNodePtr node)
