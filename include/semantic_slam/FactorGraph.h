@@ -11,6 +11,11 @@
 #include <mutex>
 #include <rosfmt/rosfmt.h>
 
+namespace gtsam {
+class NonlinearFactorGraph;
+class Values;
+}
+
 class FactorGraph
 {
 public:
@@ -62,6 +67,9 @@ public:
     std::vector<Key> keys();
 
     const ceres::Problem& problem() const { return *problem_; }
+
+    boost::shared_ptr<gtsam::NonlinearFactorGraph> getGtsamGraph() const;
+    boost::shared_ptr<gtsam::Values> getGtsamValues() const;
 
 private:
     boost::shared_ptr<ceres::Problem> problem_;

@@ -79,11 +79,11 @@ gtsam::Vector StructureFactor::unwhitenedError(const gtsam::Values& values,
 
   gtsam::Pose3 pose = values.at<gtsam::Pose3>(object_key_);
   Eigen::Matrix3d R = pose.rotation().matrix();
-  Eigen::Vector3d t = pose.translation().vector();
+  Eigen::Vector3d t = pose.translation();
 
   for (size_t i = 0; i < m_; ++i)
   {
-    Eigen::Vector3d p = values.at<gtsam::Point3>(landmark_keys_[i]).vector();
+    Eigen::Vector3d p = values.at<gtsam::Point3>(landmark_keys_[i]);
     e.segment<3>(3 * i) = p - R * S.col(i) - t;
     // cout << "Index " << i << ", key " << gtsam::DefaultKeyFormatter(landmark_keys_[i]) <<
     //     ", p = " << p.transpose() << ", err = " << (p - R*S.col(i) - t).transpose() << endl;

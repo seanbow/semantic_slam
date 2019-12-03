@@ -38,6 +38,9 @@ private:
     Pose3 body_T_sensor_;
 
     bool robust_loss_;
+
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
 using CeresProjectionFactorPtr = CeresProjectionFactor::Ptr;

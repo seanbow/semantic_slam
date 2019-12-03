@@ -29,7 +29,10 @@ private:
     SE3NodePtr node2_;
 
     Pose3 between_;
-    Eigen::Matrix3d covariance_;
+    Eigen::MatrixXd covariance_;
+
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
 using CeresBetweenFactorPtr = CeresBetweenFactor::Ptr;

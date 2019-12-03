@@ -3,6 +3,9 @@
 
 #include <rosfmt/rosfmt.h>
 
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
+#include <gtsam/nonlinear/Values.h>
+
 FactorGraph::FactorGraph()
     : modified_(false)
 {
@@ -15,7 +18,7 @@ FactorGraph::FactorGraph()
     // covariance_options_....?
     covariance_options_.apply_loss_function = true;
     covariance_options_.num_threads = 4;
-    covariance_options_.algorithm_type = ceres::SPARSE_CHOLESKY;
+    // covariance_options_.algorithm_type = ceres::SPARSE_CHOLESKY;
     covariance_ = boost::make_shared<ceres::Covariance>(covariance_options_);
 }
 
@@ -426,3 +429,26 @@ FactorGraph::findNearestNode(unsigned char symbol_chr, ros::Time time)
     return node;
 }
 
+boost::shared_ptr<gtsam::NonlinearFactorGraph>
+FactorGraph::getGtsamGraph() const
+{
+    auto graph = util::allocate_aligned<gtsam::NonlinearFactorGraph>();
+
+    for (auto factor : factors_) {
+        graph->push_back(factor->getGtsamFactor());
+    }
+
+    return graph;
+}
+
+boost::shared_ptr<gtsam::Values>
+FactorGraph::getGtsamValues() const
+{
+    auto values = util::allocate_aligned<gtsam::Values>();
+
+    for (auto node : nodes_) {
+        values->insert(node.first, *node.second->getGtsamValue());
+    }
+
+    return values;
+}

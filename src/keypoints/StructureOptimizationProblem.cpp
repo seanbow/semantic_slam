@@ -186,7 +186,7 @@ StructureOptimizationProblem::StructureOptimizationProblem(
   quaternion_parameterization_ = new ceres::EigenQuaternionParameterization;
 
   for (size_t i = 0; i < m_; ++i) {
-    kps_.push_back(boost::make_shared<Eigen::Vector3d>());
+    kps_.push_back(util::allocate_aligned<Eigen::Vector3d>());
   }
 
   // weights_ = Eigen::VectorXd::Ones(m_);

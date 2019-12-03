@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 project(semantic_slam)
 
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake") 
+
 ## Compile as C++11, supported in ROS Kinetic and newer
 set(CMAKE_CXX_STANDARD 14)
 
@@ -13,7 +15,7 @@ add_compile_options(-g3 -O3 -march=native)
 find_package(catkin REQUIRED
     roscpp
     roslib
-    gtsam
+    # gtsam
     cv_bridge
     image_transport
     rosfmt
@@ -22,6 +24,8 @@ find_package(catkin REQUIRED
 )
 
 find_package(GTSAM REQUIRED)
+
+find_package(MKL REQUIRED)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
@@ -63,6 +67,7 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
     ${GTSAM_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
+    ${MKL_INCLUDE_DIR}
 )
 
 ## Declare a C++ library
