@@ -33,7 +33,8 @@ using aligned_vector = std::vector<T, Allocator>;
 
 enum class OptimizationBackend {
   CERES,
-  GTSAM
+  GTSAM,
+  GTSAM_ISAM
 };
 
 struct ObjectParams
@@ -54,6 +55,7 @@ struct ObjectParams
   double structure_regularization_factor;
 
   OptimizationBackend optimization_backend; // CERES or GTSAM
+  OptimizationBackend covariance_backend; // CERES or GTSAM
 
   double landmark_merge_threshold;		 //< Threshold on between-landmark bhattacharyya distance below which to merge landmarks
   double probability_landmark_new;		 //< fixed probability that a measurement corresponds to a new landmark

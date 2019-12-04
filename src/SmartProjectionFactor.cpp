@@ -29,10 +29,15 @@ SmartProjectionFactor::SmartProjectionFactor(const Pose3& body_T_sensor,
     projection_params.setRankTolerance(1e-2);
     projection_params.triangulation.dynamicOutlierRejectionThreshold = reprojection_error_threshold;
 
-    gtsam_factor_ = util::allocate_aligned<GtsamFactorType>(gtsam_noise,
-                                                            util::allocate_aligned<gtsam::Cal3DS2>(*calibration),
-                                                            gtsam::Pose3(body_T_sensor),
-                                                            projection_params);
+    // This factor will change as we add measurements.
+    // GTSAM's isam implementation cannot handle factors changing after they've been added to the ISAM
+    // structure, so we can't simply allocate a factor here and modify it. Instead we'll allocate
+    // a new one each time we receive a measurement
+
+    // gtsam_factor_ = util::allocate_aligned<GtsamFactorType>(gtsam_noise,
+    //                                                         util::allocate_aligned<gtsam::Cal3DS2>(*calibration),
+    //                                                         gtsam::Pose3(body_T_sensor),
+    //                                                         projection_params);
                                                             
 }
 
@@ -133,7 +138,7 @@ void SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
     body_poses_.push_back(body_pose_node);
     msmts_.push_back(pixel_coords);
     nodes_.push_back(body_pose_node);
-    // covariances_.push_back(msmt_covariance);
+    covariances_.push_back(msmt_covariance);
 
     sqrt_informations_.push_back(Eigen::Matrix2d::Identity());
     Eigen::Matrix2d sqrtC = msmt_covariance.llt().matrixL();
@@ -163,8 +168,25 @@ void SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
         addToProblem(problem_);
     }
 
-    // gtsam support
-    gtsam_factor_->add(pixel_coords, body_pose_node->key());
+    // gtsam support:
+
+    auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(msmt_covariance);
+
+    gtsam::SmartProjectionParams projection_params;
+    projection_params.degeneracyMode = gtsam::DegeneracyMode::ZERO_ON_DEGENERACY;
+    projection_params.linearizationMode = gtsam::LinearizationMode::HESSIAN;
+    projection_params.setLandmarkDistanceThreshold(1e6);
+    projection_params.setRankTolerance(1e-2);
+    projection_params.triangulation.dynamicOutlierRejectionThreshold = reprojection_error_threshold_;
+
+    gtsam_factor_ = util::allocate_aligned<GtsamFactorType>(gtsam_noise,
+                                                                util::allocate_aligned<gtsam::Cal3DS2>(*calibration_),
+                                                                gtsam::Pose3(I_T_C_),
+                                                                projection_params);
+
+    for (int i = 0; i < msmts_.size(); ++i) {
+        gtsam_factor_->add(msmts_[i], body_poses_[i]->key());
+    }
 }
 
 bool SmartProjectionFactor::Evaluate(double const* const* parameters, 
@@ -267,5 +289,5 @@ SmartProjectionFactor::getGtsamFactor() const
 void 
 SmartProjectionFactor::addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const
 {
-    graph->push_back(gtsam_factor_);
+    graph->push_back(getGtsamFactor());
 }

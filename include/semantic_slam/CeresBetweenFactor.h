@@ -32,6 +32,8 @@ private:
     Pose3 between_;
     Eigen::MatrixXd covariance_;
 
+    boost::shared_ptr<gtsam::NonlinearFactor> gtsam_factor_;
+
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };

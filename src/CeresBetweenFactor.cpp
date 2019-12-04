@@ -19,6 +19,15 @@ CeresBetweenFactor::CeresBetweenFactor(SE3NodePtr node1,
 
     nodes_.push_back(node1);
     nodes_.push_back(node2);
+
+    auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(covariance_);
+
+    gtsam_factor_ = util::allocate_aligned<gtsam::BetweenFactor<gtsam::Pose3>>(
+                    node1->key(),
+                    node2->key(),
+                    gtsam::Pose3(gtsam::Rot3(between.rotation()), between.translation()),
+                    gtsam_noise
+    );
 }
 
 CeresBetweenFactor::~CeresBetweenFactor()
@@ -49,14 +58,7 @@ CeresBetweenFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
 boost::shared_ptr<gtsam::NonlinearFactor> 
 CeresBetweenFactor::getGtsamFactor() const
 {
-    auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(covariance_);
-
-    return util::allocate_aligned<gtsam::BetweenFactor<gtsam::Pose3>>(
-                    node1_->key(),
-                    node2_->key(),
-                    gtsam::Pose3(gtsam::Rot3(between_.rotation()), between_.translation()),
-                    gtsam_noise
-    );
+    return gtsam_factor_;
 }
 
 void 

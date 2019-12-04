@@ -30,6 +30,18 @@ CeresProjectionFactor::CeresProjectionFactor(SE3NodePtr camera_node,
 
     nodes_.push_back(camera_node);
     nodes_.push_back(landmark_node);
+
+    auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(covariance_);
+    auto gtsam_calib = util::allocate_aligned<gtsam::Cal3DS2>(*calibration_);
+
+    gtsam_factor_ = util::allocate_aligned<gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3DS2>>(
+        image_coords,
+        gtsam_noise,
+        camera_node->key(),
+        landmark_node->key(),
+        gtsam_calib,
+        gtsam::Pose3(body_T_sensor)
+    );
 }
 
 CeresProjectionFactor::~CeresProjectionFactor()
@@ -66,17 +78,7 @@ void CeresProjectionFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> 
 boost::shared_ptr<gtsam::NonlinearFactor> 
 CeresProjectionFactor::getGtsamFactor() const
 {
-    auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(covariance_);
-    auto gtsam_calib = util::allocate_aligned<gtsam::Cal3DS2>(*calibration_);
-
-    return util::allocate_aligned<gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3DS2>>(
-        image_coords_,
-        gtsam_noise,
-        camera_node_->key(),
-        landmark_node_->key(),
-        gtsam_calib,
-        gtsam::Pose3(body_T_sensor_)
-    );
+    return gtsam_factor_;
 }
 
 void 

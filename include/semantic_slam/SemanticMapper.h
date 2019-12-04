@@ -21,6 +21,11 @@
 // #include <gtsam/geometry/Pose3.h>
 
 #include <gtsam/nonlinear/Values.h>
+#include <gtsam/inference/Factor.h>
+
+namespace gtsam {
+class ISAM2;
+}
 
 class ExternalOdometryHandler;
 class GeometricFeatureHandler;
@@ -93,9 +98,18 @@ public:
     SemanticKeyframe::Ptr getKeyframeByIndex(int index);
     SemanticKeyframe::Ptr getKeyframeByKey(Key key);
 
+    SemanticKeyframe::Ptr getLastKeyframeInGraph();
+
     EstimatedObject::Ptr getObjectByKey(Key key);
 
     bool solveGraph();
+
+    gtsam::FactorIndices computeRemovedFactors(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph);
+
+    boost::shared_ptr<gtsam::Values> computeIncrementalValues(boost::shared_ptr<gtsam::Values> values);
+
+    boost::shared_ptr<gtsam::NonlinearFactorGraph> 
+    computeIncrementalGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph);
 
 private:
     boost::shared_ptr<FactorGraph> graph_;
@@ -123,9 +137,9 @@ private:
 
     Eigen::MatrixXd last_kf_covariance_;
     ros::Time last_kf_covariance_time_;
-    aligned_map<int, Eigen::MatrixXd> Plxs_;
-    size_t Plxs_index_;
-    ros::Time Plxs_time_;
+    // aligned_map<int, Eigen::MatrixXd> Plxs_;
+    // size_t Plxs_index_;
+    // ros::Time Plxs_time_;
 
     std::unordered_set<int> unfrozen_kfs_;
     std::unordered_set<int> unfrozen_objs_;
@@ -140,6 +154,8 @@ private:
     boost::shared_ptr<GeometricFeatureHandler> geom_handler_;
 
     bool verbose_optimization_;
+    double covariance_delay_;
+    double max_optimization_time_;
 
     // A list of tracking IDs that are associated with each estimated object
     // for example if the object tracks 3 and 8 are associated with the same physical object 2,
@@ -165,13 +181,26 @@ private:
 
     void processGeometricFeatureTracks(const std::vector<SemanticKeyframe::Ptr>& new_keyframes);
 
+    void computeCovariancesWithCeres();
+    void computeCovariancesWithGtsam();
+    void computeCovariancesWithGtsamIsam();
+
     ros::Publisher vis_pub_;
 
     std::vector<boost::shared_ptr<Presenter>> presenters_;
 
     bool running_;
 
+    boost::shared_ptr<gtsam::Values> values_in_graph_;
+    boost::shared_ptr<gtsam::NonlinearFactorGraph> factors_in_graph_;
+
     gtsam::Values gtsam_values_;
+    boost::shared_ptr<gtsam::ISAM2> isam_;
+
+    boost::shared_ptr<gtsam::NonlinearFactor> isam_origin_factor_;
+
+    // Map from factor *memory locations* to their indices in isam
+    std::unordered_map<gtsam::NonlinearFactor*, uint64_t> isam_factor_indices_;
 
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

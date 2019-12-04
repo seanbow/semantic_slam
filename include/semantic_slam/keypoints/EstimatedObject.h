@@ -130,7 +130,8 @@ public:
   int64_t findKeypointByClass(uint64_t classid) const;
   int64_t findKeypointByKey(Key key) const;
 
-  const std::vector<boost::shared_ptr<SemanticKeyframe>>& keyframe_observations() const { return keyframe_observations_; }
+  const std::vector<boost::shared_ptr<SemanticKeyframe>>& 
+  keyframe_observations() const { return keyframe_observations_; }
 
   // void createMarginals(const std::vector<Key>& extra_keys);
 

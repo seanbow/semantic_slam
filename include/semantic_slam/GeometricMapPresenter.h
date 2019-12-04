@@ -15,4 +15,6 @@ public:
 
 private:
     ros::Publisher pub_;
+
+    double scale_;
 };

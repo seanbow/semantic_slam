@@ -1,4 +1,6 @@
-## Camera intrinsics
+## Calibration information
+
+# Intrinsics
 cam_model: Pinhole
 cam_height: 720
 cam_width: 1280
@@ -11,17 +13,25 @@ cam_d1: 0.0
 cam_d2: 0.0
 cam_d3: 0.0
 
+### Extrinsics between robot body (frame "I" for IMU) and camera ("C")
+
+I_p_C: [0.0, 0.03, 0.0]
+I_q_C: [-0.500, 0.500, -0.500, 0.500]
+
+## Optimization parameters
+covariance_delay: 5.0
+max_optimization_time: 2.0
+
 optimization_backend: "CERES"
 # optimization_backend: "GTSAM"
+
+# covariance_backend: "CERES"
+covariance_backend: "GTSAM"
+# covariance_backend: "GTSAM_ISAM"
 
 verbose_optimization: true
 
 ## IMU/body info / calibration
-
-### Extrinsics
-
-I_p_C: [0.0, 0.03, 0.0]
-I_q_C: [-0.500, 0.500, -0.500, 0.500]
 
 
 ## Feature_tracker parameters
@@ -46,8 +56,8 @@ min_object_n_keypoints: 5               # minimum number of observed keypoints n
 min_landmark_observations: 4           # minimum number of observations needed for a keypoint before estimating depth and including in optimization
 min_observed_keypoints_to_initialize: 4
 
-keyframe_translation_threshold: 0.1
-keyframe_rotation_threshold: 10 # degrees
+keyframe_translation_threshold: 0.05
+keyframe_rotation_threshold: 5 # degrees
 
 ### Semantic object optimization parameters
 structure_regularization_factor: 10     # lambda in structure optimization term lambda * ||c||^2
@@ -84,3 +94,6 @@ init_p_sigma: [1.0e-7, 1.0e-7, 1.0e-7]
 
 init_q: [0, 0, 0, 1]
 init_q_sigma: [0.02, 0.02, 0.02]
+
+## Visualization
+geometric_point_scale: 0.1

@@ -534,7 +534,8 @@ double EstimatedKeypoint::computeMahalanobisDistance(const KeypointMeasurement& 
   // Eigen::Matrix2d S = H * Plx * H.transpose() + R;
   // double mahal = residual.transpose() * S.inverse() * residual;
 
-  Eigen::MatrixXd Plx_full = parent_->getPlx(sym::O(parent_->id()), Symbol(msmt.measured_key));
+  // Eigen::MatrixXd Plx_full = parent_->getPlx(sym::O(parent_->id()), Symbol(msmt.measured_key));
+  Eigen::MatrixXd Plx_full = mapper_->getPlx(sym::O(parent_->id()), Symbol(msmt.measured_key));
 
   // this is dumb
   // figure out which index we are in Plx...

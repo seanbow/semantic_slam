@@ -19,6 +19,7 @@
 #include <gtsam/nonlinear/NonlinearEquality.h>
 #include <gtsam/slam/PriorFactor.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+#include <gtsam/nonlinear/ISAM2.h>
 
 using namespace std::string_literals;
 namespace sym = symbol_shorthand;
@@ -68,12 +69,12 @@ void SemanticMapper::setup()
 
     // solver_options.max_num_iterations = 10;
 
-    solver_options.max_solver_time_in_seconds = 1.0;
+    solver_options.max_solver_time_in_seconds = max_optimization_time_;
 
     // solver_options.minimizer_type = ceres::LINE_SEARCH;
 
     solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    // solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+    solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
     // solver_options.use_explicit_schur_complement = true;
 
     // solver_options.linear_solver_type = ceres::CGNR;
@@ -342,26 +343,195 @@ void SemanticMapper::tryAddObjectsToGraph()
 
 bool SemanticMapper::needToComputeCovariances()
 {
-    // if (keyframes_.back()->time() - Plxs_time_ > ros::Duration(2)) {
-    //     return true;
-    // }
+    if (getLastKeyframeInGraph()->time() - last_kf_covariance_time_ > ros::Duration(covariance_delay_)) {
+        return true;
+    }
 
     // if (Plxs_.size() != estimated_objects_.size()) {
     //     return true;
     // }
 
-    // return false;
+    return false;
 
-    return true;
+    // return true;
 }
 
 void SemanticMapper::computeCovariances()
 {
+    if (params_.covariance_backend == OptimizationBackend::CERES) {
+        computeCovariancesWithCeres();
+    } else if (params_.covariance_backend == OptimizationBackend::GTSAM) {
+        computeCovariancesWithGtsam();
+    } else if (params_.covariance_backend == OptimizationBackend::GTSAM_ISAM) {
+        computeCovariancesWithGtsamIsam();
+    } else {
+        throw std::runtime_error("Error: unsupported covariance backend.");
+    }
+}
+
+void SemanticMapper::computeCovariancesWithCeres()
+{
+    TIME_TIC;
+
+    // Just compute the most recent keyframe??
+    SemanticKeyframe::Ptr frame = getLastKeyframeInGraph();
+
+    if (!frame) return;
+
     std::lock_guard<std::mutex> lock(graph_mutex_);
+
+    bool cov_succeeded = graph_->computeMarginalCovariance({ frame->graph_node() });
+
+    if (!cov_succeeded) {
+        ROS_WARN("Covariance computation failed!");
+        return;
+    }
+
+    std::lock_guard<std::mutex> map_lock(map_mutex_);
+
+    frame->covariance() = graph_->getMarginalCovariance({ frame->graph_node() });
+
+    last_kf_covariance_ = frame->covariance();
+    last_kf_covariance_time_ = frame->time();
+
+    // std::cout << "Covariance:\n" << last_kf_covariance_ << std::endl;
+
+    // Plxs_time_ = frame->time();
+    // Plxs_index_ = frame->index();
+
+    ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
+}
+
+void SemanticMapper::computeCovariancesWithGtsam()
+{
+    TIME_TIC;
+
+    // Just compute the most recent keyframe??
+    SemanticKeyframe::Ptr frame = getLastKeyframeInGraph();
+
+    if (!frame) return;
+
+    std::lock_guard<std::mutex> lock(graph_mutex_);
+
+    boost::shared_ptr<gtsam::NonlinearFactorGraph> gtsam_graph = graph_->getGtsamGraph();
+    boost::shared_ptr<gtsam::Values> gtsam_values = graph_->getGtsamValues();
+
+    // Anchor the origin
+    auto origin_factor = util::allocate_aligned<gtsam::NonlinearEquality<gtsam::Pose3>>(
+        getKeyframeByIndex(0)->key(),
+        getKeyframeByIndex(0)->pose()
+    );
+
+    // Eigen::VectorXd prior_noise(6);
+    // prior_noise << 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4;
+    // auto gtsam_prior_noise = gtsam::noiseModel::Diagonal::Sigmas(prior_noise);
+    // auto origin_factor = util::allocate_aligned<gtsam::PriorFactor<gtsam::Pose3>>(
+    //     getKeyframeByIndex(0)->key(),
+    //     getKeyframeByIndex(0)->pose(),
+    //     gtsam_prior_noise
+    // );
+
+    gtsam_graph->push_back(origin_factor);
+
+    try {
+        gtsam::Marginals marginals(*gtsam_graph, *gtsam_values);
+
+        auto cov = marginals.marginalCovariance(frame->key());
+
+        std::lock_guard<std::mutex> map_lock(map_mutex_);
+
+        frame->covariance() = cov;
+
+        last_kf_covariance_ = frame->covariance();
+        last_kf_covariance_time_ = frame->time();
+
+        // std::cout << "Covariance:\n" << last_kf_covariance_ << std::endl;
+
+        // Plxs_time_ = frame->time();
+        // Plxs_index_ = frame->index();
+
+        ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
+    } catch (gtsam::IndeterminantLinearSystemException& e) {
+        ROS_WARN("Covariance computation failed!");
+        return;
+    }
+}
+
+void SemanticMapper::computeCovariancesWithGtsamIsam()
+{
+    bool created_isam_now = false;
+
+    if (!isam_) {
+        gtsam::ISAM2Params isam_params;
+        isam_params.relinearizeThreshold = 0.5;
+        
+        isam_ = util::allocate_aligned<gtsam::ISAM2>(isam_params);
+        created_isam_now = true;
+    }
 
     TIME_TIC;
 
     // Just compute the most recent keyframe??
+    SemanticKeyframe::Ptr frame = getLastKeyframeInGraph();
+
+    if (!frame) return;
+
+    std::lock_guard<std::mutex> lock(graph_mutex_);
+
+    boost::shared_ptr<gtsam::NonlinearFactorGraph> gtsam_graph = graph_->getGtsamGraph();
+    boost::shared_ptr<gtsam::Values> gtsam_values = graph_->getGtsamValues();
+
+    gtsam::FactorIndices removed_factors = computeRemovedFactors(gtsam_graph);
+
+    auto incremental_graph = computeIncrementalGraph(gtsam_graph);
+    auto incremental_values = computeIncrementalValues(gtsam_values);
+
+    // Anchor the origin
+    if (created_isam_now) {
+        isam_origin_factor_ = util::allocate_aligned<gtsam::NonlinearEquality<gtsam::Pose3>>(
+            getKeyframeByIndex(0)->key(),
+            getKeyframeByIndex(0)->pose()
+        );
+
+        incremental_graph->push_back(isam_origin_factor_);
+    }
+
+    try {
+        // check...
+        // auto index = isam_->getVariableIndex();
+        // index.print("VARIABLE INDEX");
+
+        gtsam::ISAM2Result isam_result = isam_->update(*incremental_graph, *incremental_values, removed_factors);
+
+        // update factor indices
+        for (int i = 0; i < incremental_graph->size(); ++i) {
+            isam_factor_indices_[incremental_graph->at(i).get()] = isam_result.newFactorsIndices[i];
+        }
+
+        auto cov = isam_->marginalCovariance(frame->key());
+
+        std::lock_guard<std::mutex> map_lock(map_mutex_);
+        
+        frame->covariance() = cov;
+
+        last_kf_covariance_ = frame->covariance();
+        last_kf_covariance_time_ = frame->time();
+
+        // Plxs_time_ = frame->time();
+        // Plxs_index_ = frame->index();
+
+        std::cout << "Covariance:\n" << last_kf_covariance_ << std::endl;
+
+        ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
+    } catch (gtsam::IndeterminantLinearSystemException& e) {
+        ROS_WARN("Covariance computation failed!");
+        return;
+    }
+}
+
+SemanticKeyframe::Ptr
+SemanticMapper::getLastKeyframeInGraph()
+{
     SemanticKeyframe::Ptr frame = nullptr;
 
     for (int i = keyframes_.size() - 1; i >= 0; --i) {
@@ -371,167 +541,91 @@ void SemanticMapper::computeCovariances()
         }
     }
 
-    if (!frame) return;
+    return frame;
+}
 
-    boost::shared_ptr<gtsam::NonlinearFactorGraph> gtsam_graph = graph_->getGtsamGraph();
-    boost::shared_ptr<gtsam::Values> gtsam_values = graph_->getGtsamValues();
+gtsam::FactorIndices
+SemanticMapper::computeRemovedFactors(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph)
+{
+    gtsam::FactorIndices removed;
 
-    // Anchor the origin
-    // auto origin_factor = util::allocate_aligned<gtsam::NonlinearEquality<gtsam::Pose3>>(
-    //     getKeyframeByIndex(0)->key(),
-    //     getKeyframeByIndex(0)->pose()
-    // );
+    if (!factors_in_graph_) return removed;
+    
+    // Iterate over our factors and see aren't which in graph
+    for (auto our_fac : *factors_in_graph_) {
 
-    Eigen::VectorXd prior_noise(6);
-    prior_noise << 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4;
-    auto gtsam_prior_noise = gtsam::noiseModel::Diagonal::Sigmas(prior_noise);
-    auto origin_factor = util::allocate_aligned<gtsam::PriorFactor<gtsam::Pose3>>(
-        getKeyframeByIndex(0)->key(),
-        getKeyframeByIndex(0)->pose(),
-        gtsam_prior_noise
-    );
+        if (our_fac == isam_origin_factor_) continue;
 
-    gtsam_graph->push_back(origin_factor);
-
-    // try optimize...
-    /*
-    TIME_TIC;
-    gtsam::LevenbergMarquardtParams lm_params;
-    lm_params.setVerbosityLM("SUMMARY");
-    // lm_params.setVerbosity("ERROR");
-    lm_params.print("LM PARAMS");
-    gtsam::LevenbergMarquardtOptimizer optimizer(*gtsam_graph, *gtsam_values, lm_params);
-
-    // optimizer.params().ordering->print("ordering");
-
-    // gtsam_values->print("GTSAM values");
-    // gtsam_graph->print("GTSAM graph");
-
-    optimizer.optimize();
-
-    ROS_INFO_STREAM("GTSAM optimized in " << TIME_TOC << " ms.");
-    */
-
-    ROS_INFO_STREAM("Getting covariance for keyframe " << DefaultKeyFormatter(frame->key()));
-
-    try {
-        gtsam::Marginals marginals(*gtsam_graph, *gtsam_values);
-
-        frame->covariance() = marginals.marginalCovariance(frame->key());
-
-        last_kf_covariance_ = frame->covariance();
-        last_kf_covariance_time_ = frame->time();
-
-        // std::cout << "Covariance:\n" << last_kf_covariance_ << std::endl;
-
-        Plxs_time_ = frame->time();
-        Plxs_index_ = frame->index();
-
-        ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
-    } catch (gtsam::IndeterminantLinearSystemException& e) {
-        ROS_WARN("Covariance computation failed!");
-        return;
-    }
-
-
-    // bool cov_succeeded = graph_->computeMarginalCovariance({ frame->graph_node() });
-
-    // if (!cov_succeeded) {
-    //     ROS_WARN("Covariance computation failed!");
-    //     return;
-    // }
-
-    // std::lock_guard<std::mutex> map_lock(map_mutex_);
-
-    // frame->covariance() = graph_->getMarginalCovariance({ frame->graph_node() });
-
-    // last_kf_covariance_ = frame->covariance();
-    // last_kf_covariance_time_ = frame->time();
-
-    // std::cout << "Covariance:\n" << last_kf_covariance_ << std::endl;
-
-    // Plxs_time_ = frame->time();
-    // Plxs_index_ = frame->index();
-
-    // ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
-
-    /*
-
-    // Collect all landmark parameter blocks...
-    // TODO limit this somehow
-    std::vector<CeresNodePtr> landmark_nodes;
-    for (const auto& obj : estimated_objects_) {
-        if (obj->inGraph()) { // && unfrozen_objs_.count(obj->id())) {
-            for (const auto& kp : obj->getKeypoints()) {
-                landmark_nodes.push_back(kp->graph_node());
+        bool exists = false;
+        for (auto fac : *graph) {
+            if (our_fac == fac) {
+                exists = true;
+                break;
             }
         }
-    }
 
-    // Add the most recent processed keyframe
-    bool added_keyframe = false;
-    int kf_index = 0;
-    for (int i = keyframes_.size() - 1; i >= 0; --i) {
-        if (keyframes_[i]->inGraph()) { // && unfrozen_kfs_.count(keyframes_[i]->index())) {
-            added_keyframe = true;
-            kf_index = i;
-            landmark_nodes.push_back(keyframes_[kf_index]->graph_node());
-            break;
+        if (!exists) {
+            removed.push_back( isam_factor_indices_[our_fac.get()] );
+
+            // should probably remove the pair from isam_factor_indices_ too but whatever
         }
     }
 
-    bool cov_succeeded = graph_->computeMarginalCovariance(landmark_nodes);
+    return removed;
+}
 
-    if (!cov_succeeded) {
-        ROS_WARN("Covariance computation failed!");
-        return;
+boost::shared_ptr<gtsam::Values> 
+SemanticMapper::computeIncrementalValues(boost::shared_ptr<gtsam::Values> values)
+{   
+    // Compute a new values containing all *new* values
+    if (!values_in_graph_ ) {
+        values_in_graph_ = values;
+        return values;
     }
 
-    std::lock_guard<std::mutex> map_lock(map_mutex_);
+    auto new_values = util::allocate_aligned<gtsam::Values>();
 
-    for (const auto& obj : estimated_objects_) {
-        if (obj->inGraph()) { // && unfrozen_objs_.count(obj->id())) {
-            for (const auto& kp : obj->getKeypoints()) {
-                kp->covariance() = graph_->getMarginalCovariance({kp->graph_node()});
+    for (auto key_value : *values) {
+        if (values_in_graph_->find(key_value.key) == values_in_graph_->end()) {
+            new_values->insert(key_value.key, key_value.value);
+        }
+    }
+
+    values_in_graph_ = values;
+
+    return new_values;
+}
+
+boost::shared_ptr<gtsam::NonlinearFactorGraph> 
+SemanticMapper::computeIncrementalGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph)
+{
+    if (!factors_in_graph_) {
+        factors_in_graph_ = graph;
+        return graph;
+    }
+
+    // this will be slow...
+    auto new_graph = util::allocate_aligned<gtsam::NonlinearFactorGraph>();
+
+    for (auto fac : *graph) {
+
+        // compare to every existing factor
+        bool exists = false;
+        for (auto existing_fac : *factors_in_graph_) {
+            if (fac == existing_fac) {
+                exists = true;
+                break;
             }
         }
-    }
 
-    if (added_keyframe) {
-        keyframes_[kf_index]->covariance() = graph_->getMarginalCovariance({keyframes_[kf_index]->graph_node()});
-        last_kf_covariance_ = keyframes_[kf_index]->covariance();
-        last_kf_covariance_time_ = keyframes_[kf_index]->time();
-
-        for (const auto& obj : estimated_objects_) {
-            if (!obj->inGraph()) continue;
-
-            std::vector<CeresNodePtr> kp_nodes;
-            for (const auto& kp : obj->keypoints()) {
-                kp_nodes.push_back(kp->graph_node());
-            }
-
-            kp_nodes.push_back(keyframes_[kf_index]->graph_node());
-
-            Plxs_[obj->id()] = graph_->getMarginalCovariance(kp_nodes);
-
-            // if (obj->inGraph()) { // && unfrozen_objs_.count(obj->id())) {
-            //     for (const auto& kp : obj->getKeypoints()) {
-            //         Plxs_[kp->id()] = graph_->getMarginalCovariance({keyframes_[kf_index]->graph_node(),
-            //                                                         kp->graph_node()});
-            //     }
-            // }
+        if (!exists) {
+            new_graph->push_back(fac);
         }
-
-        Plxs_time_ = keyframes_[kf_index]->time();
-        Plxs_index_ = kf_index;
     }
 
-    auto t2 = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+    factors_in_graph_ = graph;
 
-    ROS_INFO_STREAM(fmt::format("Computed covariances in {} ms.", duration.count()/1000.0));
-
-    */
+    return new_graph;
 }
 
 void SemanticMapper::prepareGraphNodes() 
@@ -560,13 +654,7 @@ void SemanticMapper::commitGraphSolution()
     std::lock(map_lock, graph_lock);
 
     // Find the latest keyframe in the graph optimization to check the computed transformation
-    SemanticKeyframe::Ptr last_in_graph;
-    for (int i = keyframes_.size() - 1; i >= 0; --i) {
-        if (keyframes_[i]->inGraph()) {
-            last_in_graph = keyframes_[i];
-            break;
-        }
-    }
+    SemanticKeyframe::Ptr last_in_graph = getLastKeyframeInGraph();
 
     // for (auto& kf : keyframes_) {
     //     std::cout << kf->graph_node()->pose().rotation().coeffs().norm() << std::endl;
@@ -762,6 +850,7 @@ bool SemanticMapper::loadCalibration() {
 bool SemanticMapper::loadParameters()
 {
     std::string optimization_backend;
+    std::string covariance_backend;
 
     if (!pnh_.getParam("keypoint_activation_threshold", params_.keypoint_activation_threshold) ||
 
@@ -784,17 +873,32 @@ bool SemanticMapper::loadParameters()
         !pnh_.getParam("keyframe_translation_threshold", params_.keyframe_translation_threshold) ||
         !pnh_.getParam("keyframe_rotation_threshold", params_.keyframe_rotation_threshold) ||
         !pnh_.getParam("optimization_backend", optimization_backend) ||
+        !pnh_.getParam("covariance_backend", covariance_backend) ||
         !pnh_.getParam("include_geometric_features", include_geometric_features_) ||
-        !pnh_.getParam("verbose_optimization", verbose_optimization_)) {
+        !pnh_.getParam("verbose_optimization", verbose_optimization_) ||
+        !pnh_.getParam("covariance_delay", covariance_delay_) ||
+        !pnh_.getParam("max_optimization_time", max_optimization_time_)) {
 
         ROS_ERROR("Unable to load object handler parameters");
         return false;
     }
 
+    if (covariance_backend == "GTSAM") {
+        params_.covariance_backend = OptimizationBackend::GTSAM;
+    } else if (covariance_backend == "CERES") {
+        params_.covariance_backend = OptimizationBackend::CERES;
+    } else if (covariance_backend == "GTSAM_ISAM") {
+        params_.covariance_backend = OptimizationBackend::GTSAM_ISAM;
+    } else {
+        throw std::runtime_error("Unsupported covariance backend");
+    }
+
     if (optimization_backend == "GTSAM") {
         params_.optimization_backend = OptimizationBackend::GTSAM;
-    } else {
+    } else if (optimization_backend == "CERES") {
         params_.optimization_backend = OptimizationBackend::CERES;
+    } else {
+        throw std::runtime_error("Unsupported optimization backend");
     }
 
     return true;
@@ -872,6 +976,11 @@ SemanticMapper::tryFetchNextKeyframe()
                 if (next_keyframe) {
                     msg_queue_.pop_front();
                     next_keyframe->measurements = processObjectDetectionMessage(msg, next_keyframe->key());
+
+                    // Copy the most recent covariance into this frame for now as an OK approximation, it will
+                    // be updated later if we have the processing bandwidth.
+                    next_keyframe->covariance() = last_kf_covariance_;
+
                     keyframes_.push_back(next_keyframe);
                     break;
                 } else {
@@ -1054,8 +1163,10 @@ SemanticMapper::processObjectDetectionMessage(const object_pose_interface_msgs::
             kp_msmt.kp_class_id = i;
 
             // TODO what here?
-            // kp_msmt.pixel_sigma = 0.05 * bbox_dim;
-            kp_msmt.pixel_sigma = params_.keypoint_msmt_sigma;
+            kp_msmt.pixel_sigma = std::max(0.1 * bbox_dim, params_.keypoint_msmt_sigma);
+            // kp_msmt.pixel_sigma = params_.keypoint_msmt_sigma;
+
+            // ROS_INFO_STREAM("px sigma = " << kp_msmt.pixel_sigma);
 
             if (kp_msmt.score > params_.keypoint_activation_threshold)
             {
@@ -1085,82 +1196,75 @@ SemanticMapper::getObjectByKey(Key key)
 Eigen::MatrixXd
 SemanticMapper::getPlx(Key key1, Key key2)
 {
-    /*
-    TIME_TIC;
-    // Get most recent keyframe in graph
-    SemanticKeyframe::Ptr keyframe = nullptr;
-
-    for (int i = keyframes_.size() - 1; i >= 0; --i) {
-        if (keyframes_[i]->inGraph()) {
-            keyframe = keyframes_[i];
-            break;
-        }
-    }
-
-    // Collect landmarks & compute the covariances
+    // First get the covariances according to the *local* optimization
     auto obj = getObjectByKey(key1);
+    Eigen::MatrixXd Plx_local = obj->getPlx(key1, key2);
 
-    if (keyframe && obj && obj->inGraph()) {
-        std::vector<CeresNodePtr> nodes;
-        for (auto& kp : obj->keypoints()) {
-            nodes.push_back(kp->graph_node());
-        }
-        nodes.push_back(keyframe->graph_node());
+    // If the object isn't in the graph, this is the best we can do
+    if (!obj->inGraph()) return Plx_local;
 
-        std::lock_guard<std::mutex> lock(graph_mutex_);
-
-        bool cov_succeeded = graph_->computeMarginalCovariance(nodes);
-
-        if (cov_succeeded) {
-            Plxs_[obj->id()] = graph_->getMarginalCovariance(nodes);
-        }
-
-        ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
-    }
-
-    auto it = Plxs_.find(obj->id());
-    if (it != Plxs_.end()) {
-        const Eigen::MatrixXd& Plx = it->second;
-        return Plx;
-    } else {
-        size_t Plx_dim = 6 + 3*obj->keypoints().size();
-        return Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
-    }
-    */
-    
-    // TODO fix this
-
-    auto kf = getKeyframeByKey(key2);
-
-    auto kf_old = getKeyframeByIndex(Plxs_index_);
-
-    const Eigen::MatrixXd& Px1 = kf_old->odometry_covariance();
-    const Eigen::MatrixXd& Px2 = kf->odometry_covariance();
+    // Else we can account for the covariance between the most recent keyframe involved
+    // in the local optimization and the most recent keyframe in the graph.
+    // (computing the *actual* covariances between the graph keyframes and landmarks is way too
+    //  expensive to do, so we're making an approximation)
 
     // We're doing a weird trick here... TODO check it
-    // Assume that the odometry covariance can be approximated by a linear update,
+    // Assume that the covariance between keyframes can be approximated by a linear update,
     // i.e. P2 = H*P1*H' for some H.
-    // We don't have access to this H, but we have P1 and P2. Write them as L1*L1' and 
+    // We don't have access to this H, but we have P1 and P2. Take Cholesky and write them as L1*L1' and 
     // L2*L2', so L2*L2' = H*L1*L1'*H'. So we see L2 = H*L1 and can solve for it
-    Eigen::LLT<Eigen::MatrixXd> llt1(Px1);
-    Eigen::LLT<Eigen::MatrixXd> llt2(Px2);
 
-    Eigen::MatrixXd chol1 = llt1.matrixL();
+    // auto kf_old = getKeyframeByIndex(Plxs_index_);
 
-    auto obj = getObjectByKey(key1);
+    // Find the most recent camera pose that observed this object
+    int max_index = -1;
+    for (const auto& frame : obj->keyframe_observations()) {
+        max_index = std::max(frame->index(), max_index);
+    }
+
+    auto kf_old = getKeyframeByIndex(max_index);
+    auto kf = getKeyframeByKey(key2);
+
+    const Eigen::MatrixXd& Px1 = kf_old->covariance();
+    const Eigen::MatrixXd& Px2 = kf->covariance();
 
     size_t Plx_dim = 6 + 3*obj->keypoints().size();
 
     Eigen::MatrixXd H12 = Eigen::MatrixXd::Identity(Plx_dim, Plx_dim);
-    H12.bottomRightCorner<6,6>() = llt2.matrixL() * chol1.inverse();
 
-    auto it = Plxs_.find(Symbol(key1).index());
-    if (it != Plxs_.end()) {
-        const Eigen::MatrixXd& Plx = it->second;
-        return H12 * Plx * H12.transpose();
-    } else {
-        return Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
-    }
+    // Cholesky
+    /*
+    Eigen::LLT<Eigen::MatrixXd> llt1(Px1);
+    Eigen::LLT<Eigen::MatrixXd> llt2(Px2);
+
+    Eigen::TriangularView<const Eigen::MatrixXd, Eigen::Lower> L1 = llt1.matrixL();
+    Eigen::MatrixXd L2 = llt2.matrixL();
+    // H12.bottomRightCorner<6,6>() = llt2.matrixL() * L1.inverse();
+
+    H12.bottomRightCorner<6,6>() = L1.solve<Eigen::OnTheRight>(L2);
+    */
+
+    // Eigendecomposition
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> decomp1(Px1);
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> decomp2(Px2);
+
+    Eigen::MatrixXd L1 = decomp1.operatorSqrt();
+    Eigen::MatrixXd L2 = decomp2.operatorSqrt();
+
+    // compute L2 * L1^-1 
+    H12.bottomRightCorner<6,6>() = L1.transpose().ldlt().solve(L2.transpose()).transpose();
+
+    // std::cout << "H = \n" << H12.bottomRightCorner<6,6>() << std::endl;
+
+    return H12 * Plx_local * H12.transpose();
+
+    // auto it = Plxs_.find(Symbol(key1).index());
+    // if (it != Plxs_.end()) {
+    //     const Eigen::MatrixXd& Plx = it->second;
+    //     return H12 * Plx * H12.transpose();
+    // } else {
+    //     return Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
+    // }
 }
 
 bool SemanticMapper::updateObjects(SemanticKeyframe::Ptr kf,

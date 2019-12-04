@@ -1,4 +1,6 @@
-## Camera intrinsics
+## Calibration information
+
+# Intrinsics
 cam_model: Pinhole
 cam_height: 375
 cam_width: 1242
@@ -14,18 +16,23 @@ cam_d1: 0.0
 cam_d2: 0.0
 cam_d3: 0.0
 
+### Extrinsics between robot body (frame "I") and camera ("C")
+
+I_p_C: [0.0, 0.0, 0.0]
+I_q_C: [-0.5, 0.5, -0.5, 0.5] # IMU x forward, y left, z up <-> camera x right, y down, z forward
+
+## Optimization parameters
+covariance_delay: 5.0
+max_optimization_time: 2.0
+
 optimization_backend: "CERES"
 # optimization_backend: "GTSAM"
 
+# covariance_backend: "CERES"
+covariance_backend: "GTSAM"
+# covariance_backend: "GTSAM_ISAM"
+
 verbose_optimization: true
-
-## IMU/body info / calibration
-
-### Extrinsics
-
-I_p_C: [0.0, 0.0, 0.0]
-
-I_q_C: [-0.5, 0.5, -0.5, 0.5] # IMU x forward, y left, z up <-> camera x right, y down, z forward
 
 
 ## Feature_tracker parameters
@@ -43,7 +50,7 @@ reprojection_error_threshold: 4
 use_smart_projection_factors: true
 
 ### Semantic measurement parameters
-keypoint_msmt_sigma: 10                 # keypoint measurement sigma (pixels)
+keypoint_msmt_sigma: 15                 # keypoint measurement sigma (pixels)
 keypoint_initialization_depth_sigma: 2  # meters
 
 min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph

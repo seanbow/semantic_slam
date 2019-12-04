@@ -9,6 +9,11 @@
 void GeometricMapPresenter::setup()
 {
     pub_ = nh_.advertise<visualization_msgs::Marker>("map_points", 10);
+
+    if (!pnh_.getParam("geometric_point_scale", scale_)) {
+        ROS_ERROR("Unable to read visualization parameters");
+        scale_ = 0.5;
+    }
 }
 
 void GeometricMapPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
@@ -29,7 +34,7 @@ void GeometricMapPresenter::present(const std::vector<SemanticKeyframe::Ptr>& ke
     Eigen::Vector3d rgb_color(153, 0, 76);
     rgb_color /= 255;
 
-    double scale = 1;
+    double scale = scale_;
     points.scale.x = scale;
     points.scale.y = scale;
     points.color.r = rgb_color(0);

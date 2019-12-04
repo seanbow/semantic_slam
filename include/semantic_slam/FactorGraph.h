@@ -71,6 +71,9 @@ public:
     boost::shared_ptr<gtsam::NonlinearFactorGraph> getGtsamGraph() const;
     boost::shared_ptr<gtsam::Values> getGtsamValues() const;
 
+    boost::shared_ptr<gtsam::NonlinearFactorGraph> getIncrementalGtsamGraph();
+    boost::shared_ptr<gtsam::Values> getIncrementalGtsamValues();
+
 private:
     boost::shared_ptr<ceres::Problem> problem_;
 
@@ -85,6 +88,9 @@ private:
     boost::shared_ptr<ceres::Covariance> covariance_;
 
     std::mutex mutex_;
+
+    boost::shared_ptr<gtsam::NonlinearFactorGraph> incremental_gtsam_graph_;
+    boost::shared_ptr<gtsam::Values> incremental_gtsam_values_;
 };
 
 template <typename NodeType>

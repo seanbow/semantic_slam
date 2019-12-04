@@ -20,6 +20,9 @@ FactorGraph::FactorGraph()
     covariance_options_.num_threads = 4;
     // covariance_options_.algorithm_type = ceres::SPARSE_CHOLESKY;
     covariance_ = boost::make_shared<ceres::Covariance>(covariance_options_);
+
+    incremental_gtsam_graph_ = util::allocate_aligned<gtsam::NonlinearFactorGraph>();
+    incremental_gtsam_values_ = util::allocate_aligned<gtsam::Values>();
 }
 
 void FactorGraph::setSolverOptions(ceres::Solver::Options solver_options)
@@ -92,6 +95,8 @@ void FactorGraph::addNode(CeresNodePtr node)
     nodes_[node->key()] = node;
     node->addToProblem(problem_);
     modified_ = true;
+
+    incremental_gtsam_values_->insert(node->key(), *node->getGtsamValue());
 }
 
 void FactorGraph::addFactor(CeresFactorPtr factor)
@@ -101,6 +106,8 @@ void FactorGraph::addFactor(CeresFactorPtr factor)
     factors_.push_back(factor);
     factor->addToProblem(problem_);
     modified_ = true;
+
+    factor->addToGtsamGraph(incremental_gtsam_graph_);
 }
 
 void FactorGraph::addFactors(std::vector<CeresFactorPtr> factors)
@@ -110,6 +117,8 @@ void FactorGraph::addFactors(std::vector<CeresFactorPtr> factors)
         if (!factor) continue;
         factors_.push_back(factor);
         factor->addToProblem(problem_);
+
+        factor->addToGtsamGraph(incremental_gtsam_graph_);
     }
     modified_ = true;
 }
@@ -454,6 +463,16 @@ FactorGraph::getGtsamGraph() const
     return graph;
 }
 
+boost::shared_ptr<gtsam::NonlinearFactorGraph>
+FactorGraph::getIncrementalGtsamGraph()
+{
+    auto graph = incremental_gtsam_graph_;
+
+    incremental_gtsam_graph_ = util::allocate_aligned<gtsam::NonlinearFactorGraph>();
+
+    return graph;
+}
+
 boost::shared_ptr<gtsam::Values>
 FactorGraph::getGtsamValues() const
 {
@@ -462,6 +481,16 @@ FactorGraph::getGtsamValues() const
     for (auto node : nodes_) {
         if (node.second->active()) values->insert(node.first, *node.second->getGtsamValue());
     }
+
+    return values;
+}
+
+boost::shared_ptr<gtsam::Values>
+FactorGraph::getIncrementalGtsamValues()
+{
+    auto values = incremental_gtsam_values_;
+
+    incremental_gtsam_values_ = util::allocate_aligned<gtsam::Values>();
 
     return values;
 }

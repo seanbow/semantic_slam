@@ -59,7 +59,7 @@ private:
 
     std::vector<SE3NodePtr> body_poses_;
     aligned_vector<Eigen::Vector2d> msmts_;
-    // aligned_vector<Eigen::Matrix2d> covariances_;
+    aligned_vector<Eigen::Matrix2d> covariances_;
     aligned_vector<Eigen::Matrix2d> sqrt_informations_;
 
     mutable aligned_vector<Pose3> triangulation_poses_;
