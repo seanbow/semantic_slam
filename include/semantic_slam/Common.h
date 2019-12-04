@@ -53,10 +53,9 @@ struct ObjectParams
 
   double structure_regularization_factor;
 
-  OptimizationBackend optimization_backend;
+  OptimizationBackend optimization_backend; // CERES or GTSAM
 
-  double landmark_merge_threshold;		 //< Threshold on between-landmark bhattacharyya distance below which to merge
-										 //landmarks
+  double landmark_merge_threshold;		 //< Threshold on between-landmark bhattacharyya distance below which to merge landmarks
   double probability_landmark_new;		 //< fixed probability that a measurement corresponds to a new landmark
   double constraint_weight_threshold;	//< if weight of a constraint is < this do not add to factor graph
   double new_landmark_weight_threshold;  //< same as above but for new landmark initializations

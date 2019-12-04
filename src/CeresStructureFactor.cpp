@@ -61,11 +61,15 @@ void CeresStructureFactor::addToProblem(boost::shared_ptr<ceres::Problem> proble
     }
 
     residual_id_ = problem->AddResidualBlock(cf_, NULL, blocks);
+
+    active_ = true;
 }
 
 void CeresStructureFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
 {
     problem->RemoveResidualBlock(residual_id_);
+
+    active_ = false;
 }
 
 
@@ -79,5 +83,5 @@ CeresStructureFactor::getGtsamFactor() const
 void 
 CeresStructureFactor::addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const
 {
-    graph->push_back(getGtsamFactor());
+    graph->push_back(gtsam_factor_);
 }

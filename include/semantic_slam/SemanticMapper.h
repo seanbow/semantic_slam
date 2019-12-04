@@ -135,7 +135,11 @@ private:
     std::vector<EstimatedObject::Ptr> estimated_objects_;
 
     boost::shared_ptr<ExternalOdometryHandler> odometry_handler_;
+
+    bool include_geometric_features_;
     boost::shared_ptr<GeometricFeatureHandler> geom_handler_;
+
+    bool verbose_optimization_;
 
     // A list of tracking IDs that are associated with each estimated object
     // for example if the object tracks 3 and 8 are associated with the same physical object 2,

@@ -11,6 +11,11 @@ cam_d1: 0.0
 cam_d2: 0.0
 cam_d3: 0.0
 
+optimization_backend: "CERES"
+# optimization_backend: "GTSAM"
+
+verbose_optimization: true
+
 ## IMU/body info / calibration
 
 ### Extrinsics
@@ -28,6 +33,7 @@ sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = mo
 ## Semslam parameters
 
 ### Geometric feature parameters
+include_geometric_features: true
 cam_sigma: 5
 reprojection_error_threshold: 4
 use_smart_projection_factors: false

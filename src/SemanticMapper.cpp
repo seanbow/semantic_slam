@@ -165,7 +165,7 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
 
         if (new_frames.size() > 0) {
             
-            processGeometricFeatureTracks(new_frames);
+            if (include_geometric_features_) processGeometricFeatureTracks(new_frames);
             
             tryAddObjectsToGraph();
             
@@ -359,7 +359,7 @@ void SemanticMapper::computeCovariances()
 {
     std::lock_guard<std::mutex> lock(graph_mutex_);
 
-    // TIME_TIC;
+    TIME_TIC;
 
     // Just compute the most recent keyframe??
     SemanticKeyframe::Ptr frame = nullptr;
@@ -427,7 +427,7 @@ void SemanticMapper::computeCovariances()
         Plxs_time_ = frame->time();
         Plxs_index_ = frame->index();
 
-        // ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
+        ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
     } catch (gtsam::IndeterminantLinearSystemException& e) {
         ROS_WARN("Covariance computation failed!");
         return;
@@ -582,7 +582,7 @@ void SemanticMapper::commitGraphSolution()
         Pose3 old_T_new = old_pose.inverse() * new_pose;
         old_T_new.rotation().normalize();
 
-        ROS_INFO_STREAM("Pose difference = " << old_T_new);
+        // ROS_INFO_STREAM("Pose difference = " << old_T_new);
 
         for (auto& kf : keyframes_) {
             if (kf->inGraph()) {
@@ -634,7 +634,7 @@ bool SemanticMapper::tryOptimize() {
     
     auto t1 = std::chrono::high_resolution_clock::now();
 
-    if (params_.optimization_backend == OptimizationBackend::CERES) prepareGraphNodes();
+    prepareGraphNodes();
 
     bool solve_succeeded = solveGraph();
 
@@ -677,10 +677,17 @@ bool SemanticMapper::solveGraph()
         gtsam_graph->push_back(origin_factor);
 
         gtsam::LevenbergMarquardtParams lm_params;
+        lm_params.orderingType = gtsam::Ordering::OrderingType::METIS;
         lm_params.setVerbosityLM("SUMMARY");
         // lm_params.setVerbosity("ERROR");
-        lm_params.print("LM PARAMS");
+        // lm_params.print("LM PARAMS");
         gtsam::LevenbergMarquardtOptimizer optimizer(*gtsam_graph, *gtsam_values, lm_params);
+
+        // optimizer.params().ordering->print("ordering");
+
+        // gtsam_graph->print("graph:");
+
+        // gtsam::LevenbergMarquardtOptimizer optimizer(*gtsam_graph, *gtsam_values);
 
         try {
             gtsam_values_ = optimizer.optimize();
@@ -776,16 +783,18 @@ bool SemanticMapper::loadParameters()
         !pnh_.getParam("min_observed_keypoints_to_initialize", params_.min_observed_keypoints_to_initialize) ||
         !pnh_.getParam("keyframe_translation_threshold", params_.keyframe_translation_threshold) ||
         !pnh_.getParam("keyframe_rotation_threshold", params_.keyframe_rotation_threshold) ||
-        !pnh_.getParam("optimization_backend", optimization_backend)) {
+        !pnh_.getParam("optimization_backend", optimization_backend) ||
+        !pnh_.getParam("include_geometric_features", include_geometric_features_) ||
+        !pnh_.getParam("verbose_optimization", verbose_optimization_)) {
 
         ROS_ERROR("Unable to load object handler parameters");
         return false;
     }
 
-    if (optimization_backend == "CERES") {
-        params_.optimization_backend = OptimizationBackend::CERES;
-    } else {
+    if (optimization_backend == "GTSAM") {
         params_.optimization_backend = OptimizationBackend::GTSAM;
+    } else {
+        params_.optimization_backend = OptimizationBackend::CERES;
     }
 
     return true;
