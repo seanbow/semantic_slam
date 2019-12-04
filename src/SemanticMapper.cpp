@@ -1156,8 +1156,7 @@ SemanticMapper::processObjectDetectionMessage(const object_pose_interface_msgs::
             if (result.Z_covariance.size() > 0) {
                 kp_msmt.depth_sigma = std::sqrt(result.Z_covariance(i));
             } else {
-                // TODO what here?
-                kp_msmt.depth_sigma = 5;
+                kp_msmt.depth_sigma = params_.keypoint_initialization_depth_sigma;
             }
 
             kp_msmt.kp_class_id = i;
@@ -1225,12 +1224,18 @@ SemanticMapper::getPlx(Key key1, Key key2)
     auto kf_old = getKeyframeByIndex(max_index);
     auto kf = getKeyframeByKey(key2);
 
+    size_t Plx_dim = 6 + 3*obj->keypoints().size();
+    Eigen::MatrixXd H12 = Eigen::MatrixXd::Identity(Plx_dim, Plx_dim);
+
+    if (kf_old->index() == kf->index()) {
+        return Plx_local;
+    }
+
+    // ROS_INFO_STREAM("Difference between this keyframe and last observed: " << kf->index() - max_index);
+
     const Eigen::MatrixXd& Px1 = kf_old->covariance();
     const Eigen::MatrixXd& Px2 = kf->covariance();
 
-    size_t Plx_dim = 6 + 3*obj->keypoints().size();
-
-    Eigen::MatrixXd H12 = Eigen::MatrixXd::Identity(Plx_dim, Plx_dim);
 
     // Cholesky
     /*

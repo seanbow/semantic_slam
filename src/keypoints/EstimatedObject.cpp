@@ -328,7 +328,7 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
 
   std::vector<double> matched_distances;
 
-  Eigen::MatrixXd Plx = getPlx(sym::O(id()), msmt.observed_key);
+  Eigen::MatrixXd Plx = mapper_->getPlx(sym::O(id()), msmt.observed_key);
 
   // assemble the keypoint measurement vector & Jacobians
   Eigen::VectorXd msmt_vec = Eigen::VectorXd::Zero(2 * keypoints_.size());

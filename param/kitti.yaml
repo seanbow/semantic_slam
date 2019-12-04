@@ -79,7 +79,7 @@ keypoint_activation_threshold: 0.2     # threshold above which to consider a key
 mahal_thresh_assign: 4                  # Mahalanobis distance below which to assign data (MLDataAssociator)
 mahal_thresh_init: 25                   # Mahalanobis distance above which to assign new mapped landmarks (MLDataAssociator)
 
-max_new_factor_error: 300
+# max_new_factor_error: 300
 
 constraint_weight_threshold: 0.8        # if the weight of a constraint (i.e., an object measurement) is less than this do not incorporate the keypoint measurements corresponding to this object
 new_landmark_weight_threshold: 0.9      # if the weight of the last column in the weights matrix for a measurement is greater than this value, add a new object to the estimated_objects_ vector
@@ -90,8 +90,11 @@ model_directory: "/home/kodlab/catkin_ws/src/object_pose_detection/semslam/semsl
 
 gravity: [0, 0, -9.81]
 
-init_p: [0, 0, 0]
-init_p_sigma: [1.0e-7, 1.0e-7, 1.0e-7]
+# init_p: [0, 0, 0]
+# init_p_sigma: [1.0e-7, 1.0e-7, 1.0e-7]
 
-init_q: [0, 0, 0, 1]
-init_q_sigma: [0.02, 0.02, 0.02]
+# init_q: [0, 0, 0, 1]
+# init_q_sigma: [0.02, 0.02, 0.02]
+
+## Visualization
+geometric_point_scale: 0.1
