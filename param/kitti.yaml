@@ -47,7 +47,7 @@ sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = mo
 include_geometric_features: true
 cam_sigma: 6
 reprojection_error_threshold: 4
-use_smart_projection_factors: true
+use_smart_projection_factors: false
 
 ### Semantic measurement parameters
 keypoint_msmt_sigma: 15                 # keypoint measurement sigma (pixels)

@@ -150,6 +150,7 @@ target_link_libraries(ExternalOdometryHandler
 
 add_library(MultiProjectionFactor src/MultiProjectionFactor.cpp)
 target_link_libraries(MultiProjectionFactor
+  Camera
   CameraSet
   ${CERES_LIBRARIES}
   ${BASE_LIBS}
@@ -157,6 +158,7 @@ target_link_libraries(MultiProjectionFactor
 
 add_library(SmartProjectionFactor src/SmartProjectionFactor.cpp)
 target_link_libraries(SmartProjectionFactor
+  Camera
   ${CERES_LIBRARIES}
   ${BASE_LIBS}
 )
@@ -350,6 +352,7 @@ target_link_libraries(object_tracking_node
 catkin_add_gtest(testFactorGraph test/testFactorGraph.cpp)
 target_link_libraries(testFactorGraph 
     FactorGraph
+    gtsam
     ${CERES_LIBRARIES}
     ${BASE_LIBS}
 )
@@ -359,7 +362,7 @@ target_link_libraries(testCeresBasics
     FactorGraph
     CeresBetweenFactor
     ${CERES_LIBRARIES}
-    # gtsam
+    gtsam
     ${BASE_LIBS}
 )
 
@@ -371,6 +374,7 @@ target_link_libraries(testProjectionFactors
     CeresProjectionFactor
     ${CERES_LIBRARIES}
     ${BASE_LIBS}
+    gtsam
 )
 
 
