@@ -1,5 +1,8 @@
 #include "semantic_slam/MultiProjectionFactor.h"
 
+#include <gtsam/slam/ProjectionFactor.h>
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
+
 MultiProjectionFactor::MultiProjectionFactor(Vector3dNodePtr landmark_node, 
                                             const Pose3& body_T_sensor,
                                             boost::shared_ptr<CameraCalibration> calibration,
@@ -11,7 +14,6 @@ MultiProjectionFactor::MultiProjectionFactor(Vector3dNodePtr landmark_node,
       calibration_(calibration),
       reprojection_error_threshold_(reprojection_error_threshold),
       in_graph_(false),
-      active_(false),
       problem_(nullptr),
       triangulation_good_(false)
 {
@@ -20,6 +22,8 @@ MultiProjectionFactor::MultiProjectionFactor(Vector3dNodePtr landmark_node,
     // [pt q1 p1 q2 p2 ... qn pn]
     mutable_parameter_block_sizes()->push_back(3); // add landmark parameter block
     parameter_blocks_.push_back(landmark_node_->vector().data());
+
+    nodes_.push_back(landmark_node_);
 }
 
 size_t MultiProjectionFactor::nMeasurements() const
@@ -105,9 +109,28 @@ void MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
                                         const Eigen::Vector2d& pixel_coords, 
                                         const Eigen::Matrix2d& msmt_covariance)
 {
+    // Compute the reprojection error...
+    if (in_graph_) {
+        try {
+            Camera camera(body_pose_node->pose().compose(I_T_C_), calibration_);
+            Eigen::Vector2d zhat = camera.project(landmark_node_->vector());
+            double error = (pixel_coords - zhat).transpose() * msmt_covariance.llt().solve(pixel_coords - zhat);
+
+            if (error > chi2inv99(2) || !std::isfinite(error)) return;
+
+            // ROS_INFO_STREAM("[SmartProjectionFactor] Added measurement with reprojection error " << error);
+            // std::cout << " zhat = " << zhat.transpose() << " ; msmt = " << pixel_coords.transpose() << std::endl;
+        } catch (CheiralityException& e) {
+            return;
+            // ROS_INFO_STREAM("[SmartProjectionFactor] Added measurement behind camera!");
+        }
+    }
+
     body_poses_.push_back(body_pose_node);
     msmts_.push_back(pixel_coords);
     // covariances_.push_back(msmt_covariance);
+
+    nodes_.push_back(body_pose_node);
 
     sqrt_informations_.push_back(Eigen::Matrix2d::Identity());
     Eigen::Matrix2d sqrtC = msmt_covariance.llt().matrixL();
@@ -131,6 +154,18 @@ void MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
     if (in_graph_) {
         addToProblem(problem_);
     }
+
+    // gtsam support
+    auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(msmt_covariance);
+    auto gtsam_fac = util::allocate_aligned<GtsamFactorType>(
+        pixel_coords,
+        gtsam_noise,
+        body_pose_node->key(),
+        landmark_node_->key(),
+        util::allocate_aligned<gtsam::Cal3DS2>(*calibration_),
+        gtsam::Pose3(I_T_C_)
+    );
+    gtsam_factors_.push_back(gtsam_fac);
 }
 
 bool MultiProjectionFactor::Evaluate(double const* const* parameters, 
@@ -231,4 +266,16 @@ bool MultiProjectionFactor::Evaluate(double const* const* parameters,
     }
 
     return true;
+}
+
+void
+MultiProjectionFactor::addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const
+{
+    // for (int i = 0; i < msmts_.size(); ++i) {
+    //     if (body_poses_[i]->active()) {
+    //         graph->push_back(gtsam_factors_[i]);
+    //     } 
+    // }
+
+    for (auto& f : gtsam_factors_) graph->push_back(f);
 }

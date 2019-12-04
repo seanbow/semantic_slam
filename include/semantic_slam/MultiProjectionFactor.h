@@ -12,6 +12,11 @@
 #include <ceres/ceres.h>
 #include <eigen3/Eigen/Core>
 
+namespace gtsam {
+template <typename Pose, typename Landmark, typename Calibration>
+class GenericProjectionFactor;
+}
+
 class MultiProjectionFactor : public CeresFactor, public ceres::CostFunction
 {
 public:
@@ -42,9 +47,10 @@ public:
     bool Evaluate(double const* const* parameters, double* residuals, double** jacobians) const;
 
     bool inGraph() const { return in_graph_; }
-    bool active() const { return active_; }
 
     void triangulate();
+
+    void addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
 private:
     Vector3dNodePtr landmark_node_;
@@ -63,10 +69,12 @@ private:
     double reprojection_error_threshold_;
 
     bool in_graph_;
-    bool active_;
     boost::shared_ptr<ceres::Problem> problem_;
 
     bool triangulation_good_;
+
+    using GtsamFactorType = gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3DS2>;
+    std::vector<boost::shared_ptr<GtsamFactorType>> gtsam_factors_;
 
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

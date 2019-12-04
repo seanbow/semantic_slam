@@ -14,6 +14,9 @@ cam_d1: 0.0
 cam_d2: 0.0
 cam_d3: 0.0
 
+optimization_backend: "CERES"
+# optimization_backend: "GTSAM"
+
 ## IMU/body info / calibration
 
 ### Extrinsics
@@ -57,9 +60,9 @@ include_objects_in_graph: true
 # where W = (1/structure_error_coefficient) * I
 # i.e. this is an inverse "noise" like value where higher = more penalty for 
 # deviations from the calculated object structure
-structure_error_coefficient: 1000
+structure_error_coefficient: 100
 
-keypoint_activation_threshold: 0.3     # threshold above which to consider a keypoint observed
+keypoint_activation_threshold: 0.2     # threshold above which to consider a keypoint observed
 
 # camera_range: 10                        # meters
 

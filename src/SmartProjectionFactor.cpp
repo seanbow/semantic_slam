@@ -1,6 +1,7 @@
 #include "semantic_slam/SmartProjectionFactor.h"
 
 #include <gtsam/slam/SmartProjectionPoseFactor.h>
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
 
 SmartProjectionFactor::SmartProjectionFactor(const Pose3& body_T_sensor,
                                             boost::shared_ptr<CameraCalibration> calibration,
@@ -11,7 +12,6 @@ SmartProjectionFactor::SmartProjectionFactor(const Pose3& body_T_sensor,
       calibration_(calibration),
       reprojection_error_threshold_(reprojection_error_threshold),
       in_graph_(false),
-      active_(false),
       problem_(nullptr),
       triangulation_good_(false)
 {
@@ -113,8 +113,26 @@ void SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
                                         const Eigen::Vector2d& pixel_coords, 
                                         const Eigen::Matrix2d& msmt_covariance)
 {
+    // Compute the reprojection error...
+    if (in_graph_) {
+        try {
+            Camera camera(body_pose_node->pose().compose(I_T_C_), calibration_);
+            Eigen::Vector2d zhat = camera.project(landmark_position_);
+            double error = (pixel_coords - zhat).transpose() * msmt_covariance.llt().solve(pixel_coords - zhat);
+
+            if (error > chi2inv99(2) || !std::isfinite(error)) return;
+
+            // ROS_INFO_STREAM("[SmartProjectionFactor] Added measurement with reprojection error " << error);
+            // std::cout << " zhat = " << zhat.transpose() << " ; msmt = " << pixel_coords.transpose() << std::endl;
+        } catch (CheiralityException& e) {
+            return;
+            // ROS_INFO_STREAM("[SmartProjectionFactor] Added measurement behind camera!");
+        }
+    }
+
     body_poses_.push_back(body_pose_node);
     msmts_.push_back(pixel_coords);
+    nodes_.push_back(body_pose_node);
     // covariances_.push_back(msmt_covariance);
 
     sqrt_informations_.push_back(Eigen::Matrix2d::Identity());
@@ -244,4 +262,10 @@ boost::shared_ptr<gtsam::NonlinearFactor>
 SmartProjectionFactor::getGtsamFactor() const
 {
     return gtsam_factor_;
+}
+
+void 
+SmartProjectionFactor::addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const
+{
+    graph->push_back(gtsam_factor_);
 }

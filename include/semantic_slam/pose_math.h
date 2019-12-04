@@ -12,6 +12,8 @@ public:
   Pose3();
   Pose3(Eigen::Quaterniond q, Eigen::Vector3d p);
 
+  Pose3(const gtsam::Pose3& pose);
+
   static Pose3 Identity();
 
   const Eigen::Quaterniond& rotation() const { return q_; }
@@ -79,6 +81,12 @@ Pose3::Pose3(Eigen::Quaterniond q, Eigen::Vector3d p)
 {
 }
 
+Pose3::Pose3(const gtsam::Pose3& pose)
+  : q_(pose.rotation().toQuaternion()),
+    p_(pose.translation())
+{
+}
+
 Pose3
 Pose3::Identity()
 {
@@ -88,7 +96,7 @@ Pose3::Identity()
 Pose3
 Pose3::inverse(boost::optional<Eigen::MatrixXd&> H) const
 {
-    Eigen::Quaterniond q_inv = q_.conjugate();
+    Eigen::Quaterniond q_inv = q_.inverse();
     Pose3 inverted(q_inv, -(q_inv * p_));
 
     if (H) {

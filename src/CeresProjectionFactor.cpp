@@ -3,6 +3,7 @@
 
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/geometry/Cal3DS2.h>
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
 
 CeresProjectionFactor::CeresProjectionFactor(SE3NodePtr camera_node,
                           Vector3dNodePtr landmark_node,
@@ -26,6 +27,9 @@ CeresProjectionFactor::CeresProjectionFactor(SE3NodePtr camera_node,
                                      body_T_sensor.rotation(),
                                      body_T_sensor.translation(),
                                      calibration);
+
+    nodes_.push_back(camera_node);
+    nodes_.push_back(landmark_node);
 }
 
 CeresProjectionFactor::~CeresProjectionFactor()
@@ -41,6 +45,8 @@ void CeresProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> probl
     } else {
         lf = NULL;
     }
+    
+    active_ = true;
 
     residual_id_ = problem->AddResidualBlock(cf_, 
                                             lf, 
@@ -52,6 +58,7 @@ void CeresProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> probl
 
 void CeresProjectionFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
 {
+    active_ = false;
     problem->RemoveResidualBlock(residual_id_);
 }
 
@@ -70,4 +77,10 @@ CeresProjectionFactor::getGtsamFactor() const
         gtsam_calib,
         gtsam::Pose3(body_T_sensor_)
     );
+}
+
+void 
+CeresProjectionFactor::addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const
+{
+    graph->push_back(getGtsamFactor());
 }

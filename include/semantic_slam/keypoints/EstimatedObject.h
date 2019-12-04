@@ -14,6 +14,8 @@
 
 #include <boost/enable_shared_from_this.hpp>
 
+#include <gtsam/nonlinear/Values.h>
+
 class SemanticKeyframe;
 class SemanticMapper;
 
@@ -37,6 +39,8 @@ public:
   // void updateAndCheck(uint64_t pose_id, const gtsam::Values& estimate);
   void update(CeresNodePtr spur_node);
 
+  void updateGraphFactors();
+
   // bool checkMerge(const EstimatedObject& other_obj);
 
   // void mergeWith(EstimatedObject& obj2);
@@ -55,6 +59,8 @@ public:
 
   void commitGraphSolution();
   void prepareGraphNode();
+
+  void commitGtsamSolution(const gtsam::Values& values);
 
   // void setPose(const Pose3 &pose)
   // {

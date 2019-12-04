@@ -50,6 +50,7 @@ public:
     bool decideIfTriangulate(const aligned_vector<Pose3>& body_poses) const;
 
     boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
+    void addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
 private:
     mutable Eigen::Vector3d landmark_position_;
@@ -70,7 +71,6 @@ private:
     double reprojection_error_threshold_;
 
     bool in_graph_;
-    bool active_;
     boost::shared_ptr<ceres::Problem> problem_;
 
     mutable bool triangulation_good_;

@@ -14,6 +14,12 @@
 
 #include <visualization_msgs/MarkerArray.h>
 
+#include <gtsam/nonlinear/Values.h>
+#include <gtsam/nonlinear/Marginals.h>
+#include <gtsam/nonlinear/NonlinearEquality.h>
+#include <gtsam/slam/PriorFactor.h>
+#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+
 using namespace std::string_literals;
 namespace sym = symbol_shorthand;
 
@@ -54,25 +60,27 @@ void SemanticMapper::setup()
     loadParameters();
 
     ceres::Solver::Options solver_options;
-    solver_options.trust_region_strategy_type = ceres::DOGLEG;
-    // solver_options_.dogleg_type = ceres::SUBSPACE_DOGLEG;
+    // solver_options.trust_region_strategy_type = ceres::DOGLEG;
+    // solver_options.dogleg_type = ceres::SUBSPACE_DOGLEG;
 
-    // solver_options_.function_tolerance = 1e-4;
-    // solver_options_.gradient_tolerance = 1e-8;
+    // solver_options.function_tolerance = 1e-4;
+    // solver_options.gradient_tolerance = 1e-8;
 
-    solver_options.max_num_iterations = 10;
+    // solver_options.max_num_iterations = 10;
 
-    // solver_options_.minimizer_type = ceres::LINE_SEARCH;
+    solver_options.max_solver_time_in_seconds = 1.0;
 
-    // solver_options_.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    // solver_options_.preconditioner_type = ceres::SCHUR_JACOBI;
-    // solver_options_.use_explicit_schur_complement = true;
+    // solver_options.minimizer_type = ceres::LINE_SEARCH;
 
-    // solver_options_.linear_solver_type = ceres::CGNR;
+    solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+    // solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+    // solver_options.use_explicit_schur_complement = true;
 
-    // solver_options_.linear_solver_type = ceres::SPARSE_SCHUR;
-    // solver_options_.linear_solver_type = ceres::DENSE_SCHUR; // todo
-    // solver_options_.linear_solver_type = ceres::DENSE_QR; // todo
+    // solver_options.linear_solver_type = ceres::CGNR;
+
+    // solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    // solver_options.linear_solver_type = ceres::DENSE_SCHUR; // todo
+    // solver_options.linear_solver_type = ceres::DENSE_QR; // todo
     solver_options.num_threads = 4;
 
     graph_->setSolverOptions(solver_options);
@@ -155,14 +163,12 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
     while (ros::ok() && running_) {
         auto new_frames = addNewOdometryToGraph();
 
-
         if (new_frames.size() > 0) {
             
             processGeometricFeatureTracks(new_frames);
             
             tryAddObjectsToGraph();
             
-
             freezeNonCovisible(new_frames);
 
             bool did_optimize = tryOptimize();
@@ -323,9 +329,12 @@ void SemanticMapper::tryAddObjectsToGraph()
 {
     if (!params_.include_objects_in_graph) return;
 
+    std::lock_guard<std::mutex> lock(graph_mutex_);
+
     for (auto& obj : estimated_objects_) {
-        if (obj->readyToAddToGraph()) {
-            std::lock_guard<std::mutex> lock(graph_mutex_);
+        if (obj->inGraph()) {
+            obj->updateGraphFactors();
+        } else if (obj->readyToAddToGraph()) {
             obj->addToGraph();
         }
     }
@@ -350,7 +359,7 @@ void SemanticMapper::computeCovariances()
 {
     std::lock_guard<std::mutex> lock(graph_mutex_);
 
-    TIME_TIC;
+    // TIME_TIC;
 
     // Just compute the most recent keyframe??
     SemanticKeyframe::Ptr frame = nullptr;
@@ -364,25 +373,87 @@ void SemanticMapper::computeCovariances()
 
     if (!frame) return;
 
-    bool cov_succeeded = graph_->computeMarginalCovariance({ frame->graph_node() });
+    boost::shared_ptr<gtsam::NonlinearFactorGraph> gtsam_graph = graph_->getGtsamGraph();
+    boost::shared_ptr<gtsam::Values> gtsam_values = graph_->getGtsamValues();
 
-    if (!cov_succeeded) {
+    // Anchor the origin
+    // auto origin_factor = util::allocate_aligned<gtsam::NonlinearEquality<gtsam::Pose3>>(
+    //     getKeyframeByIndex(0)->key(),
+    //     getKeyframeByIndex(0)->pose()
+    // );
+
+    Eigen::VectorXd prior_noise(6);
+    prior_noise << 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4;
+    auto gtsam_prior_noise = gtsam::noiseModel::Diagonal::Sigmas(prior_noise);
+    auto origin_factor = util::allocate_aligned<gtsam::PriorFactor<gtsam::Pose3>>(
+        getKeyframeByIndex(0)->key(),
+        getKeyframeByIndex(0)->pose(),
+        gtsam_prior_noise
+    );
+
+    gtsam_graph->push_back(origin_factor);
+
+    // try optimize...
+    /*
+    TIME_TIC;
+    gtsam::LevenbergMarquardtParams lm_params;
+    lm_params.setVerbosityLM("SUMMARY");
+    // lm_params.setVerbosity("ERROR");
+    lm_params.print("LM PARAMS");
+    gtsam::LevenbergMarquardtOptimizer optimizer(*gtsam_graph, *gtsam_values, lm_params);
+
+    // optimizer.params().ordering->print("ordering");
+
+    // gtsam_values->print("GTSAM values");
+    // gtsam_graph->print("GTSAM graph");
+
+    optimizer.optimize();
+
+    ROS_INFO_STREAM("GTSAM optimized in " << TIME_TOC << " ms.");
+    */
+
+    ROS_INFO_STREAM("Getting covariance for keyframe " << DefaultKeyFormatter(frame->key()));
+
+    try {
+        gtsam::Marginals marginals(*gtsam_graph, *gtsam_values);
+
+        frame->covariance() = marginals.marginalCovariance(frame->key());
+
+        last_kf_covariance_ = frame->covariance();
+        last_kf_covariance_time_ = frame->time();
+
+        // std::cout << "Covariance:\n" << last_kf_covariance_ << std::endl;
+
+        Plxs_time_ = frame->time();
+        Plxs_index_ = frame->index();
+
+        // ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
+    } catch (gtsam::IndeterminantLinearSystemException& e) {
         ROS_WARN("Covariance computation failed!");
         return;
     }
 
-    std::lock_guard<std::mutex> map_lock(map_mutex_);
 
-    frame->covariance() = graph_->getMarginalCovariance({ frame->graph_node() });
-    last_kf_covariance_ = frame->covariance();
-    last_kf_covariance_time_ = frame->time();
+    // bool cov_succeeded = graph_->computeMarginalCovariance({ frame->graph_node() });
 
-    std::cout << "Covariance:\n" << last_kf_covariance_ << std::endl;
+    // if (!cov_succeeded) {
+    //     ROS_WARN("Covariance computation failed!");
+    //     return;
+    // }
 
-    Plxs_time_ = frame->time();
-    Plxs_index_ = frame->index();
+    // std::lock_guard<std::mutex> map_lock(map_mutex_);
 
-    ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
+    // frame->covariance() = graph_->getMarginalCovariance({ frame->graph_node() });
+
+    // last_kf_covariance_ = frame->covariance();
+    // last_kf_covariance_time_ = frame->time();
+
+    // std::cout << "Covariance:\n" << last_kf_covariance_ << std::endl;
+
+    // Plxs_time_ = frame->time();
+    // Plxs_index_ = frame->index();
+
+    // ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
 
     /*
 
@@ -502,31 +573,58 @@ void SemanticMapper::commitGraphSolution()
     // }
 
     const Pose3& old_pose = last_in_graph->pose();
-    const Pose3& new_pose = last_in_graph->graph_node()->pose();
 
-    Pose3 new_T_old = new_pose * old_pose.inverse();
+    if (params_.optimization_backend == OptimizationBackend::CERES) {
+        Pose3 new_pose = last_in_graph->graph_node()->pose();
+        new_pose.rotation().normalize();
 
-    // ROS_INFO_STREAM("Pose difference = " << new_T_old);
+        // Pose3 new_T_old = new_pose * old_pose.inverse();
+        Pose3 old_T_new = old_pose.inverse() * new_pose;
+        old_T_new.rotation().normalize();
 
-    for (auto& kf : keyframes_) {
-        if (kf->inGraph()) {
-            kf->pose() = kf->graph_node()->pose();
-            kf->pose().rotation().normalize();
-        } else {
-            // Keyframes not yet in the graph will be later so just propagate the computed
-            // transform forward
-            kf->pose() = new_T_old * kf->pose();
-            // ROS_ERROR_STREAM("KF not in graph");
+        ROS_INFO_STREAM("Pose difference = " << old_T_new);
+
+        for (auto& kf : keyframes_) {
+            if (kf->inGraph()) {
+                kf->pose() = kf->graph_node()->pose();
+                kf->pose().rotation().normalize();
+            } else {
+                // Keyframes not yet in the graph will be later so just propagate the computed
+                // transform forward
+                kf->pose() = kf->pose() * old_T_new;
+            }
         }
-    }
 
-    for (auto& obj : estimated_objects_) {
-        if (obj->inGraph()) {
-            obj->commitGraphSolution();
-        } else if (!obj->bad()) {
-            // Update the object based on recomputed camera poses
-            // ROS_ERROR_STREAM("OBJ not in graph");
-            obj->optimizeStructure();
+        for (auto& obj : estimated_objects_) {
+            if (obj->inGraph()) {
+                obj->commitGraphSolution();
+            } else if (!obj->bad()) {
+                // Update the object based on recomputed camera poses
+                // ROS_ERROR_STREAM("OBJ not in graph");
+                obj->optimizeStructure();
+            }
+        }
+    
+    } else {
+        // GTSAM
+        Pose3 new_pose = gtsam_values_.at<gtsam::Pose3>(last_in_graph->key());
+        
+        Pose3 new_T_old = new_pose * old_pose.inverse();
+
+        for (auto& kf : keyframes_) {
+            if (kf->inGraph()) {
+                kf->pose() = gtsam_values_.at<gtsam::Pose3>(kf->key());
+            } else {
+                kf->pose() = new_T_old * kf->pose();
+            }
+        }
+
+        for (auto& obj : estimated_objects_) {
+            if (obj->inGraph()) {
+                obj->commitGtsamSolution(gtsam_values_);
+            } else if (!obj->bad()) {
+                obj->optimizeStructure();
+            }
         }
     }
 }
@@ -535,13 +633,10 @@ bool SemanticMapper::tryOptimize() {
     if (!graph_->modified()) return false;
     
     auto t1 = std::chrono::high_resolution_clock::now();
-    bool solve_succeeded;
-    prepareGraphNodes();
-    
-    {  
-        std::lock_guard<std::mutex> lock(graph_mutex_);
-        solve_succeeded = graph_->solve(false);
-    }
+
+    if (params_.optimization_backend == OptimizationBackend::CERES) prepareGraphNodes();
+
+    bool solve_succeeded = solveGraph();
 
     if (solve_succeeded) commitGraphSolution();
 
@@ -556,6 +651,44 @@ bool SemanticMapper::tryOptimize() {
     } else {
         ROS_INFO_STREAM("Graph solve failed");
         return false;
+    }
+}
+
+bool SemanticMapper::solveGraph()
+{
+    std::lock_guard<std::mutex> lock(graph_mutex_);
+
+    if (params_.optimization_backend == OptimizationBackend::CERES) {
+        return graph_->solve(false);
+    } else {
+        auto gtsam_graph = graph_->getGtsamGraph();
+        auto gtsam_values = graph_->getGtsamValues();
+
+        // Have to anchor the origin here ourselves
+        Eigen::VectorXd prior_noise(6);
+        prior_noise << 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4;
+        auto gtsam_prior_noise = gtsam::noiseModel::Diagonal::Sigmas(prior_noise);
+        auto origin_factor = util::allocate_aligned<gtsam::PriorFactor<gtsam::Pose3>>(
+            getKeyframeByIndex(0)->key(),
+            getKeyframeByIndex(0)->pose(),
+            gtsam_prior_noise
+        );
+
+        gtsam_graph->push_back(origin_factor);
+
+        gtsam::LevenbergMarquardtParams lm_params;
+        lm_params.setVerbosityLM("SUMMARY");
+        // lm_params.setVerbosity("ERROR");
+        lm_params.print("LM PARAMS");
+        gtsam::LevenbergMarquardtOptimizer optimizer(*gtsam_graph, *gtsam_values, lm_params);
+
+        try {
+            gtsam_values_ = optimizer.optimize();
+            return true;
+        } catch (gtsam::IndeterminantLinearSystemException& e) {
+            return false;
+        }
+
     }
 }
 
@@ -621,6 +754,8 @@ bool SemanticMapper::loadCalibration() {
 
 bool SemanticMapper::loadParameters()
 {
+    std::string optimization_backend;
+
     if (!pnh_.getParam("keypoint_activation_threshold", params_.keypoint_activation_threshold) ||
 
         !pnh_.getParam("min_object_n_keypoints", params_.min_object_n_keypoints) ||
@@ -640,10 +775,17 @@ bool SemanticMapper::loadParameters()
         !pnh_.getParam("keypoint_msmt_sigma", params_.keypoint_msmt_sigma) ||
         !pnh_.getParam("min_observed_keypoints_to_initialize", params_.min_observed_keypoints_to_initialize) ||
         !pnh_.getParam("keyframe_translation_threshold", params_.keyframe_translation_threshold) ||
-        !pnh_.getParam("keyframe_rotation_threshold", params_.keyframe_rotation_threshold)) {
+        !pnh_.getParam("keyframe_rotation_threshold", params_.keyframe_rotation_threshold) ||
+        !pnh_.getParam("optimization_backend", optimization_backend)) {
 
         ROS_ERROR("Unable to load object handler parameters");
         return false;
+    }
+
+    if (optimization_backend == "CERES") {
+        params_.optimization_backend = OptimizationBackend::CERES;
+    } else {
+        params_.optimization_backend = OptimizationBackend::GTSAM;
     }
 
     return true;
@@ -716,9 +858,12 @@ SemanticMapper::tryFetchNextKeyframe()
             msg = msg_queue_.front();
 
             if (keepFrame(msg)) {
+                std::lock_guard<std::mutex> lock(map_mutex_);
                 next_keyframe = odometry_handler_->createKeyframe(msg.header.stamp);
                 if (next_keyframe) {
                     msg_queue_.pop_front();
+                    next_keyframe->measurements = processObjectDetectionMessage(msg, next_keyframe->key());
+                    keyframes_.push_back(next_keyframe);
                     break;
                 } else {
                     // Want to keep this keyframe but odometry handler can't make
@@ -731,10 +876,6 @@ SemanticMapper::tryFetchNextKeyframe()
         }
     }
 
-    if (next_keyframe) {
-        next_keyframe->measurements = processObjectDetectionMessage(msg, next_keyframe->key());
-    }
-
     return next_keyframe;
 }
 
@@ -743,8 +884,6 @@ bool SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
     if (!frame) return false;
 
     std::lock_guard<std::mutex> lock(map_mutex_);
-
-    keyframes_.push_back(frame);
 
     // TODO fix this bad approximation 
     frame->covariance() = last_kf_covariance_;

@@ -20,6 +20,8 @@
 #include <unordered_set>
 // #include <gtsam/geometry/Pose3.h>
 
+#include <gtsam/nonlinear/Values.h>
+
 class ExternalOdometryHandler;
 class GeometricFeatureHandler;
 
@@ -93,6 +95,8 @@ public:
 
     EstimatedObject::Ptr getObjectByKey(Key key);
 
+    bool solveGraph();
+
 private:
     boost::shared_ptr<FactorGraph> graph_;
     std::mutex graph_mutex_; // wish this could be a shared_mutex
@@ -162,6 +166,8 @@ private:
     std::vector<boost::shared_ptr<Presenter>> presenters_;
 
     bool running_;
+
+    gtsam::Values gtsam_values_;
 
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

@@ -458,6 +458,14 @@ void EstimatedObject::commitGraphSolution()
   for (auto& kp : keypoints_) kp->commitGraphSolution();
 }
 
+void EstimatedObject::commitGtsamSolution(const gtsam::Values& values)
+{
+  pose_ = values.at<gtsam::Pose3>(sym::O(id_));
+  if (k_ > 0) basis_coefficients_ = values.at<gtsam::Vector>(sym::C(id_));
+
+  for (auto& kp : keypoints_) kp->commitGtsamSolution(values);
+}
+
 void EstimatedObject::prepareGraphNode()
 {
   graph_pose_node_->pose() = pose_;
@@ -604,6 +612,15 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
 // 	// sanityCheck(pose_id);
 // }
 
+void EstimatedObject::updateGraphFactors()
+{
+  if (!inGraph()) return;
+
+  for (auto& kp : keypoints_) {
+    kp->tryAddProjectionFactors();
+  }
+}
+
 void
 EstimatedObject::update(CeresNodePtr spur_node)
 {
@@ -676,6 +693,7 @@ bool EstimatedObject::readyToAddToGraph()
   }
 
   if (n_keypoints_localized >= params_.min_object_n_keypoints) {
+    ROS_INFO_STREAM("Object " << id() << " ready to add!");
     return true;
   }
 

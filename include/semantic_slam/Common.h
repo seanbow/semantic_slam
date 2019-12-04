@@ -31,6 +31,10 @@ using aligned_map = std::unordered_map<Key,T,Hash,KeyEqual,Allocator>;
 template <class T, class Allocator = Eigen::aligned_allocator<T>>
 using aligned_vector = std::vector<T, Allocator>;
 
+enum class OptimizationBackend {
+  CERES,
+  GTSAM
+};
 
 struct ObjectParams
 {
@@ -48,6 +52,8 @@ struct ObjectParams
   double keypoint_msmt_sigma;			 //< keypoint measurement sigma for observed keypoints
 
   double structure_regularization_factor;
+
+  OptimizationBackend optimization_backend;
 
   double landmark_merge_threshold;		 //< Threshold on between-landmark bhattacharyya distance below which to merge
 										 //landmarks

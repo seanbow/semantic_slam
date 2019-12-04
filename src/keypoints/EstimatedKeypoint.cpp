@@ -50,6 +50,12 @@ void EstimatedKeypoint::commitGraphSolution()
   global_position_ = graph_node_->vector();
 }
 
+
+void EstimatedKeypoint::commitGtsamSolution(const gtsam::Values& values)
+{
+  global_position_ = values.at<gtsam::Point3>(graph_node_->key());
+}
+
 void EstimatedKeypoint::prepareGraphNode()
 {
   graph_node_->vector() = global_position_;
@@ -104,14 +110,9 @@ void EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt, double w
 
   // TODO "safety" check / error check
   // TODO factor uniqueness check???
-  if (in_graph_)
-  {
-    // simply add the new factor(s)
-    graph_->addFactor(proj_factor);
-  }
-  // else if (measurements_.size() >= params_.min_landmark_observations)
+  // if (in_graph_)
   // {
-  //   this->addToGraph();
+  //   tryAddProjectionFactors();
   // }
 
   // last_seen_ = msmt.pose_id;
@@ -281,7 +282,17 @@ double EstimatedKeypoint::totalMahalanobisError() const
 
 size_t EstimatedKeypoint::nMeasurements() const
 {
-  return measurements_.size();
+  // return measurements_.size();
+  
+  // Return only the number of measurements whose keyframes are in the graph
+  size_t count = 0;
+
+  for (const auto& msmt : measurements_) {
+    const auto& kf = mapper_->getKeyframeByKey(msmt.measured_key);
+    if (kf->inGraph()) count++;
+  }
+
+  return count;
 }
 
 double EstimatedKeypoint::maxMahalanobisDistance() const
@@ -404,9 +415,22 @@ void EstimatedKeypoint::addToGraphForced()
   if (params_.include_objects_in_graph) {
     // proceed to add to graph as normal
     graph_->addNode(graph_node_);
-    graph_->addFactors(projection_factors_);
+
+    tryAddProjectionFactors();
+    // graph_->addFactors(projection_factors_);
   
     in_graph_ = true;
+  }
+}
+
+void EstimatedKeypoint::tryAddProjectionFactors()
+{
+  // Only add factors whose associated keyframe is in the graph
+  for (int i = 0; i < measurements_.size(); ++i) {
+    const auto& kf = mapper_->getKeyframeByKey(measurements_[i].measured_key);
+    if (kf->inGraph() && !projection_factors_[i]->active()) {
+      graph_->addFactor(projection_factors_[i]);
+    }
   }
 }
 

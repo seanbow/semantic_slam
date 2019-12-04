@@ -7,7 +7,10 @@
 
 namespace gtsam {
 class NonlinearFactor;
+class NonlinearFactorGraph;
 }
+
+class CeresNode;
 
 class CeresFactor
 {
@@ -20,7 +23,15 @@ public:
     FactorType type() const { return type_; }
     int tag() const { return tag_; }
 
+    bool active() const { return active_; }
+
+    const std::vector<boost::shared_ptr<CeresNode>>& nodes() const { return nodes_; }
+
     virtual boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const { 
+        throw std::logic_error("unimplemented");
+    }
+
+    virtual void addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const { 
         throw std::logic_error("unimplemented");
     }
 
@@ -29,6 +40,10 @@ public:
 protected:
     FactorType type_;
     int tag_;
+
+    bool active_;
+
+    std::vector<boost::shared_ptr<CeresNode>> nodes_;
 
     ceres::CostFunction* cf_;
     ceres::ResidualBlockId residual_id_;
@@ -44,6 +59,7 @@ using CeresFactorConstPtr = CeresFactor::ConstPtr;
 CeresFactor::CeresFactor(FactorType type, int tag)
     : type_(type),
       tag_(tag),
+      active_(false),
       residual_id_(NULL)
 {
 

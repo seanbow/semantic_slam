@@ -435,7 +435,20 @@ FactorGraph::getGtsamGraph() const
     auto graph = util::allocate_aligned<gtsam::NonlinearFactorGraph>();
 
     for (auto factor : factors_) {
-        graph->push_back(factor->getGtsamFactor());
+        // if (factor->active()) {
+        //     bool good = true;
+        //     for (auto& node : factor->nodes()) {
+        //         if (!node->active()) {
+        //             good = false;
+        //             break;
+        //         }
+        //     }
+
+        //     if (good) graph->push_back(factor->getGtsamFactor());
+        // }
+
+        // if (factor->active()) graph->push_back(factor->getGtsamFactor());
+        if (factor->active()) factor->addToGtsamGraph(graph);
     }
 
     return graph;
@@ -447,7 +460,7 @@ FactorGraph::getGtsamValues() const
     auto values = util::allocate_aligned<gtsam::Values>();
 
     for (auto node : nodes_) {
-        values->insert(node.first, *node.second->getGtsamValue());
+        if (node.second->active()) values->insert(node.first, *node.second->getGtsamValue());
     }
 
     return values;

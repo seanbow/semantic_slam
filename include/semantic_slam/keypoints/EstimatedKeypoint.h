@@ -7,6 +7,8 @@
 #include "semantic_slam/VectorNode.h"
 #include "semantic_slam/CeresProjectionFactor.h"
 
+#include <gtsam/nonlinear/Values.h>
+
 class EstimatedObject;
 class SemanticMapper;
 
@@ -44,6 +46,8 @@ public:
 
     void commitGraphSolution();
     void prepareGraphNode();
+
+    void commitGtsamSolution(const gtsam::Values& values);
 
     bool triangulate(boost::optional<double&> condition_number = boost::none);
 
@@ -84,6 +88,8 @@ public:
   // JointMarginal jointMarginalCovariance(gtsam::Key other_key) const;
 
   bool checkSafeToAdd();
+
+  void tryAddProjectionFactors();
 
 //   void serialize(const std::string& file_name) const;
 

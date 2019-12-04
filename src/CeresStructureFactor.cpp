@@ -3,6 +3,8 @@
 
 #include "semantic_slam/keypoints/gtsam/StructureFactor.h"
 
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
+
 CeresStructureFactor::CeresStructureFactor(SE3NodePtr object_node,
                          std::vector<Vector3dNodePtr> landmark_nodes,
                          VectorXdNodePtr coefficient_node,
@@ -17,6 +19,10 @@ CeresStructureFactor::CeresStructureFactor(SE3NodePtr object_node,
       coefficient_node_(coefficient_node)
 {
     cf_ = StructureCostTerm::Create(model, weights, lambda);
+
+    nodes_.push_back(object_node);
+    for (auto& n : landmark_nodes) nodes_.push_back(n);
+    if (coefficient_node) nodes_.push_back(coefficient_node);
 
     // gtsam support
     std::vector<Key> landmark_keys;
@@ -67,4 +73,11 @@ boost::shared_ptr<gtsam::NonlinearFactor>
 CeresStructureFactor::getGtsamFactor() const
 {
     return gtsam_factor_;
+}
+
+
+void 
+CeresStructureFactor::addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const
+{
+    graph->push_back(getGtsamFactor());
 }
