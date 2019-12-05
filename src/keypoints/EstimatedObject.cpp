@@ -227,28 +227,19 @@ EstimatedObject::optimizeStructure()
   structure_problem_->initializePose(initial_object_pose);
 
   for (auto& obj_msmt : measurements_) {
-    auto cam_node = mapper_->keyframes()[Symbol(obj_msmt.observed_key).index()]->graph_node();
+    auto keyframe = mapper_->getKeyframeByKey(obj_msmt.observed_key);
     // auto cam_node = graph_->getNode<SE3Node>(obj_msmt.observed_key);
-    if (!cam_node) {
+    if (!keyframe) {
       ROS_ERROR_STREAM("Unable to find graph node for camera pose " << DefaultKeyFormatter(obj_msmt.observed_key));
     }
 
-    Pose3 cam_pose = cam_node->pose();
+    // Pose3 cam_pose = keyframe->pose();
 
-    // TODO should we be using the real covariances here?? or at least in
-    // covariance computation within ceres?
+    // Eigen::Matrix<double, 6, 1> prior_noise_vec;
+    // prior_noise_vec << 1e-3 * Eigen::Vector3d::Ones(), 
+    //                    1e-2 * Eigen::Vector3d::Ones();
 
-    // Eigen::Matrix<double, 6, 6> prior_noise =
-    //   1.0e-6 * Eigen::Matrix<double, 6, 6>::Identity();
-
-    Eigen::Matrix<double, 6, 1> prior_noise_vec;
-    prior_noise_vec << 1e-3 * Eigen::Vector3d::Ones(), 
-                       1e-2 * Eigen::Vector3d::Ones();
-
-    structure_problem_->addCameraPose(Symbol(obj_msmt.observed_key).index(), 
-                                      cam_pose, 
-                                      prior_noise_vec.asDiagonal(),
-                                      true);
+    structure_problem_->addCamera(keyframe, true);
   }
 
   for (auto& kp : keypoints_) {
@@ -339,8 +330,7 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
   // Hpose will be in the *ambient* (4-dimensional) quaternion space.
   // Want it in the *tangent* (3-dimensional) space.
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> Hquat_space;
-  ceres::EigenQuaternionParameterization local_param;
-  local_param.ComputeJacobian(G_T_I.rotation_data(), Hquat_space.data());
+  QuaternionLocalParameterization().ComputeJacobian(G_T_I.rotation_data(), Hquat_space.data());
 
   // Index of x into Plx...
   size_t x_index = 3 * keypoints_.size();
@@ -605,6 +595,19 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
   if (!in_graph_) {
     optimizeStructure();
   }
+
+  // if we're in the graph, update our local optimization problem without actually solving it. 
+  // we won't ever use the actual optimization but we need it to contain all factors 
+  // for local covariance information
+
+  if (in_graph_) {
+    structure_problem_->addCamera(keyframe, true);
+
+    for (auto& kp_msmt : msmt.keypoint_measurements) {
+      if (kp_msmt.observed) structure_problem_->addKeypointMeasurement(kp_msmt);
+    }
+  }
+
 }
 
 // void EstimatedObject::updateAndCheck(uint64_t pose_id, const gtsam::Values&

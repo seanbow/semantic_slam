@@ -140,6 +140,7 @@ struct ObjectMeasurement
   BoundingBox bbox;
 
   aligned_vector<KeypointMeasurement> keypoint_measurements;
+  size_t n_keypoints_observed;
 
   Eigen::Vector3d t;
   Eigen::Quaterniond q;

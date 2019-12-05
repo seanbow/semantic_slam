@@ -1018,7 +1018,14 @@ bool SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
             auto known_id_it = object_track_ids_.find(frame->measurements[i].track_id);
             if (known_id_it == object_track_ids_.end()) {
                 // track not known, perform actual data association
-                measurement_index.push_back(i);
+
+                // If data association is not known, we need to perform actual association at the 
+                // object level. to do this we require that a certain number of keypoints were
+                // actually observed so we don't make spurious associations
+                // --> objects not tracked and with too few kps observed are effectively thrown away
+                if (frame->measurements[i].n_keypoints_observed >= 3) {
+                    measurement_index.push_back(i);
+                }
             } else {
                 // track ID known, take data association as given
                 known_das[i] = known_id_it->second;
@@ -1053,7 +1060,7 @@ bool SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
             }
         }
 
-        // std::cout << "Mahals:\n" << mahals << std::endl;
+        std::cout << "Mahals:\n" << mahals << std::endl;
     
         Eigen::MatrixXd weights_matrix = MLDataAssociator(params_).computeConstraintWeights(mahals);
 
@@ -1179,6 +1186,7 @@ SemanticMapper::processObjectDetectionMessage(const object_pose_interface_msgs::
         }
 
         if (n_keypoints_observed > 0) {
+            obj_msmt.n_keypoints_observed = n_keypoints_observed;
             object_measurements.push_back(obj_msmt);
         }
     }
@@ -1202,19 +1210,6 @@ SemanticMapper::getPlx(Key key1, Key key2)
     // If the object isn't in the graph, this is the best we can do
     if (!obj->inGraph()) return Plx_local;
 
-    // Else we can account for the covariance between the most recent keyframe involved
-    // in the local optimization and the most recent keyframe in the graph.
-    // (computing the *actual* covariances between the graph keyframes and landmarks is way too
-    //  expensive to do, so we're making an approximation)
-
-    // We're doing a weird trick here... TODO check it
-    // Assume that the covariance between keyframes can be approximated by a linear update,
-    // i.e. P2 = H*P1*H' for some H.
-    // We don't have access to this H, but we have P1 and P2. Take Cholesky and write them as L1*L1' and 
-    // L2*L2', so L2*L2' = H*L1*L1'*H'. So we see L2 = H*L1 and can solve for it
-
-    // auto kf_old = getKeyframeByIndex(Plxs_index_);
-
     // Find the most recent camera pose that observed this object
     int max_index = -1;
     for (const auto& frame : obj->keyframe_observations()) {
@@ -1222,9 +1217,71 @@ SemanticMapper::getPlx(Key key1, Key key2)
     }
 
     auto kf_old = getKeyframeByIndex(max_index);
+
+    // Plx local now is the covariance of the landmarks *expressed in the latest robot frame*
+    // What we really want is the covariance of the estimates *in the map/global frame*
+    // Need to use the Jacobian of the pose transformation
+    // Let {G} denote the global frame, {L} denote the frame of the local robot frame
+    Pose3 G_T_L = kf_old->pose();
+
+    size_t H_size = 3 * obj->keypoints().size();
+
+    Eigen::MatrixXd D_GL_DLl_full = Eigen::MatrixXd::Zero(H_size, H_size);
+    Eigen::MatrixXd D_Gl_Dx_full = Eigen::MatrixXd::Zero(H_size, 6);
+
+    for (int i = 0; i < obj->keypoints().size(); ++i) {
+        Eigen::MatrixXd D_Gl_DLl; // jacobian of global point w.r.t. local point
+        Eigen::MatrixXd D_Gl_Dx; // jacobian of global point w.r.t. local robot pose
+
+        // We actually estimated the keypoint in the local frame but only expose it 
+        // pre-transformed into the global frame, whatever
+        Eigen::Vector3d L_l = G_T_L.transform_to(obj->keypoints()[i]->position());
+
+        Eigen::Vector3d G_l = G_T_L.transform_from(L_l, D_Gl_Dx, D_Gl_DLl);
+
+        // Now we have the same dumb thing where D_gl_Dq is in the ambient space but our
+        // covariances are in the tangent space
+        Eigen::Matrix<double, 4, 3, Eigen::RowMajor> Hquat_space;
+        QuaternionLocalParameterization().ComputeJacobian(G_T_L.rotation_data(), Hquat_space.data());
+
+        D_GL_DLl_full.block<3,3>(3*i,3*i) = D_Gl_DLl;
+
+        D_Gl_Dx_full.block<3,3>(3*i, 0) = D_Gl_Dx.block<3,4>(0,0) * Hquat_space;
+        D_Gl_Dx_full.block<3,3>(3*i, 3) = D_Gl_Dx.block<3,3>(0,4);
+    }
+    
+    // OK now we can finally compute the global covariance estimate
+    size_t Plx_dim = 6 + 3*obj->keypoints().size();
+
+    Eigen::MatrixXd H_full = Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
+    H_full.topLeftCorner(H_size, H_size) = D_GL_DLl_full;
+    H_full.topRightCorner(H_size, 6) = D_Gl_Dx_full;
+    // H_full.bottomLeftCorner is Dx / Dlandmarks = 0
+    H_full.bottomRightCorner(6,6) = Eigen::MatrixXd::Identity(6, 6);
+
+    Eigen::MatrixXd P_full = Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
+    P_full.topLeftCorner(H_size, H_size) = Plx_local.topLeftCorner(H_size, H_size);
+    P_full.bottomRightCorner(6,6) = kf_old->covariance();
+
+    Eigen::MatrixXd global_covs = H_full * P_full * H_full.transpose();
+
+    // Now the thing is we don't want Plx with x as the most recent keyframe involved in its 
+    // local optimization, we want Plx where x is the current keyframe that we're performing
+    // data association in.
+    //
+    // All of this would be much simpler if we could just compute the actual covariances 
+    // between the graph keyframes and landmarks, we have enough information in the factor
+    // graph to do so, but it's way too computationally expensive 
+    //
+    // We're doing a weird trick here... 
+    // Assume that the covariance between keyframes can be approximated by a linear update,
+    // i.e. P2 = H*P1*H' for some H.
+    // We don't have access to this H, but we have P1 and P2. Take Cholesky and write them as L1*L1' and 
+    // L2*L2', so L2*L2' = H*L1*L1'*H'. So we see L2 = H*L1 and can solve for it
+
+    // auto kf_old = getKeyframeByIndex(Plxs_index_);
     auto kf = getKeyframeByKey(key2);
 
-    size_t Plx_dim = 6 + 3*obj->keypoints().size();
     Eigen::MatrixXd H12 = Eigen::MatrixXd::Identity(Plx_dim, Plx_dim);
 
     if (kf_old->index() == kf->index()) {
@@ -1259,17 +1316,52 @@ SemanticMapper::getPlx(Key key1, Key key2)
     // compute L2 * L1^-1 
     H12.bottomRightCorner<6,6>() = L1.transpose().ldlt().solve(L2.transpose()).transpose();
 
-    // std::cout << "H = \n" << H12.bottomRightCorner<6,6>() << std::endl;
+    Eigen::MatrixXd updated_covs = H12*global_covs*H12.transpose();
 
-    return H12 * Plx_local * H12.transpose();
+    // for debugging just check cov with one landmark
+    Eigen::MatrixXd Plx_local_one(9,9);
+    Eigen::MatrixXd global_covs_one(9,9);
+    Eigen::MatrixXd H_one(9,9);
+    Eigen::MatrixXd updated_Plx_one(9,9);
 
-    // auto it = Plxs_.find(Symbol(key1).index());
-    // if (it != Plxs_.end()) {
-    //     const Eigen::MatrixXd& Plx = it->second;
-    //     return H12 * Plx * H12.transpose();
-    // } else {
-    //     return Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
+    Plx_local_one.topLeftCorner<3,3>() = Plx_local.topLeftCorner<3,3>();
+    Plx_local_one.topRightCorner<3,6>() = Plx_local.topRightCorner<3,6>();
+    Plx_local_one.bottomLeftCorner<6,3>() = Plx_local.bottomLeftCorner<6,3>();
+    Plx_local_one.bottomRightCorner<6,6>() = Plx_local.bottomRightCorner<6,6>();
+
+    global_covs_one.topLeftCorner<3,3>() = global_covs.topLeftCorner<3,3>();
+    global_covs_one.topRightCorner<3,6>() = global_covs.topRightCorner<3,6>();
+    global_covs_one.bottomLeftCorner<6,3>() = global_covs.bottomLeftCorner<6,3>();
+    global_covs_one.bottomRightCorner<6,6>() = global_covs.bottomRightCorner<6,6>();
+
+    H_one.topLeftCorner<3,3>() = H12.topLeftCorner<3,3>();
+    H_one.topRightCorner<3,6>() = H12.topRightCorner<3,6>();
+    H_one.bottomLeftCorner<6,3>() = H12.bottomLeftCorner<6,3>();
+    H_one.bottomRightCorner<6,6>() = H12.bottomRightCorner<6,6>();
+
+    updated_Plx_one.topLeftCorner<3,3>() = updated_covs.topLeftCorner<3,3>();
+    updated_Plx_one.topRightCorner<3,6>() = updated_covs.topRightCorner<3,6>();
+    updated_Plx_one.bottomLeftCorner<6,3>() = updated_covs.bottomLeftCorner<6,3>();
+    updated_Plx_one.bottomRightCorner<6,6>() = updated_covs.bottomRightCorner<6,6>();
+
+    std::cout << "Plx LOCAL: \n" << Plx_local_one << std::endl;
+    std::cout << "Plx GLOBAL: \n" << global_covs_one << std::endl;
+    std::cout << "H: \n" << H_one << std::endl;
+    std::cout << "Plx TRANSFORMED: \n" << updated_Plx_one << std::endl;
+
+    // if (!updated_covs.allFinite()) {
+
+    //     std::cout << "H_full:\n" << H_full << std::endl;
+    //     std::cout << "P_full:\n" << P_full << std::endl;
+
+    //     std::cout << "Plx LOCAL: \n" << Plx_local << std::endl;
+    //     std::cout << "Plx GLOBAL: \n" << global_covs << std::endl;
+    //     std::cout << "H: \n" << H12 << std::endl;
+    //     std::cout << "Plx TRANSFORMED: \n" << updated_covs << std::endl;
+
     // }
+
+    return updated_covs;
 }
 
 bool SemanticMapper::updateObjects(SemanticKeyframe::Ptr kf,

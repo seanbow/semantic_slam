@@ -15,4 +15,6 @@ public:
 
 private:
     ros::Publisher vis_pub_;
+    
+    bool show_object_labels_;
 };

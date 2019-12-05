@@ -99,3 +99,4 @@ gravity: [0, 0, -9.81]
 ## Visualization
 geometric_point_scale: 0.75
 object_keypoint_scale: 0.5
+show_object_labels: true

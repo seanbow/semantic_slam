@@ -83,6 +83,7 @@ void SimpleObjectTracker::detectionCallback(const sensor_msgs::ImageConstPtr& im
         new_msg.bounding_boxes.push_back(det_msg);
     }
 
+    // Iterate downwards so if we erase index i all indices [0,i) remain the same
     for (int i = detected_set.size() - 1; i >= 0; i--) {
         if (!detected_set[i]) {
             tracked_objects_[i].n_missed_detections++;

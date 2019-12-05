@@ -12,6 +12,7 @@
 #include <boost/optional.hpp>
 
 #include "semantic_slam/Utils.h"
+#include "semantic_slam/ceres_quaternion_parameterization.h"
 
 double clamp_angle(double angle) {
   static constexpr double pi = 3.1415926536;
@@ -134,8 +135,7 @@ Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Pose3& G_T_I,
   // Hpose is in the *ambient* (4-dimensional) quaternion space.
   // Want it in the *tangent* (3-dimensional) space.
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> Hquat_space;
-  ceres::EigenQuaternionParameterization local_param;
-  local_param.ComputeJacobian(G_T_I.rotation_data(), Hquat_space.data());
+  QuaternionLocalParameterization().ComputeJacobian(G_T_I.rotation_data(), Hquat_space.data());
 
   Eigen::Matrix<double, 2, 9> H;
   H.block<2,3>(0,0) = Hcam * Hpoint2 * Hpoint1;

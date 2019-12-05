@@ -13,6 +13,8 @@
 
 #include "semantic_slam/keypoints/geometry.h"
 
+#include "semantic_slam/SemanticKeyframe.h"
+
 void
 StructureOptimizationProblem::setBasisCoefficients(
   const Eigen::VectorXd& coeffs)
@@ -73,16 +75,16 @@ StructureOptimizationProblem::getPlx(size_t camera_index)
   // optimized camera poses. 
   // for many purposes we just need one *near* it so use the closest one 
   // and warn about it
-  if (camera_poses_.find(camera_index) == camera_poses_.end())
+  if (keyframes_.find(camera_index) == keyframes_.end())
   {
     size_t closest_index = 0;
     size_t index_distance = std::numeric_limits<size_t>::max();
 
-    for (auto& pose_pair : camera_poses_) {
-      // std::cout << "Index " << pose_pair.first << " has distance " << std::abs((int)camera_index - (int)pose_pair.first) << std::endl;
-      if (std::abs((int)camera_index - (int)pose_pair.first) < index_distance) {
-        closest_index = pose_pair.first;
-        index_distance = std::abs((int)closest_index - (int)pose_pair.first);
+    for (auto& frame_pair : keyframes_) {
+      // std::cout << "Index " << frame_pair.first << " has distance " << std::abs((int)camera_index - (int)frame_pair.first) << std::endl;
+      if (std::abs((int)camera_index - (int)frame_pair.first) < index_distance) {
+        closest_index = frame_pair.first;
+        index_distance = std::abs((int)closest_index - (int)frame_pair.first);
       }
     }
 
@@ -99,9 +101,9 @@ StructureOptimizationProblem::getPlx(size_t camera_index)
     block_sizes.push_back(3);
   }
 
-  parameter_blocks.push_back(camera_poses_.at(camera_index).rotation_data());
-  block_sizes.push_back(3);
-  parameter_blocks.push_back(camera_poses_.at(camera_index).translation_data());
+  parameter_blocks.push_back(local_pose_nodes_[camera_index]->pose().rotation_data());
+  block_sizes.push_back(3); // <-- 3 because these blocks are in the tangent space
+  parameter_blocks.push_back(local_pose_nodes_[camera_index]->pose().translation_data());
   block_sizes.push_back(3);
 
   size_t index_i = 0;
@@ -123,44 +125,6 @@ StructureOptimizationProblem::getPlx(size_t camera_index)
   }
 
   return cov.selfadjointView<Eigen::Upper>();
-
-  // covariance_->GetCovarianceBlock(kps_[landmark_index]->data(),
-  //                                 kps_[landmark_index]->data(), Pll);
-
-  // covariance_->GetCovarianceBlockInTangentSpace(
-  //   kps_[landmark_index]->data(),
-  //   camera_poses_.at(camera_index).rotation_data(), Plq);
-
-  // covariance_->GetCovarianceBlock(
-  //   kps_[landmark_index]->data(),
-  //   camera_poses_.at(camera_index).translation_data(), Plp);
-
-  // covariance_->GetCovarianceBlockInTangentSpace(
-  //   camera_poses_.at(camera_index).rotation_data(),
-  //   camera_poses_.at(camera_index).rotation_data(), Pqq);
-
-  // covariance_->GetCovarianceBlockInTangentSpace(
-  //   camera_poses_.at(camera_index).rotation_data(),
-  //   camera_poses_.at(camera_index).translation_data(), Pqp);
-
-  // covariance_->GetCovarianceBlock(
-  //   camera_poses_.at(camera_index).translation_data(),
-  //   camera_poses_.at(camera_index).translation_data(), Ppp);
-
-  // cov.block<3, 3>(0, 0) =
-  //   Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Pll);
-  // cov.block<3, 3>(0, 3) =
-  //   Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Plq);
-  // cov.block<3, 3>(0, 6) =
-  //   Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Plp);
-  // cov.block<3, 3>(3, 3) =
-  //   Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Pqq);
-  // cov.block<3, 3>(3, 6) =
-  //   Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Pqp);
-  // cov.block<3, 3>(6, 6) =
-  //   Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(Ppp);
-
-  // return cov.selfadjointView<Eigen::Upper>();
 }
 
 StructureOptimizationProblem::StructureOptimizationProblem(
@@ -182,8 +146,7 @@ StructureOptimizationProblem::StructureOptimizationProblem(
   basis_coefficients_ = Eigen::VectorXd::Zero(k_);
 
   // ceres::Problem will take ownership of this pointer
-  // quaternion_parameterization_ = new QuaternionLocalParameterization;
-  quaternion_parameterization_ = new ceres::EigenQuaternionParameterization;
+  quaternion_parameterization_ = new QuaternionLocalParameterization;
 
   for (size_t i = 0; i < m_; ++i) {
     kps_.push_back(util::allocate_aligned<Eigen::Vector3d>());
@@ -244,10 +207,10 @@ StructureOptimizationProblem::addKeypointMeasurement(
   // ceres_problem_.AddResidualBlock(projection_cf, NULL,
   // object_pose_.rotation_data(), object_pose_.translation_data(),
   // kps_[kp_msmt.kp_class_id]->data());
-  auto& cam_pose = camera_poses_[Symbol(kp_msmt.measured_key).index()];
+  auto& pose_node = local_pose_nodes_[Symbol(kp_msmt.measured_key).index()];
   ceres_problem_.AddResidualBlock(
-    projection_cf, huber_loss, cam_pose.rotation_data(),
-    cam_pose.translation_data(), kps_[kp_msmt.kp_class_id]->data());
+    projection_cf, huber_loss, pose_node->pose().rotation_data(),
+    pose_node->pose().translation_data(), kps_[kp_msmt.kp_class_id]->data());
 
   // // Add depth if available
   // if (params_.include_depth_constraints && kp_msmt.measured_depth > 0) {
@@ -323,9 +286,9 @@ StructureOptimizationProblem::computeCovariances()
   covariance_ = boost::make_shared<ceres::Covariance>(cov_options);
 
   std::vector<const double*> blocks;
-  for (auto& camera_pose_pair : camera_poses_) {
-    blocks.push_back(camera_pose_pair.second.translation_data());
-    blocks.push_back(camera_pose_pair.second.rotation_data());
+  for (auto& node_pair : local_pose_nodes_) {
+    blocks.push_back(node_pair.second->pose().translation_data());
+    blocks.push_back(node_pair.second->pose().rotation_data());
   }
 
   for (auto& kp : kps_) {
@@ -345,56 +308,40 @@ StructureOptimizationProblem::computeCovariances()
   } else {
     have_covariance_ = true;
   }
-
-  // auto cov = getPlx(0, camera_poses_.begin()->first);
-
-  // std::cout << "Plx = \n" << cov << std::endl;
-
-  // double cov[3 * 3];
-  // covariance.GetCovarianceBlock(object_pose_.translation_data(),
-  //                               object_pose_.translation_data(), cov);
-
-  // Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> cov_eigen(cov);
-  // std::cout << "landmark covariance:\n" << cov_eigen << std::endl;
 }
 
 void
-StructureOptimizationProblem::addCameraPose(
-  size_t pose_index, Pose3 pose,
-  const Eigen::Matrix<double, 6, 6>& camera_pose_covariance,
-  bool use_constant_camera_pose)
+StructureOptimizationProblem::addCamera(SemanticKeyframe::Ptr keyframe,
+                                        bool use_constant_camera_pose)
 {
-  if (camera_poses_.find(pose_index) == camera_poses_.end()) {
-    camera_poses_.emplace(pose_index, pose);
+  if (keyframes_.find(keyframe->index()) == keyframes_.end()) {
+    keyframes_.emplace(keyframe->index(), keyframe);
+    local_pose_nodes_.emplace(keyframe->index(), util::allocate_aligned<SE3Node>(keyframe->key()));
 
-    // std::cout << "Adding camera pose " << pose_index << std::endl;
-    // std::cout << "R = \n"
-    //           << math::quat2rot(camera_poses_[pose_index].rotation())
-    //           << "\n; t = "
-    //           << camera_poses_[pose_index].translation().transpose()
-    //           << std::endl;
+    auto& node = local_pose_nodes_[keyframe->index()];
+    node->pose() = keyframe->pose();
 
-    ceres_problem_.AddParameterBlock(camera_poses_[pose_index].rotation_data(),
-                                     4);
+    ceres_problem_.AddParameterBlock(node->pose().rotation_data(), 4);
     ceres_problem_.SetParameterization(
-      camera_poses_[pose_index].rotation_data(), quaternion_parameterization_);
+      node->pose().rotation_data(), quaternion_parameterization_);
 
     ceres_problem_.AddParameterBlock(
-      camera_poses_[pose_index].translation_data(), 3);
+      node->pose().translation_data(), 3);
 
-    ceres::CostFunction* pose_prior_cf =
-      PosePriorCostTerm::Create(pose, camera_pose_covariance);
+    if (!use_constant_camera_pose) {
+      ceres::CostFunction* pose_prior_cf =
+        PosePriorCostTerm::Create(keyframe->pose(), keyframe->covariance());
 
-    ceres_problem_.AddResidualBlock(
-      pose_prior_cf, NULL, camera_poses_[pose_index].rotation_data(),
-      camera_poses_[pose_index].translation_data());
+      ceres_problem_.AddResidualBlock(
+        pose_prior_cf, NULL, node->pose().rotation_data(),
+        node->pose().translation_data());
 
-    if (use_constant_camera_pose) {
+    } else {
 
       ceres_problem_.SetParameterBlockConstant(
-        camera_poses_[pose_index].rotation_data());
+        node->pose().rotation_data());
       ceres_problem_.SetParameterBlockConstant(
-        camera_poses_[pose_index].translation_data());
+        node->pose().translation_data());
     }
 
     solved_ = false;

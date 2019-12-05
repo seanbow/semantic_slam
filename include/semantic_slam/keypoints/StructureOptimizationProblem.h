@@ -14,6 +14,9 @@
 #include "semantic_slam/pose_math.h"
 #include "semantic_slam/keypoints/geometry.h"
 
+class SemanticKeyframe;
+class SE3Node;
+
 class StructureOptimizationProblem
 {
 public:
@@ -28,9 +31,8 @@ public:
   void initializePose(Pose3 pose);
 
   void addKeypointMeasurement(const KeypointMeasurement& kp_msmt);
-  void addCameraPose(size_t pose_index, Pose3 pose,
-                     const Eigen::Matrix<double, 6, 6>& camera_pose_covariance,
-                     bool use_constant_camera_pose = false);
+  void addCamera(boost::shared_ptr<SemanticKeyframe> keyframe,
+                  bool use_constant_camera_pose = true);
   void setBasisCoefficients(const Eigen::VectorXd& coefficientS);
 
   boost::shared_ptr<Eigen::Vector3d> getKeypoint(size_t index) const;
@@ -75,7 +77,8 @@ private:
   // std::unordered_map<size_t, size_t> camera_pose_ids_;
   // size_t num_poses_;
 
-  aligned_map<size_t, Pose3> camera_poses_;
+  std::unordered_map<size_t, boost::shared_ptr<SemanticKeyframe>> keyframes_;
+  std::unordered_map<size_t, boost::shared_ptr<SE3Node>> local_pose_nodes_;
 
   ObjectParams params_;
 

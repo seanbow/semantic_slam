@@ -55,11 +55,15 @@ bool QuaternionLocalParameterization::Plus(const double* x_ptr, const double* de
 
 bool QuaternionLocalParameterization::ComputeJacobian(const double* x, double* jacobian) const
 {
-  jacobian[0] =  x[3]; jacobian[1]  =  x[2]; jacobian[2]  = -x[1]; 
-  jacobian[3] = -x[2]; jacobian[4]  =  x[3]; jacobian[5]  =  x[0]; 
-  jacobian[6] =  x[1]; jacobian[7]  = -x[0]; jacobian[8]  =  x[3];  
-  jacobian[9] = -x[0]; jacobian[10] = -x[1]; jacobian[11] = -x[2];  
-  return true;
+  // Computed in Mathematica
+  Eigen::Map<Eigen::Matrix<double, 4, 3, Eigen::RowMajor>> J(jacobian);
+
+  J <<  x[3],  x[2], -x[1],
+       -x[2],  x[3],  x[0], 
+        x[1], -x[0],  x[3],
+       -x[0], -x[1], -x[2];
+
+  J *= 0.5;
 
   return true;
 }

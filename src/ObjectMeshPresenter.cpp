@@ -2,6 +2,8 @@
 #include "semantic_slam/pose_math.h"
 #include "semantic_slam/SE3Node.h"
 
+#include <fmt/format.h>
+
 #include <visualization_msgs/MarkerArray.h>
 // #include <gtsam/geometry/Point3.h>
 // #include <gtsam/geometry/Quaternion.h>
@@ -9,6 +11,10 @@
 void ObjectMeshPresenter::setup()
 {
     vis_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("keypoint_objects/object_markers", 10);
+
+    if (!pnh_.param("show_object_labels", show_object_labels_, true)) {
+        ROS_ERROR("Unable to read visualization parameters");
+    }
 }
 
 void ObjectMeshPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
@@ -39,10 +45,25 @@ void ObjectMeshPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyf
 
     visualization_msgs::Marker delete_marker;
     delete_marker.header.frame_id = "map";
-    delete_marker.header.stamp = ros::Time::now();
+    delete_marker.header.stamp = object_marker.header.stamp;
     delete_marker.ns = "objects";
     delete_marker.type = visualization_msgs::Marker::MESH_RESOURCE;
     delete_marker.action = visualization_msgs::Marker::DELETE;
+
+
+    visualization_msgs::Marker object_text;
+    object_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    object_text.header.frame_id = "map";
+    object_text.header.stamp = object_marker.header.stamp;
+    object_text.action = visualization_msgs::Marker::ADD;
+    object_text.ns = "object_texts";
+
+    object_text.scale.z = 2.5;
+
+    object_text.color.r = 0;
+    object_text.color.g = 0;
+    object_text.color.b = 0;
+    object_text.color.a = 1.0f;
 
     size_t n_added = 0;
 
@@ -116,6 +137,16 @@ void ObjectMeshPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyf
 
         object_markers.markers.push_back(object_marker);
 
+        if (show_object_labels_) {
+            object_text.pose = object_marker.pose;
+            object_text.pose.position.z += 1.5;
+
+            object_text.id = obj->id();
+
+            object_text.text = fmt::format("{}", obj->id());
+
+            object_markers.markers.push_back(object_text);
+        }
 
         std::vector<int64_t> keypoint_ids = obj->getKeypointIndices();
         // addKeypointMarkers(object_markers.markers, model_scale, obj, t);

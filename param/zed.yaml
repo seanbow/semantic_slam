@@ -46,10 +46,10 @@ sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = mo
 include_geometric_features: true
 cam_sigma: 5
 reprojection_error_threshold: 4
-use_smart_projection_factors: false
+use_smart_projection_factors: true
 
 ### Semantic measurement parameters
-keypoint_msmt_sigma: 15                 # keypoint measurement sigma (pixels)
+keypoint_msmt_sigma: 10                 # keypoint measurement sigma (pixels)
 keypoint_initialization_depth_sigma: 2  # meters
 
 min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph
@@ -69,7 +69,7 @@ include_objects_in_graph: true
 # where W = (1/structure_error_coefficient) * I
 # i.e. this is an inverse "noise" like value where higher = more penalty for 
 # deviations from the calculated object structure
-structure_error_coefficient: 1000
+structure_error_coefficient: 500
 
 keypoint_activation_threshold: 0.65     # threshold above which to consider a keypoint observed
 
@@ -98,3 +98,4 @@ init_q_sigma: [0.02, 0.02, 0.02]
 ## Visualization
 geometric_point_scale: 0.1
 object_keypoint_scale: 0.1
+show_object_labels: false
