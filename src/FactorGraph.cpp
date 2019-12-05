@@ -148,7 +148,10 @@ void FactorGraph::removeFactor(CeresFactorPtr factor)
         }
     }
 
-    factor->removeFromProblem(problem_);
+    if (factor->active()) factor->removeFromProblem(problem_);
+
+    assert(!factor->active());
+
     modified_ = true;
 }
 

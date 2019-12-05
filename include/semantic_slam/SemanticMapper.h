@@ -172,12 +172,12 @@ private:
     std::vector<bool> 
     predictVisibleObjects(SemanticKeyframe::Ptr node);
 
-    bool updateObjects(SemanticKeyframe::Ptr node,
-                       const aligned_vector<ObjectMeasurement>& measurements,
-                       const std::vector<size_t>& measurement_index,
-                       const std::map<size_t, size_t>& known_das,
-                       const Eigen::MatrixXd& weights,
-                       const std::vector<size_t>& object_index);
+    bool addMeasurementsToObjects(SemanticKeyframe::Ptr node,
+                                    const aligned_vector<ObjectMeasurement>& measurements,
+                                    const std::vector<size_t>& measurement_index,
+                                    const std::map<size_t, size_t>& known_das,
+                                    const Eigen::MatrixXd& weights,
+                                    const std::vector<size_t>& object_index);
 
     void processGeometricFeatureTracks(const std::vector<SemanticKeyframe::Ptr>& new_keyframes);
 

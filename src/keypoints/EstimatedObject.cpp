@@ -545,7 +545,7 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
   // if (measurements_.size() > 2) {
     double mahal_d = computeMahalanobisDistance(msmt);
     if (mahal_d < chi2inv95(2)) {
-      ROS_INFO_STREAM("Adding measurement with mahal = " << mahal_d);
+      // ROS_INFO_STREAM("Adding measurement with mahal = " << mahal_d);
     } else {
       return;
     }
@@ -553,7 +553,7 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
 
   measurements_.push_back(msmt);
 
-  auto keyframe = mapper_->keyframes()[Symbol(msmt.observed_key).index()];
+  auto keyframe = mapper_->getKeyframeByKey(msmt.observed_key);
   keyframe_observations_.push_back(keyframe);
   keyframe->visible_objects().push_back(shared_from_this());
 
@@ -585,7 +585,7 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
     // last_seen_ = kp_msmt.pose_id;
   }
 
-  last_seen_ = Symbol(msmt.observed_key).index();
+  last_seen_ = keyframe->index();
 
   // if (!in_graph_ && readyToAddToGraph()) {
   //   addToGraph();
@@ -626,27 +626,24 @@ void EstimatedObject::updateGraphFactors()
 }
 
 void
-EstimatedObject::update(CeresNodePtr spur_node)
+EstimatedObject::update(SemanticKeyframe::Ptr keyframe)
 {
   if (bad())
     return;
 
-  if (in_graph_ && !params_.include_objects_in_graph &&
-      spur_node->index() - last_seen_ < 10) {
-    // TIME_TIC;
+  if (!params_.include_objects_in_graph && keyframe->index() - last_seen_ < 10) {
     optimizeStructure();
-    // TIME_TOC(fmt::format("Structure optimization for object {}", id()));
   }
 
-  if (in_graph_ && params_.include_objects_in_graph) {
-    ROS_INFO_STREAM("Object " << id() << " has graph pose " << graph_pose_node_->pose());
-  }
+  // if (in_graph_) {
+  //   ROS_INFO_STREAM("Object " << id() << " has graph pose " << graph_pose_node_->pose());
+  // }
 
   // sanityCheck(spur_node);
 
-  // if (!in_graph_ && pose_id - last_seen_ > 10) {
-  //     removeFromEstimation();
-  // }
+  if (!in_graph_ && keyframe->index() - last_seen_ > 10) {
+      removeFromEstimation();
+  }
 }
 
 Eigen::MatrixXd

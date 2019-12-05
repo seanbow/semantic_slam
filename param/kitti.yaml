@@ -23,7 +23,7 @@ I_q_C: [-0.5, 0.5, -0.5, 0.5] # IMU x forward, y left, z up <-> camera x right, 
 
 ## Optimization parameters
 covariance_delay: 5.0
-max_optimization_time: 2.0
+max_optimization_time: 1.0
 
 optimization_backend: "CERES"
 # optimization_backend: "GTSAM"
@@ -57,7 +57,7 @@ min_object_n_keypoints: 5               # minimum number of observed keypoints n
 min_landmark_observations: 3           # minimum number of observations needed for a keypoint before estimating depth and including in optimization
 min_observed_keypoints_to_initialize: 4
 
-keyframe_translation_threshold: 0.5
+keyframe_translation_threshold: 1
 keyframe_rotation_threshold: 10 # degrees
 
 ### Semantic object optimization parameters

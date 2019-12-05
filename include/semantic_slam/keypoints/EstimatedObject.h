@@ -37,7 +37,7 @@ public:
   void addKeypointMeasurements(const ObjectMeasurement &msmt, double weight);
 
   // void updateAndCheck(uint64_t pose_id, const gtsam::Values& estimate);
-  void update(CeresNodePtr spur_node);
+  void update(boost::shared_ptr<SemanticKeyframe> keyframe);
 
   void updateGraphFactors();
 

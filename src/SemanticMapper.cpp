@@ -73,11 +73,11 @@ void SemanticMapper::setup()
 
     // solver_options.minimizer_type = ceres::LINE_SEARCH;
 
-    solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+    // solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+    // solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
     // solver_options.use_explicit_schur_complement = true;
 
-    // solver_options.linear_solver_type = ceres::CGNR;
+    solver_options.linear_solver_type = ceres::CGNR;
 
     // solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
     // solver_options.linear_solver_type = ceres::DENSE_SCHUR; // todo
@@ -210,66 +210,50 @@ void SemanticMapper::freezeNonCovisible(const std::vector<SemanticKeyframe::Ptr>
     // Iterate over the target frames and their covisible frames, collecting the frames
     // and objects that will remain unfrozen in the graph
 
-    unfrozen_kfs_.clear();
-    unfrozen_objs_.clear();
-
-    for (const auto& frame : target_frames) {
-        unfrozen_kfs_.insert(frame->index());
-        for (auto obj : frame->visible_objects()) {
-            unfrozen_objs_.insert(obj->id());
-        }
-
-        for (const auto& cov_frame : frame->neighbors()) {
-            unfrozen_kfs_.insert(cov_frame.first->index());
-            for (auto obj : cov_frame.first->visible_objects()) {
-                unfrozen_objs_.insert(obj->id());
-            }
-        }
-    }
-
-    // std::cout << "Unfrozen frames: \n";
-    // for (int id : unfrozen_kfs_) {
-    //     std::cout << id << " ";
-    // }
-    // std::cout << std::endl;
-
-    // std::cout << "Unfrozen objects: \n";
-    // for (int id : unfrozen_objs_) {
-    //     std::cout << id << " ";
-    // }
-    // std::cout << std::endl;
-
     // In case of a loop closure there may be frames i and j are covisible but some frame i < k < j is
     // not covisible with i or j. So we need to make sure that we unfreeze these intermediate
     // frames as well.
+
     int min_frame = std::numeric_limits<int>::max();
     int max_frame = std::numeric_limits<int>::lowest();
-    for (auto id : unfrozen_kfs_) {
-        min_frame = std::min(min_frame, id);
-        max_frame = std::max(max_frame, id);
-    }
+    int min_frame_in_targets = min_frame;
 
-    std::lock_guard<std::mutex> lock(graph_mutex_);
+    for (const auto& frame : target_frames) {
+        min_frame = std::min(min_frame, frame->index());
+        max_frame = std::max(max_frame, frame->index());
+        min_frame_in_targets = std::min(min_frame_in_targets, frame->index());
 
-    for (int i = 0; i < keyframes_.size(); ++i) {
-        if (!keyframes_[i]->inGraph()) continue;
-
-        if (i >= min_frame && i <= max_frame) {
-            graph_->setNodeVariable(keyframes_[i]->graph_node());
-        } else {
-            graph_->setNodeConstant(keyframes_[i]->graph_node());
+        for (const auto& cov_frame : frame->neighbors()) {
+            min_frame = std::min(min_frame, cov_frame.first->index());
+            max_frame = std::max(max_frame, cov_frame.first->index());
         }
     }
 
-    // for (const auto& kf : keyframes_) {
-    //     if (!kf->inGraph()) continue;
+    // Give ourself a big of a smoothing lag...
+    // TODO compute this based on geometric features
+    min_frame = std::min(min_frame, min_frame_in_targets - 50);
+    min_frame = std::max(min_frame, 0);
 
-    //     if (unfrozen_kfs_.count(kf->index())) {
-    //         graph_->setNodeVariable(kf->graph_node());
-    //     } else {
-    //         graph_->setNodeConstant(kf->graph_node());
-    //     }
-    // }
+    unfrozen_kfs_.clear();
+    unfrozen_objs_.clear();
+
+    for (int i = min_frame; i <= max_frame; ++i) {
+        unfrozen_kfs_.insert(i);
+
+        for (auto& obj : keyframes_[i]->visible_objects()) {
+            unfrozen_objs_.insert(obj->id());
+        }
+    }
+
+    for (const auto& kf : keyframes_) {
+        if (!kf->inGraph()) continue;
+
+        if (unfrozen_kfs_.count(kf->index())) {
+            graph_->setNodeVariable(kf->graph_node());
+        } else {
+            graph_->setNodeConstant(kf->graph_node());
+        }
+    }
 
     // now objects
     for (const auto& obj : estimated_objects_) {
@@ -281,6 +265,84 @@ void SemanticMapper::freezeNonCovisible(const std::vector<SemanticKeyframe::Ptr>
             obj->setConstantInGraph();
         }
     }
+
+    std::cout << "Unfrozen frames: \n";
+    for (int id : unfrozen_kfs_) {
+        std::cout << id << " ";
+    }
+    std::cout << std::endl;
+
+    // unfrozen_kfs_.clear();
+    // unfrozen_objs_.clear();
+
+    // for (const auto& frame : target_frames) {
+    //     unfrozen_kfs_.insert(frame->index());
+    //     for (auto obj : frame->visible_objects()) {
+    //         unfrozen_objs_.insert(obj->id());
+    //     }
+
+    //     for (const auto& cov_frame : frame->neighbors()) {
+    //         unfrozen_kfs_.insert(cov_frame.first->index());
+    //         for (auto obj : cov_frame.first->visible_objects()) {
+    //             unfrozen_objs_.insert(obj->id());
+    //         }
+    //     }
+    // }
+
+    // // std::cout << "Unfrozen frames: \n";
+    // // for (int id : unfrozen_kfs_) {
+    // //     std::cout << id << " ";
+    // // }
+    // // std::cout << std::endl;
+
+    // // std::cout << "Unfrozen objects: \n";
+    // // for (int id : unfrozen_objs_) {
+    // //     std::cout << id << " ";
+    // // }
+    // // std::cout << std::endl;
+
+    // // In case of a loop closure there may be frames i and j are covisible but some frame i < k < j is
+    // // not covisible with i or j. So we need to make sure that we unfreeze these intermediate
+    // // frames as well.
+    // int min_frame = std::numeric_limits<int>::max();
+    // int max_frame = std::numeric_limits<int>::lowest();
+    // for (auto id : unfrozen_kfs_) {
+    //     min_frame = std::min(min_frame, id);
+    //     max_frame = std::max(max_frame, id);
+    // }
+
+    // std::lock_guard<std::mutex> lock(graph_mutex_);
+
+    // for (int i = 0; i < keyframes_.size(); ++i) {
+    //     if (!keyframes_[i]->inGraph()) continue;
+
+    //     if (i >= min_frame && i <= max_frame) {
+    //         graph_->setNodeVariable(keyframes_[i]->graph_node());
+    //     } else {
+    //         graph_->setNodeConstant(keyframes_[i]->graph_node());
+    //     }
+    // }
+
+    // // for (const auto& kf : keyframes_) {
+    // //     if (!kf->inGraph()) continue;
+
+    // //     if (unfrozen_kfs_.count(kf->index())) {
+    // //         graph_->setNodeVariable(kf->graph_node());
+    // //     } else {
+    // //         graph_->setNodeConstant(kf->graph_node());
+    // //     }
+    // // }
+
+    // // now objects
+    // for (const auto& obj : estimated_objects_) {
+    //     if (!obj->inGraph()) continue;
+
+    //     if (unfrozen_objs_.count(obj->id())) {
+    //         obj->setVariableInGraph();
+    //     } else {
+    //         obj->setConstantInGraph();
+    //     }
+    // }
     
 }
 
@@ -1060,16 +1122,26 @@ bool SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
             }
         }
 
-        std::cout << "Mahals:\n" << mahals << std::endl;
+        // std::cout << "Mahals:\n" << mahals << std::endl;
     
         Eigen::MatrixXd weights_matrix = MLDataAssociator(params_).computeConstraintWeights(mahals);
 
-        updateObjects(frame, 
-                        frame->measurements, 
-                        measurement_index, 
-                        known_das, 
-                        weights_matrix, 
-                        object_index);
+        addMeasurementsToObjects(frame, 
+                                frame->measurements, 
+                                measurement_index, 
+                                known_das, 
+                                weights_matrix, 
+                                object_index);
+
+        // calling the "update" method on each of our objects allows them to remove
+        // themselves from the estimation if they're poorly localized and haven't 
+        // been observed recently. These objects can cause poor data association and 
+        // errors down the road otherwise
+        for (auto& obj : estimated_objects_) {
+            if (!obj->bad()) {
+                obj->update(frame);
+            }
+        }
     }
 
     return true;
@@ -1319,35 +1391,35 @@ SemanticMapper::getPlx(Key key1, Key key2)
     Eigen::MatrixXd updated_covs = H12*global_covs*H12.transpose();
 
     // for debugging just check cov with one landmark
-    Eigen::MatrixXd Plx_local_one(9,9);
-    Eigen::MatrixXd global_covs_one(9,9);
-    Eigen::MatrixXd H_one(9,9);
-    Eigen::MatrixXd updated_Plx_one(9,9);
+    // Eigen::MatrixXd Plx_local_one(9,9);
+    // Eigen::MatrixXd global_covs_one(9,9);
+    // Eigen::MatrixXd H_one(9,9);
+    // Eigen::MatrixXd updated_Plx_one(9,9);
 
-    Plx_local_one.topLeftCorner<3,3>() = Plx_local.topLeftCorner<3,3>();
-    Plx_local_one.topRightCorner<3,6>() = Plx_local.topRightCorner<3,6>();
-    Plx_local_one.bottomLeftCorner<6,3>() = Plx_local.bottomLeftCorner<6,3>();
-    Plx_local_one.bottomRightCorner<6,6>() = Plx_local.bottomRightCorner<6,6>();
+    // Plx_local_one.topLeftCorner<3,3>() = Plx_local.topLeftCorner<3,3>();
+    // Plx_local_one.topRightCorner<3,6>() = Plx_local.topRightCorner<3,6>();
+    // Plx_local_one.bottomLeftCorner<6,3>() = Plx_local.bottomLeftCorner<6,3>();
+    // Plx_local_one.bottomRightCorner<6,6>() = Plx_local.bottomRightCorner<6,6>();
 
-    global_covs_one.topLeftCorner<3,3>() = global_covs.topLeftCorner<3,3>();
-    global_covs_one.topRightCorner<3,6>() = global_covs.topRightCorner<3,6>();
-    global_covs_one.bottomLeftCorner<6,3>() = global_covs.bottomLeftCorner<6,3>();
-    global_covs_one.bottomRightCorner<6,6>() = global_covs.bottomRightCorner<6,6>();
+    // global_covs_one.topLeftCorner<3,3>() = global_covs.topLeftCorner<3,3>();
+    // global_covs_one.topRightCorner<3,6>() = global_covs.topRightCorner<3,6>();
+    // global_covs_one.bottomLeftCorner<6,3>() = global_covs.bottomLeftCorner<6,3>();
+    // global_covs_one.bottomRightCorner<6,6>() = global_covs.bottomRightCorner<6,6>();
 
-    H_one.topLeftCorner<3,3>() = H12.topLeftCorner<3,3>();
-    H_one.topRightCorner<3,6>() = H12.topRightCorner<3,6>();
-    H_one.bottomLeftCorner<6,3>() = H12.bottomLeftCorner<6,3>();
-    H_one.bottomRightCorner<6,6>() = H12.bottomRightCorner<6,6>();
+    // H_one.topLeftCorner<3,3>() = H12.topLeftCorner<3,3>();
+    // H_one.topRightCorner<3,6>() = H12.topRightCorner<3,6>();
+    // H_one.bottomLeftCorner<6,3>() = H12.bottomLeftCorner<6,3>();
+    // H_one.bottomRightCorner<6,6>() = H12.bottomRightCorner<6,6>();
 
-    updated_Plx_one.topLeftCorner<3,3>() = updated_covs.topLeftCorner<3,3>();
-    updated_Plx_one.topRightCorner<3,6>() = updated_covs.topRightCorner<3,6>();
-    updated_Plx_one.bottomLeftCorner<6,3>() = updated_covs.bottomLeftCorner<6,3>();
-    updated_Plx_one.bottomRightCorner<6,6>() = updated_covs.bottomRightCorner<6,6>();
+    // updated_Plx_one.topLeftCorner<3,3>() = updated_covs.topLeftCorner<3,3>();
+    // updated_Plx_one.topRightCorner<3,6>() = updated_covs.topRightCorner<3,6>();
+    // updated_Plx_one.bottomLeftCorner<6,3>() = updated_covs.bottomLeftCorner<6,3>();
+    // updated_Plx_one.bottomRightCorner<6,6>() = updated_covs.bottomRightCorner<6,6>();
 
-    std::cout << "Plx LOCAL: \n" << Plx_local_one << std::endl;
-    std::cout << "Plx GLOBAL: \n" << global_covs_one << std::endl;
-    std::cout << "H: \n" << H_one << std::endl;
-    std::cout << "Plx TRANSFORMED: \n" << updated_Plx_one << std::endl;
+    // std::cout << "Plx LOCAL: \n" << Plx_local_one << std::endl;
+    // std::cout << "Plx GLOBAL: \n" << global_covs_one << std::endl;
+    // std::cout << "H: \n" << H_one << std::endl;
+    // std::cout << "Plx TRANSFORMED: \n" << updated_Plx_one << std::endl;
 
     // if (!updated_covs.allFinite()) {
 
@@ -1364,12 +1436,12 @@ SemanticMapper::getPlx(Key key1, Key key2)
     return updated_covs;
 }
 
-bool SemanticMapper::updateObjects(SemanticKeyframe::Ptr kf,
-                                  const aligned_vector<ObjectMeasurement>& measurements,
-                                  const std::vector<size_t>& measurement_index,
-                                  const std::map<size_t, size_t>& known_das,
-                                  const Eigen::MatrixXd& weights,
-                                  const std::vector<size_t>& object_index)
+bool SemanticMapper::addMeasurementsToObjects(SemanticKeyframe::Ptr kf,
+                                            const aligned_vector<ObjectMeasurement>& measurements,
+                                            const std::vector<size_t>& measurement_index,
+                                            const std::map<size_t, size_t>& known_das,
+                                            const Eigen::MatrixXd& weights,
+                                            const std::vector<size_t>& object_index)
 {
     if (measurements.size() == 0) return true;
 

@@ -70,7 +70,13 @@ void ObjectMeshPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyf
     for (const EstimatedObject::Ptr& obj : objects) {
         if (obj->bad()) {
             delete_marker.id = obj->id();
+
+            delete_marker.ns = "objects";
             object_markers.markers.push_back(delete_marker);
+
+            delete_marker.ns = "object_texts";
+            object_markers.markers.push_back(delete_marker);
+
             continue;
         }
 
