@@ -97,3 +97,4 @@ init_q_sigma: [0.02, 0.02, 0.02]
 
 ## Visualization
 geometric_point_scale: 0.1
+object_keypoint_scale: 0.1

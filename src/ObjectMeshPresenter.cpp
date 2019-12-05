@@ -86,7 +86,7 @@ void ObjectMeshPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyf
         } else if (obj->obj_name() == "pelican") {
             model_scale = 0.25;
         } else if (obj->obj_name() == "car") {
-            model_scale = 4;
+            model_scale = 6;
         }
 
         object_marker.scale.x = model_scale;

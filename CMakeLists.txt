@@ -174,6 +174,7 @@ add_library(PosePresenter src/PosePresenter.cpp)
 add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
 add_library(ObjectMeshPresenter src/ObjectMeshPresenter.cpp)
 add_library(GeometricMapPresenter src/GeometricMapPresenter.cpp)
+add_library(ObjectKeypointPresenter src/ObjectKeypointPresenter.cpp)
 
 add_library(EstimatedObject src/keypoints/EstimatedObject.cpp)
 target_link_libraries(EstimatedObject
@@ -265,6 +266,7 @@ target_link_libraries(semantic_slam_node
     TrajectoryPresenter
     ObjectMeshPresenter
     GeometricMapPresenter
+    ObjectKeypointPresenter
     SemanticKeyframe
     gtsam
     ${BASE_LIBS}

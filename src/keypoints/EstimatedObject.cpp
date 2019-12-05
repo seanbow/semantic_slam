@@ -551,7 +551,8 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
                                          double weight)
 {
   // compute mahalanobis distance...
-  if (measurements_.size() >= 2) {
+  if (in_graph_) {
+  // if (measurements_.size() > 2) {
     double mahal_d = computeMahalanobisDistance(msmt);
     if (mahal_d < chi2inv95(2)) {
       ROS_INFO_STREAM("Adding measurement with mahal = " << mahal_d);

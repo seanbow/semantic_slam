@@ -73,9 +73,7 @@ void EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt, double w
   // Check if it's reasonable
   // TODO check structure/consistency errors rather than just mahal distance?
 
-  // if this is the first measurement our position will have been initialized for it so any sort of
-  // error checking is pointless
-  if (measurements_.size() > 0) {
+  if (measurements_.size() >= 2) {
     double mahal_d = computeMahalanobisDistance(msmt);
     if (mahal_d > chi2inv95(2)) {
       // ROS_WARN_STREAM(fmt::format("REJECTED measurement of keypoint {}, mahal = {}, score = {}", 
@@ -101,7 +99,8 @@ void EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt, double w
       msmt.pixel_measurement,
       noise_vec.asDiagonal(),
       camera_calibration_,
-      I_T_C_
+      I_T_C_,
+      true // robust loss function
   );
 
   projection_factors_.push_back(proj_factor);

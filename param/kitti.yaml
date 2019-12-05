@@ -47,10 +47,10 @@ sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = mo
 include_geometric_features: true
 cam_sigma: 6
 reprojection_error_threshold: 4
-use_smart_projection_factors: false
+use_smart_projection_factors: true
 
 ### Semantic measurement parameters
-keypoint_msmt_sigma: 15                 # keypoint measurement sigma (pixels)
+keypoint_msmt_sigma: 8                 # keypoint measurement sigma (pixels)
 keypoint_initialization_depth_sigma: 2  # meters
 
 min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph
@@ -61,7 +61,7 @@ keyframe_translation_threshold: 0.5
 keyframe_rotation_threshold: 10 # degrees
 
 ### Semantic object optimization parameters
-structure_regularization_factor: 10     # lambda in structure optimization term lambda * ||c||^2
+structure_regularization_factor: 1     # lambda in structure optimization term lambda * ||c||^2
 robust_estimator_parameter: 1.5
 include_objects_in_graph: true
 
@@ -72,12 +72,12 @@ include_objects_in_graph: true
 # deviations from the calculated object structure
 structure_error_coefficient: 100
 
-keypoint_activation_threshold: 0.2     # threshold above which to consider a keypoint observed
+keypoint_activation_threshold: 0.15     # threshold above which to consider a keypoint observed
 
 # camera_range: 10                        # meters
 
 mahal_thresh_assign: 4                  # Mahalanobis distance below which to assign data (MLDataAssociator)
-mahal_thresh_init: 25                   # Mahalanobis distance above which to assign new mapped landmarks (MLDataAssociator)
+mahal_thresh_init: 12                   # Mahalanobis distance above which to assign new mapped landmarks (MLDataAssociator)
 
 # max_new_factor_error: 300
 
@@ -97,4 +97,5 @@ gravity: [0, 0, -9.81]
 # init_q_sigma: [0.02, 0.02, 0.02]
 
 ## Visualization
-geometric_point_scale: 0.1
+geometric_point_scale: 0.75
+object_keypoint_scale: 0.5

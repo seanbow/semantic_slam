@@ -110,21 +110,21 @@ void MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
                                         const Eigen::Matrix2d& msmt_covariance)
 {
     // Compute the reprojection error...
-    // if (in_graph_) {
-    //     try {
-    //         Camera camera(body_pose_node->pose().compose(I_T_C_), calibration_);
-    //         Eigen::Vector2d zhat = camera.project(landmark_node_->vector());
-    //         double error = (pixel_coords - zhat).transpose() * msmt_covariance.llt().solve(pixel_coords - zhat);
+    if (in_graph_) {
+        try {
+            Camera camera(body_pose_node->pose().compose(I_T_C_), calibration_);
+            Eigen::Vector2d zhat = camera.project(landmark_node_->vector());
+            double error = (pixel_coords - zhat).transpose() * msmt_covariance.llt().solve(pixel_coords - zhat);
 
-    //         if (error > chi2inv99(2) || !std::isfinite(error)) return;
+            if (error > chi2inv99(2) || !std::isfinite(error)) return;
 
-    //         // ROS_INFO_STREAM("[SmartProjectionFactor] Added measurement with reprojection error " << error);
-    //         // std::cout << " zhat = " << zhat.transpose() << " ; msmt = " << pixel_coords.transpose() << std::endl;
-    //     } catch (CheiralityException& e) {
-    //         return;
-    //         // ROS_INFO_STREAM("[SmartProjectionFactor] Added measurement behind camera!");
-    //     }
-    // }
+            // ROS_INFO_STREAM("[SmartProjectionFactor] Added measurement with reprojection error " << error);
+            // std::cout << " zhat = " << zhat.transpose() << " ; msmt = " << pixel_coords.transpose() << std::endl;
+        } catch (CheiralityException& e) {
+            return;
+            // ROS_INFO_STREAM("[SmartProjectionFactor] Added measurement behind camera!");
+        }
+    }
 
     body_poses_.push_back(body_pose_node);
     msmts_.push_back(pixel_coords);
