@@ -60,31 +60,32 @@ void SemanticMapper::setup()
     loadCalibration();
     loadParameters();
 
-    ceres::Solver::Options solver_options;
-    // solver_options.trust_region_strategy_type = ceres::DOGLEG;
-    // solver_options.dogleg_type = ceres::SUBSPACE_DOGLEG;
+    // solver_options_.trust_region_strategy_type = ceres::DOGLEG;
+    // solver_options_.dogleg_type = ceres::SUBSPACE_DOGLEG;
 
-    // solver_options.function_tolerance = 1e-4;
-    // solver_options.gradient_tolerance = 1e-8;
+    // solver_options_.function_tolerance = 1e-4;
+    // solver_options_.gradient_tolerance = 1e-8;
 
-    // solver_options.max_num_iterations = 10;
+    // solver_options_.max_num_iterations = 10;
 
-    solver_options.max_solver_time_in_seconds = max_optimization_time_;
+    solver_options_.max_solver_time_in_seconds = max_optimization_time_;
 
-    // solver_options.minimizer_type = ceres::LINE_SEARCH;
+    // solver_options_.minimizer_type = ceres::LINE_SEARCH;
 
-    // solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    // solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
-    // solver_options.use_explicit_schur_complement = true;
+    // solver_options_.linear_solver_type = ceres::ITERATIVE_SCHUR;
+    // solver_options_.preconditioner_type = ceres::SCHUR_JACOBI;
+    // solver_options_.use_explicit_schur_complement = true;
 
-    solver_options.linear_solver_type = ceres::CGNR;
+    solver_options_.linear_solver_type = ceres::CGNR;
 
-    // solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-    // solver_options.linear_solver_type = ceres::DENSE_SCHUR; // todo
-    // solver_options.linear_solver_type = ceres::DENSE_QR; // todo
-    solver_options.num_threads = 4;
+    // solver_options_.linear_solver_type = ceres::SPARSE_SCHUR;
+    // solver_options_.linear_solver_type = ceres::DENSE_SCHUR; // todo
+    // solver_options_.linear_solver_type = ceres::DENSE_QR; // todo
+    solver_options_.num_threads = 4;
 
-    graph_->setSolverOptions(solver_options);
+    graph_->setSolverOptions(solver_options_);
+
+    operation_mode_ = OperationMode::NORMAL;
 }
 
 void SemanticMapper::setOdometryHandler(boost::shared_ptr<ExternalOdometryHandler> odom) {
@@ -143,10 +144,11 @@ void SemanticMapper::processMessagesUpdateObjectsThread()
 
             if (next_keyframe) {
 
-                updateKeyframeObjects(next_keyframe);
+                pending_keyframes_.push_back(next_keyframe);
 
-                next_keyframe->updateConnections();
-                next_keyframe->measurements_processed() = true;
+                if (operation_mode_ == OperationMode::NORMAL) {
+                    processPendingKeyframes();
+                } 
 
                 for (auto& p : presenters_) p->present(keyframes_, estimated_objects_);
             }
@@ -172,9 +174,18 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
             
             freezeNonCovisible(new_frames);
 
-            bool did_optimize = tryOptimize();
+            bool optimization_succeeded;
 
-            if (did_optimize) {
+            if (operation_mode_ == OperationMode::NORMAL) {
+                optimization_succeeded = tryOptimize();
+            } else if (operation_mode_ == OperationMode::LOOP_CLOSING) {
+                ROS_INFO_STREAM("Performing a full optimization...");
+                optimization_succeeded = optimizeFully();
+                computeCovariances();
+                operation_mode_ = OperationMode::NORMAL;
+            }
+
+            if (optimization_succeeded) {
                 unfreezeAll();
                 if (needToComputeCovariances()) computeCovariances();
             }
@@ -184,6 +195,54 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
     }
 
     running_ = false;
+}
+
+void SemanticMapper::processPendingKeyframes() 
+{
+    if (pending_keyframes_.empty()) return;
+
+    ros::Time earliest_time_this_function = pending_keyframes_.front()->time();
+
+    while (!pending_keyframes_.empty()) {
+        auto next_keyframe = pending_keyframes_.front();
+        pending_keyframes_.pop_front();
+
+        updateKeyframeObjects(next_keyframe);
+
+        // Here we're going to detect a loop closure in a sort of stupid way -- for each 
+        // object observed in this keyframe, compute the latest keyframe that previously
+        // had observed that object. Declare a loop closure if the greatest difference
+        // from all of these frames is above some threshold. "Loop closure" vs just continuing
+        // SLAM is sort of arbitrary so an arbitrary threshold here is fine... The idea is just 
+        // to detect when the optimization will produce large pose deltas
+        int earliest_object = std::numeric_limits<int>::max();
+        for (auto obj : next_keyframe->visible_objects()) {
+            int latest_observation = -1;
+            for (auto kf : obj->keyframe_observations()) {
+                if (kf->index() != next_keyframe->index()) {
+                    latest_observation = std::max(latest_observation, kf->index());
+                }
+            }
+
+            if (latest_observation >= 0)
+                earliest_object = std::min(earliest_object, latest_observation);
+        }
+
+        // ROS_INFO_STREAM("KF index: " << next_keyframe->index() << " ; earliest object: " << earliest_object);
+
+        next_keyframe->updateConnections();
+        next_keyframe->measurements_processed() = true;
+
+        // if no objects were detected then earliest_object == INT_MAX and the following will never be true
+        if (next_keyframe->index() - earliest_object > loop_closure_threshold_) {
+            ROS_WARN("LOOP CLOSURE!!");
+
+            operation_mode_ = OperationMode::LOOP_CLOSING;
+
+            // quit processing keyframes until the loop closure is handled
+            break;
+        }
+    }
 }
 
 void SemanticMapper::processGeometricFeatureTracks(const std::vector<SemanticKeyframe::Ptr>& new_keyframes)
@@ -266,11 +325,11 @@ void SemanticMapper::freezeNonCovisible(const std::vector<SemanticKeyframe::Ptr>
         }
     }
 
-    std::cout << "Unfrozen frames: \n";
-    for (int id : unfrozen_kfs_) {
-        std::cout << id << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "Unfrozen frames: \n";
+    // for (int id : unfrozen_kfs_) {
+    //     std::cout << id << " ";
+    // }
+    // std::cout << std::endl;
 
     // unfrozen_kfs_.clear();
     // unfrozen_objs_.clear();
@@ -782,21 +841,44 @@ void SemanticMapper::commitGraphSolution()
 bool SemanticMapper::tryOptimize() {
     if (!graph_->modified()) return false;
     
-    auto t1 = std::chrono::high_resolution_clock::now();
+    TIME_TIC;
 
     prepareGraphNodes();
 
     bool solve_succeeded = solveGraph();
 
-    if (solve_succeeded) commitGraphSolution();
+    if (solve_succeeded) {
+        commitGraphSolution();
+        ROS_INFO_STREAM(fmt::format("Solved {} nodes and {} edges in {:.2f} ms.",
+                                    graph_->num_nodes(), graph_->num_factors(), TIME_TOC));
+        return true;
+    } else {
+        ROS_INFO_STREAM("Graph solve failed");
+        return false;
+    }
+}
 
-    auto t2 = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+bool SemanticMapper::optimizeFully() {
+    TIME_TIC;
+
+    // The only difference between this function and tryOptimize is that 
+    // we're not going to limit the amount of time the solver takes (too much??)
+
+    prepareGraphNodes();
+
+    solver_options_.max_solver_time_in_seconds = 12;
+    graph_->setSolverOptions(solver_options_);
+
+    bool solve_succeeded = solveGraph();
+
+    // Set the solver back to its normal time limit
+    solver_options_.max_solver_time_in_seconds = max_optimization_time_;
+    graph_->setSolverOptions(solver_options_);
 
     if (solve_succeeded) {
-        ROS_INFO_STREAM(fmt::format("*** Solved {} nodes and {} edges in {:.2f} ms. ***",
-                                    graph_->num_nodes(), graph_->num_factors(), duration.count()/1000.0));
-        // for (auto& p : presenters_) p->present();
+        commitGraphSolution();
+        ROS_INFO_STREAM(fmt::format("Solved {} nodes and {} edges in {:.2f} ms.",
+                                    graph_->num_nodes(), graph_->num_factors(), TIME_TOC));
         return true;
     } else {
         ROS_INFO_STREAM("Graph solve failed");
@@ -939,7 +1021,8 @@ bool SemanticMapper::loadParameters()
         !pnh_.getParam("include_geometric_features", include_geometric_features_) ||
         !pnh_.getParam("verbose_optimization", verbose_optimization_) ||
         !pnh_.getParam("covariance_delay", covariance_delay_) ||
-        !pnh_.getParam("max_optimization_time", max_optimization_time_)) {
+        !pnh_.getParam("max_optimization_time", max_optimization_time_) ||
+        !pnh_.getParam("loop_closure_threshold", loop_closure_threshold_)) {
 
         ROS_ERROR("Unable to load object handler parameters");
         return false;
@@ -1085,7 +1168,7 @@ bool SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
                 // object level. to do this we require that a certain number of keypoints were
                 // actually observed so we don't make spurious associations
                 // --> objects not tracked and with too few kps observed are effectively thrown away
-                if (frame->measurements[i].n_keypoints_observed >= 3) {
+                if (frame->measurements[i].n_keypoints_observed >= 2) {
                     measurement_index.push_back(i);
                 }
             } else {

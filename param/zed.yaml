@@ -20,7 +20,8 @@ I_q_C: [-0.500, 0.500, -0.500, 0.500]
 
 ## Optimization parameters
 covariance_delay: 5.0
-max_optimization_time: 2.0
+max_optimization_time: 1.0
+loop_closure_threshold: 10 # in number of keyframes
 
 optimization_backend: "CERES"
 # optimization_backend: "GTSAM"

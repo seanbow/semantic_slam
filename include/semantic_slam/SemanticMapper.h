@@ -35,6 +35,11 @@ class SemanticMapper
 public:
     SemanticMapper();
 
+    enum class OperationMode {
+        NORMAL,
+        LOOP_CLOSING
+    };
+
     void setup();
 
     void anchorOrigin();
@@ -44,6 +49,7 @@ public:
     bool updateKeyframeObjects(SemanticKeyframe::Ptr frame);
     void tryAddObjectsToGraph();
     bool tryOptimize();
+    bool optimizeFully();
 
     void processMessagesUpdateObjectsThread();
     void addObjectsAndOptimizeGraphThread();
@@ -133,6 +139,8 @@ private:
 
     unsigned char node_chr_;
 
+    OperationMode operation_mode_;
+
     // SemanticKeyframe::Ptr next_keyframe_;
 
     Eigen::MatrixXd last_kf_covariance_;
@@ -157,6 +165,10 @@ private:
     double covariance_delay_;
     double max_optimization_time_;
 
+    ceres::Solver::Options solver_options_;
+
+    int loop_closure_threshold_;
+
     // A list of tracking IDs that are associated with each estimated object
     // for example if the object tracks 3 and 8 are associated with the same physical object 2,
     // we should have object_track_ids_[3] = 2 and object_track_ids_[8] = 2.
@@ -168,6 +180,8 @@ private:
     ObjectParams params_;
 
     std::vector<SemanticKeyframe::Ptr> keyframes_;
+
+    std::deque<SemanticKeyframe::Ptr> pending_keyframes_;
 
     std::vector<bool> 
     predictVisibleObjects(SemanticKeyframe::Ptr node);
@@ -184,6 +198,8 @@ private:
     void computeCovariancesWithCeres();
     void computeCovariancesWithGtsam();
     void computeCovariancesWithGtsamIsam();
+
+    void processPendingKeyframes();
 
     ros::Publisher vis_pub_;
 

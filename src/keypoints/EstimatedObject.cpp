@@ -545,8 +545,9 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
   // if (measurements_.size() > 2) {
     double mahal_d = computeMahalanobisDistance(msmt);
     if (mahal_d < chi2inv95(2)) {
-      // ROS_INFO_STREAM("Adding measurement with mahal = " << mahal_d);
+      ROS_INFO_STREAM("Adding measurement with mahal = " << mahal_d);
     } else {
+      ROS_INFO_STREAM("Rejecting measurement with mahal = " << mahal_d);
       return;
     }
   }
@@ -694,7 +695,6 @@ bool EstimatedObject::readyToAddToGraph()
   }
 
   if (n_keypoints_localized >= params_.min_object_n_keypoints) {
-    ROS_INFO_STREAM("Object " << id() << " ready to add!");
     return true;
   }
 
