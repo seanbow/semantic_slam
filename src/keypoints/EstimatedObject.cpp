@@ -385,6 +385,41 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
 
   double factor = mahalanobisMultiplicativeFactor(2 * n_observed);
 
+
+  // std::ofstream out_file(fmt::format("/home/sean/code/object_pose_detection/debug_data/x{}_msmt{}_o{}.txt", 
+  //     keyframe->index(), msmt.global_msmt_id, id()));
+  // out_file << "Camera pose: \n" << keyframe->pose().translation().transpose() << std::endl;
+  // out_file << keyframe->pose().rotation().toRotationMatrix() << std::endl;
+  // out_file << "keypoint positions: \n";
+  // Eigen::MatrixXd kp_positions(3, msmt.keypoint_measurements.size());
+  // Eigen::MatrixXd zhats(2, msmt.keypoint_measurements.size());
+  // Eigen::MatrixXd kp_msmts(2, msmt.keypoint_measurements.size());
+  // Eigen::VectorXi observed(msmt.keypoint_measurements.size());
+  // for (size_t i = 0; i < msmt.keypoint_measurements.size(); ++i) {
+  //   int kp_index = findKeypointByClass(msmt.keypoint_measurements[i].kp_class_id);
+  //   if (kp_index < 0) {
+  //     ROS_ERROR("Unable to find matching keypoint for measurement??");
+  //   }
+
+  //   const auto& kp = keypoints_[kp_index];
+
+  //   try {
+  //     zhats.col(kp_index) = camera.project(kp->position());
+  //   } catch (CheiralityException& e) {
+  //     zhats.col(kp_index).setZero();
+  //   }
+
+  //   kp_positions.col(kp_index) = kp->position();
+  //   kp_msmts.col(kp_index) = msmt.keypoint_measurements[i].pixel_measurement;
+  //   observed(kp_index) = msmt.keypoint_measurements[i].observed ? 1 : 0;
+  // }
+  // out_file << kp_positions << std::endl;
+  // out_file << "KP measurements: \n" << kp_msmts << std::endl;
+  // out_file << "zhats:\n" << zhats << std::endl;
+  // out_file << "KP observed?:\n" << observed.transpose() << std::endl;
+  // out_file << "final mahal = \n" << mahal << "\n factor = \n" << factor << std::endl;
+  // out_file << "Plx:\n" << Plx << "\nH:\n" << H << "\nR:\n" << R << std::endl;
+
   ROS_INFO_STREAM("Object " << id() << "; Mahal distance " << mahal << " * factor " << factor << " = " << mahal * factor);
 
   // right now if all the points are behind the camera (clearly wrong object) the residuals
