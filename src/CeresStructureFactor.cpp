@@ -60,18 +60,11 @@ void CeresStructureFactor::addToProblem(boost::shared_ptr<ceres::Problem> proble
         blocks.push_back(coefficient_node_->vector().data());
     }
 
-    residual_id_ = problem->AddResidualBlock(cf_, NULL, blocks);
+    ceres::ResidualBlockId residual_id = problem->AddResidualBlock(cf_, NULL, blocks);
+    residual_ids_.emplace(problem.get(), residual_id);
 
     active_ = true;
 }
-
-void CeresStructureFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
-{
-    problem->RemoveResidualBlock(residual_id_);
-
-    active_ = false;
-}
-
 
 boost::shared_ptr<gtsam::NonlinearFactor> 
 CeresStructureFactor::getGtsamFactor() const

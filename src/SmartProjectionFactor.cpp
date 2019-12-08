@@ -101,16 +101,10 @@ void SmartProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> probl
     problem_ = problem;
 
     if (triangulation_good_) {
-        residual_id_ = problem->AddResidualBlock(this, NULL, parameter_blocks_);
+        ceres::ResidualBlockId residual_id = problem->AddResidualBlock(this, NULL, parameter_blocks_);
+        residual_ids_[problem.get()] = residual_id;
         active_ = true;
     }
-}
-
-void SmartProjectionFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
-{
-    problem->RemoveResidualBlock(residual_id_);
-
-    active_ = false;
 }
 
 

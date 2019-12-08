@@ -39,19 +39,13 @@ void
 CeresBetweenFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
     active_ = true;
-    residual_id_ = problem->AddResidualBlock(cf_, 
+    ceres::ResidualBlockId residual_id = problem->AddResidualBlock(cf_, 
                                             NULL, 
                                             node1_->pose().rotation_data(), 
                                             node1_->pose().translation_data(),
                                             node2_->pose().rotation_data(),
                                             node2_->pose().translation_data());
-}
-
-void
-CeresBetweenFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
-{
-    active_ = false;
-    problem->RemoveResidualBlock(residual_id_);
+    residual_ids_[problem.get()] = residual_id;
 }
 
 

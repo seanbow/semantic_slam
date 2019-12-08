@@ -89,7 +89,8 @@ void MultiProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> probl
     problem_ = problem;
 
     if (triangulation_good_) {
-        residual_id_ = problem->AddResidualBlock(this, NULL, parameter_blocks_);
+        ceres::ResidualBlockId residual_id = problem->AddResidualBlock(this, NULL, parameter_blocks_);
+        residual_ids_[problem.get()] = residual_id;
         landmark_node_->addToProblem(problem);
         active_ = true;
     }
@@ -97,7 +98,11 @@ void MultiProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> probl
 
 void MultiProjectionFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
 {
-    problem->RemoveResidualBlock(residual_id_);
+    auto it = residual_ids_.find(problem.get());
+
+    if (it != residual_ids_.end()) {
+        problem->RemoveResidualBlock(it->second); 
+    }
 
     landmark_node_->removeFromProblem(problem);
 

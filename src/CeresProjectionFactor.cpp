@@ -60,20 +60,14 @@ void CeresProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> probl
     
     active_ = true;
 
-    residual_id_ = problem->AddResidualBlock(cf_, 
+    ceres::ResidualBlockId residual_id = problem->AddResidualBlock(cf_, 
                                             lf, 
                                             camera_node_->pose().rotation_data(), 
                                             camera_node_->pose().translation_data(), 
                                             landmark_node_->vector().data());
+
+    residual_ids_[problem.get()] = residual_id;
 }
-
-
-void CeresProjectionFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
-{
-    active_ = false;
-    problem->RemoveResidualBlock(residual_id_);
-}
-
 
 boost::shared_ptr<gtsam::NonlinearFactor> 
 CeresProjectionFactor::getGtsamFactor() const

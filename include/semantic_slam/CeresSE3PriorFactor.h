@@ -14,7 +14,6 @@ public:
     ~CeresSE3PriorFactor();
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
-    void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
     using Ptr = boost::shared_ptr<CeresSE3PriorFactor>;
 
@@ -44,10 +43,6 @@ void CeresSE3PriorFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem
 {
     // assume the node has already been added to the problem!!
     // TODO do this more intelligently
-    residual_id_ = problem->AddResidualBlock(cf_, NULL, node_->pose().rotation_data(), node_->pose().translation_data());
-}
-
-void CeresSE3PriorFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
-{
-    problem->RemoveResidualBlock(residual_id_);
+    ceres::ResidualBlockId residual_id = problem->AddResidualBlock(cf_, NULL, node_->pose().rotation_data(), node_->pose().translation_data());
+    residual_ids_[problem.get()] = residual_id;
 }

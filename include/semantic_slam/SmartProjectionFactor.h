@@ -33,7 +33,6 @@ public:
                          int tag=0);
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
-    void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
     void addMeasurement(SE3NodePtr body_pose_node,
                         const Eigen::Vector2d& pixel_coords, 

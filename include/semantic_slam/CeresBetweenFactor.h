@@ -17,7 +17,6 @@ public:
     ~CeresBetweenFactor();
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
-    void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
     boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
     void addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;

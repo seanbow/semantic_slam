@@ -174,18 +174,26 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
             
             tryAddObjectsToGraph();
             
-            freezeNonCovisible(new_frames);
-
             bool optimization_succeeded;
 
             if (operation_mode_ == OperationMode::NORMAL) {
+
+                freezeNonCovisible(new_frames);
                 optimization_succeeded = tryOptimize();
+
             } else if (operation_mode_ == OperationMode::LOOP_CLOSING) {
-                ROS_INFO_STREAM("Performing a full optimization...");
-                optimization_succeeded = optimizeFully();
+
+                ROS_INFO_STREAM("Optimizing essential graph...");
+                optimization_succeeded = optimizeEssential();
+
+                ROS_INFO_STREAM("Refining with full graph solve...");
+                freezeNonCovisible(new_frames);
+                optimization_succeeded = tryOptimize();
+                
                 // computeLoopCovariances();
                 computeLatestCovariance();
                 operation_mode_ = OperationMode::NORMAL;
+
             }
 
             if (optimization_succeeded) {
@@ -331,8 +339,10 @@ void SemanticMapper::freezeNonCovisible(const std::vector<SemanticKeyframe::Ptr>
 
         if (unfrozen_kfs_.count(kf->index())) {
             graph_->setNodeVariable(kf->graph_node());
+            essential_graph_->setNodeVariable(kf->graph_node());
         } else {
             graph_->setNodeConstant(kf->graph_node());
+            essential_graph_->setNodeConstant(kf->graph_node());
         }
     }
 
@@ -435,8 +445,10 @@ void SemanticMapper::unfreezeAll()
         if (!kf->inGraph()) continue;
 
         // do NOT unfreeze the first (gauge freedom)
-        if (kf->index() > 0)
+        if (kf->index() > 0) {
             graph_->setNodeVariable(kf->graph_node());
+            essential_graph_->setNodeVariable(kf->graph_node());
+        }
     }
 
     for (const auto& obj : estimated_objects_) {
@@ -462,6 +474,7 @@ SemanticMapper::addNewOdometryToGraph()
     for (auto& kf : keyframes_) {
         if (!kf->inGraph() && kf->measurements_processed()) {
             kf->addToGraph(graph_);
+            kf->addToGraph(essential_graph_);
             new_frames.push_back(kf);
         }
     }
@@ -1006,6 +1019,34 @@ bool SemanticMapper::optimizeFully() {
     }
 }
 
+bool SemanticMapper::optimizeEssential()
+{
+    TIME_TIC;
+
+    prepareGraphNodes();
+    unfreezeAll();
+
+    solver_options_.max_solver_time_in_seconds = 6;
+    essential_graph_->setSolverOptions(solver_options_);
+
+    bool solve_succeeded;
+
+    {
+        std::lock_guard<std::mutex> lock(graph_mutex_);
+        solve_succeeded = essential_graph_->solve(true);
+    }
+
+    if (solve_succeeded) {
+        commitGraphSolution();
+        ROS_INFO_STREAM(fmt::format("Solved ESSENTIAL graph with {} nodes and {} edges in {:.2f} ms.",
+                                    essential_graph_->num_nodes(), essential_graph_->num_factors(), TIME_TOC));
+    } else {
+        ROS_INFO_STREAM("ESSENTIAL Graph solve failed");
+    }
+
+    return solve_succeeded;
+}
+
 bool SemanticMapper::solveGraph()
 {
     std::lock_guard<std::mutex> lock(graph_mutex_);
@@ -1212,6 +1253,11 @@ void SemanticMapper::anchorOrigin()
     origin_kf->addToGraph(graph_);
     // graph_->addNode(origin_kf->graph_node());
     graph_->setNodeConstant(origin_kf->graph_node());
+
+    origin_kf->addToGraph(essential_graph_);
+    // graph_->addNode(origin_kf->graph_node());
+    essential_graph_->setNodeConstant(origin_kf->graph_node());
+    
 
     keyframes_.push_back(origin_kf);
 }

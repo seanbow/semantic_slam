@@ -1,12 +1,12 @@
 
 #include "semantic_slam/keypoints/EstimatedObject.h"
 // #include "omnigraph/keypoints/StructureFactor.h"
-#include "semantic_slam/keypoints/geometry.h"
+#include "semantic_slam/Camera.h"
 #include "semantic_slam/SE3Node.h"
-#include "semantic_slam/VectorNode.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/SemanticMapper.h"
-#include "semantic_slam/Camera.h"
+#include "semantic_slam/VectorNode.h"
+#include "semantic_slam/keypoints/geometry.h"
 
 #include <unordered_set>
 
@@ -24,11 +24,16 @@
 namespace sym = symbol_shorthand;
 
 EstimatedObject::EstimatedObject(
-  boost::shared_ptr<FactorGraph> graph, 
-  boost::shared_ptr<FactorGraph> semantic_graph, const ObjectParams& params,
-  geometry::ObjectModelBasis object_model, uint64_t object_id,
-  uint64_t first_keypoint_id, const ObjectMeasurement& msmt,
-  const Pose3& G_T_C, const Pose3& I_T_C, std::string platform,
+  boost::shared_ptr<FactorGraph> graph,
+  boost::shared_ptr<FactorGraph> semantic_graph,
+  const ObjectParams& params,
+  geometry::ObjectModelBasis object_model,
+  uint64_t object_id,
+  uint64_t first_keypoint_id,
+  const ObjectMeasurement& msmt,
+  const Pose3& G_T_C,
+  const Pose3& I_T_C,
+  std::string platform,
   boost::shared_ptr<CameraCalibration> calibration,
   SemanticMapper* mapper)
   : graph_(graph)
@@ -48,8 +53,8 @@ EstimatedObject::EstimatedObject(
   , platform_(platform)
   , camera_calibration_(calibration)
   , model_(object_model)
-  , modified_(false),
-  mapper_(mapper)
+  , modified_(false)
+  , mapper_(mapper)
 {
   // NOTE : because we need shared_from_this() to create the child keypoints,
   //  we cannot call the initialization method from within the constructor.
@@ -69,28 +74,40 @@ EstimatedObject::EstimatedObject(
   graph_pose_node_ = util::allocate_aligned<SE3Node>(sym::O(id_));
 
   if (k_ > 0) {
-    graph_coefficient_node_ = util::allocate_aligned<VectorXdNode>(sym::C(id_), 
-                                                                   boost::none, // no associated time
-                                                                   k_);
+    graph_coefficient_node_ =
+      util::allocate_aligned<VectorXdNode>(sym::C(id_),
+                                           boost::none, // no associated time
+                                           k_);
     graph_coefficient_node_->vector().setZero();
   }
 }
 
 EstimatedObject::Ptr
 EstimatedObject::Create(boost::shared_ptr<FactorGraph> graph,
-                        boost::shared_ptr<FactorGraph> semantic_graph, 
+                        boost::shared_ptr<FactorGraph> semantic_graph,
                         const ObjectParams& params,
                         geometry::ObjectModelBasis object_model,
-                        uint64_t object_id, uint64_t first_keypoint_id,
+                        uint64_t object_id,
+                        uint64_t first_keypoint_id,
                         const ObjectMeasurement& msmt,
-                        const Pose3& G_T_C, const Pose3& I_T_C,
+                        const Pose3& G_T_C,
+                        const Pose3& I_T_C,
                         std::string platform,
                         boost::shared_ptr<CameraCalibration> calibration,
                         SemanticMapper* mapper)
 {
-  EstimatedObject::Ptr pt(new EstimatedObject(
-    graph, semantic_graph, params, object_model, object_id, first_keypoint_id, msmt, G_T_C,
-    I_T_C, platform, calibration, mapper));
+  EstimatedObject::Ptr pt(new EstimatedObject(graph,
+                                              semantic_graph,
+                                              params,
+                                              object_model,
+                                              object_id,
+                                              first_keypoint_id,
+                                              msmt,
+                                              G_T_C,
+                                              I_T_C,
+                                              platform,
+                                              calibration,
+                                              mapper));
   pt->initializeFromMeasurement(msmt, G_T_C);
   return pt;
 }
@@ -128,9 +145,17 @@ EstimatedObject::initializeKeypoints(const ObjectMeasurement& msmt)
       EstimatedObject::Ptr shared_this = shared_from_this();
 
       EstimatedKeypoint::Ptr kp(
-        new EstimatedKeypoint(graph_, semantic_graph_, params_, first_kp_id_ + i, id_,
-                              msmt.keypoint_measurements[i].kp_class_id, I_T_C_,
-                              platform_, camera_calibration_, shared_this, mapper_));
+        new EstimatedKeypoint(graph_,
+                              semantic_graph_,
+                              params_,
+                              first_kp_id_ + i,
+                              id_,
+                              msmt.keypoint_measurements[i].kp_class_id,
+                              I_T_C_,
+                              platform_,
+                              camera_calibration_,
+                              shared_this,
+                              mapper_));
       keypoints_.push_back(kp);
 
       kp->initializeFromMeasurement(msmt.keypoint_measurements[i]);
@@ -157,7 +182,8 @@ EstimatedObject::initializeStructure(const ObjectMeasurement& msmt)
 
   // Just initializing -- we have no good keypoint estimates yet and hence no
   // good weights
-  Eigen::VectorXd w = params_.structure_error_coefficient * Eigen::VectorXd::Ones(keypoints_.size());
+  Eigen::VectorXd w = params_.structure_error_coefficient *
+                      Eigen::VectorXd::Ones(keypoints_.size());
 
   structure_factor_ = util::allocate_aligned<CeresStructureFactor>(
     graph_pose_node_,
@@ -165,9 +191,7 @@ EstimatedObject::initializeStructure(const ObjectMeasurement& msmt)
     graph_coefficient_node_,
     model_,
     w,
-    params_.structure_regularization_factor
-  );
-
+    params_.structure_regularization_factor);
 }
 
 bool
@@ -214,18 +238,16 @@ EstimatedObject::optimizeStructure()
 
   double lambda = params_.structure_regularization_factor;
 
-
   Eigen::VectorXd weights = Eigen::VectorXd::Ones(m);
-  Pose3 body_T_camera(I_T_C_.rotation(),
-                      I_T_C_.translation());
+  Pose3 body_T_camera(I_T_C_.rotation(), I_T_C_.translation());
 
   // Pose3 initial_object_pose = graph_pose_node_->pose();
   Pose3 initial_object_pose = pose_;
-  
+
   std::lock_guard<std::mutex> lock(problem_mutex_);
 
-  structure_problem_ = util::allocate_aligned<StructureOptimizationProblem>(model_, camera_calibration_,
-                                                    body_T_camera, weights, params_);
+  structure_problem_ = util::allocate_aligned<StructureOptimizationProblem>(
+    model_, camera_calibration_, body_T_camera, weights, params_);
 
   structure_problem_->initializePose(initial_object_pose);
 
@@ -233,20 +255,22 @@ EstimatedObject::optimizeStructure()
     auto keyframe = mapper_->getKeyframeByKey(obj_msmt.observed_key);
     // auto cam_node = graph_->getNode<SE3Node>(obj_msmt.observed_key);
     if (!keyframe) {
-      ROS_ERROR_STREAM("Unable to find graph node for camera pose " << DefaultKeyFormatter(obj_msmt.observed_key));
+      ROS_ERROR_STREAM("Unable to find graph node for camera pose "
+                       << DefaultKeyFormatter(obj_msmt.observed_key));
     }
 
     // Pose3 cam_pose = keyframe->pose();
 
     // Eigen::Matrix<double, 6, 1> prior_noise_vec;
-    // prior_noise_vec << 1e-3 * Eigen::Vector3d::Ones(), 
+    // prior_noise_vec << 1e-3 * Eigen::Vector3d::Ones(),
     //                    1e-2 * Eigen::Vector3d::Ones();
 
     structure_problem_->addCamera(keyframe, true);
   }
 
   for (auto& kp : keypoints_) {
-    structure_problem_->initializeKeypointPosition(kp->classid(), kp->position());
+    structure_problem_->initializeKeypointPosition(kp->classid(),
+                                                   kp->position());
 
     int n_meas = 0;
 
@@ -257,7 +281,8 @@ EstimatedObject::optimizeStructure()
       }
     }
 
-    // std::cout << "Keypoint " << kp->id() << " has " << n_meas << " measurements." << std::endl;
+    // std::cout << "Keypoint " << kp->id() << " has " << n_meas << "
+    // measurements." << std::endl;
   }
 
   structure_problem_->solve();
@@ -284,16 +309,16 @@ EstimatedObject::optimizeStructure()
 //   return structure_graph_.error(structure_optimization_values_);
 // }
 
-
 Eigen::MatrixXd
 EstimatedObject::getPlx(Key o_key, Key x_key) const
 {
   // if (in_graph_) {
   //   return mapper_->getPlx(o_key, x_key);
-  // } 
+  // }
 
   if (!structure_problem_) {
-    throw std::logic_error("Tried to extract covariance information before structure optimization.");
+    throw std::logic_error(
+      "Tried to extract covariance information before structure optimization.");
   }
 
   Symbol x_symbol(x_key);
@@ -311,7 +336,8 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
   // ROS_WARN_STREAM("Computing mahal for object " << id());
   if (msmt.obj_name != obj_name_) {
     // ROS_WARN_STREAM("Object id " << id() << " name " << obj_name_
-    //                              << " != measurement class " << msmt.obj_name);
+    //                              << " != measurement class " <<
+    //                              msmt.obj_name);
     return std::numeric_limits<double>::max();
   }
 
@@ -331,7 +357,8 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
   // Hpose will be in the *ambient* (4-dimensional) quaternion space.
   // Want it in the *tangent* (3-dimensional) space.
   Eigen::Matrix<double, 4, 3, Eigen::RowMajor> Hquat_space;
-  QuaternionLocalParameterization().ComputeJacobian(G_T_I.rotation_data(), Hquat_space.data());
+  QuaternionLocalParameterization().ComputeJacobian(G_T_I.rotation_data(),
+                                                    Hquat_space.data());
 
   // Index of x into Plx...
   size_t x_index = 3 * keypoints_.size();
@@ -339,11 +366,13 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
   size_t n_observed = 0;
   for (size_t i = 0; i < msmt.keypoint_measurements.size(); ++i) {
     if (!msmt.keypoint_measurements[i].observed) {
-      // We can just leave the residual vector zero & pick a lower-dimensional chi-2 distribution
+      // We can just leave the residual vector zero & pick a lower-dimensional
+      // chi-2 distribution
       continue;
     }
 
-    int kp_index = findKeypointByClass(msmt.keypoint_measurements[i].kp_class_id);
+    int kp_index =
+      findKeypointByClass(msmt.keypoint_measurements[i].kp_class_id);
     if (kp_index < 0) {
       ROS_ERROR("Unable to find matching keypoint for measurement??");
     }
@@ -355,52 +384,60 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
       Eigen::MatrixXd Hpose, Hpoint;
       Eigen::Vector2d zhat = camera.project(kp->position(), Hpose, Hpoint);
 
-      residuals.segment<2>(2*kp_index) = msmt.keypoint_measurements[i].pixel_measurement - zhat;
-      R_sqrt_vec.segment<2>(2*kp_index) = msmt.keypoint_measurements[i].pixel_sigma * Eigen::Vector2d::Ones();
+      residuals.segment<2>(2 * kp_index) =
+        msmt.keypoint_measurements[i].pixel_measurement - zhat;
+      R_sqrt_vec.segment<2>(2 * kp_index) =
+        msmt.keypoint_measurements[i].pixel_sigma * Eigen::Vector2d::Ones();
 
       // std::cout << "H size = " << H.rows() << " x " << H.cols() << std::endl;
-      // std::cout << "Hpoint size = " << Hpoint.rows() << " x " << Hpoint.cols() << std::endl;
-      // std::cout << "Hpose size = " << Hpose.rows() << " x " << Hpose.cols() << std::endl;
-      // std::cout << "Hpose_compose size = " << Hpose_compose.rows() << " x " << Hpose_compose.cols() << std::endl;
-      // std::cout << "kp_index = " << kp_index << std::endl;
-      // std::cout << "x_index = " << x_index << std::endl;
+      // std::cout << "Hpoint size = " << Hpoint.rows() << " x " <<
+      // Hpoint.cols() << std::endl; std::cout << "Hpose size = " <<
+      // Hpose.rows() << " x " << Hpose.cols() << std::endl; std::cout <<
+      // "Hpose_compose size = " << Hpose_compose.rows() << " x " <<
+      // Hpose_compose.cols() << std::endl; std::cout << "kp_index = " <<
+      // kp_index << std::endl; std::cout << "x_index = " << x_index <<
+      // std::endl;
 
       // Hl
-      H.block<2,3>(2*kp_index, 3*kp_index) = Hpoint;
+      H.block<2, 3>(2 * kp_index, 3 * kp_index) = Hpoint;
       // Hq
-      H.block<2,3>(2*kp_index, x_index) = Hpose * Hpose_compose.leftCols<4>() * Hquat_space;
+      H.block<2, 3>(2 * kp_index, x_index) =
+        Hpose * Hpose_compose.leftCols<4>() * Hquat_space;
       // Hp
-      H.block<2,3>(2*kp_index, x_index + 3) = Hpose * Hpose_compose.rightCols<3>();
+      H.block<2, 3>(2 * kp_index, x_index + 3) =
+        Hpose * Hpose_compose.rightCols<3>();
 
       n_observed++;
 
     } catch (CheiralityException& e) {
       // TODO should we ignore this or should we add a high value or something
-      residuals.segment<2>(2*kp_index) = 100 * Eigen::Vector2d::Ones();
-      H.block<2,3>(2*kp_index, 3*kp_index) = Eigen::MatrixXd::Ones(2,3);
-      H.block<2,6>(2*kp_index, x_index) = Eigen::MatrixXd::Ones(2,6);
+      residuals.segment<2>(2 * kp_index) = 100 * Eigen::Vector2d::Ones();
+      H.block<2, 3>(2 * kp_index, 3 * kp_index) = Eigen::MatrixXd::Ones(2, 3);
+      H.block<2, 6>(2 * kp_index, x_index) = Eigen::MatrixXd::Ones(2, 6);
     }
   }
 
   Eigen::MatrixXd R = R_sqrt_vec.array().pow(2).matrix().asDiagonal();
 
-  double mahal = residuals.transpose() * (H*Plx*H.transpose() + R).ldlt().solve(residuals);
+  double mahal = residuals.transpose() *
+                 (H * Plx * H.transpose() + R).ldlt().solve(residuals);
 
   double factor = mahalanobisMultiplicativeFactor(2 * n_observed);
 
-
-  // std::ofstream out_file(fmt::format("/home/sean/code/object_pose_detection/debug_data/x{}_msmt{}_o{}.txt", 
+  // std::ofstream
+  // out_file(fmt::format("/home/sean/code/object_pose_detection/debug_data/x{}_msmt{}_o{}.txt",
   //     keyframe->index(), msmt.global_msmt_id, id()));
-  // out_file << "Camera pose: \n" << keyframe->pose().translation().transpose() << std::endl;
-  // out_file << keyframe->pose().rotation().toRotationMatrix() << std::endl;
-  // out_file << "keypoint positions: \n";
-  // Eigen::MatrixXd kp_positions(3, msmt.keypoint_measurements.size());
-  // Eigen::MatrixXd zhats(2, msmt.keypoint_measurements.size());
-  // Eigen::MatrixXd kp_msmts(2, msmt.keypoint_measurements.size());
-  // Eigen::VectorXi observed(msmt.keypoint_measurements.size());
-  // for (size_t i = 0; i < msmt.keypoint_measurements.size(); ++i) {
-  //   int kp_index = findKeypointByClass(msmt.keypoint_measurements[i].kp_class_id);
-  //   if (kp_index < 0) {
+  // out_file << "Camera pose: \n" << keyframe->pose().translation().transpose()
+  // << std::endl; out_file << keyframe->pose().rotation().toRotationMatrix() <<
+  // std::endl; out_file << "keypoint positions: \n"; Eigen::MatrixXd
+  // kp_positions(3, msmt.keypoint_measurements.size()); Eigen::MatrixXd
+  // zhats(2, msmt.keypoint_measurements.size()); Eigen::MatrixXd kp_msmts(2,
+  // msmt.keypoint_measurements.size()); Eigen::VectorXi
+  // observed(msmt.keypoint_measurements.size()); for (size_t i = 0; i <
+  // msmt.keypoint_measurements.size(); ++i) {
+  //   int kp_index =
+  //   findKeypointByClass(msmt.keypoint_measurements[i].kp_class_id); if
+  //   (kp_index < 0) {
   //     ROS_ERROR("Unable to find matching keypoint for measurement??");
   //   }
 
@@ -420,13 +457,16 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
   // out_file << "KP measurements: \n" << kp_msmts << std::endl;
   // out_file << "zhats:\n" << zhats << std::endl;
   // out_file << "KP observed?:\n" << observed.transpose() << std::endl;
-  // out_file << "final mahal = \n" << mahal << "\n factor = \n" << factor << std::endl;
-  // out_file << "Plx:\n" << Plx << "\nH:\n" << H << "\nR:\n" << R << std::endl;
+  // out_file << "final mahal = \n" << mahal << "\n factor = \n" << factor <<
+  // std::endl; out_file << "Plx:\n" << Plx << "\nH:\n" << H << "\nR:\n" << R <<
+  // std::endl;
 
-  ROS_INFO_STREAM("Object " << id() << "; Mahal distance " << mahal << " * factor " << factor << " = " << mahal * factor);
+  // ROS_INFO_STREAM("Object " << id() << "; Mahal distance " << mahal
+  //                           << " * factor " << factor << " = "
+  //                           << mahal * factor);
 
-  // right now if all the points are behind the camera (clearly wrong object) the residuals
-  // vector will be all zero...
+  // right now if all the points are behind the camera (clearly wrong object)
+  // the residuals vector will be all zero...
   if (n_observed == 0) {
     return std::numeric_limits<double>::max();
   }
@@ -445,17 +485,21 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
   //     if (keypoints_[kp_match_index]->initialized() &&
   //         !keypoints_[kp_match_index]->bad()) {
 
-  //       Eigen::Vector2d zhat = camera.project(keypoints_[kp_match_index]->position());
-  //       Eigen::Vector2d residual = msmt.keypoint_measurements[i].pixel_measurement - zhat;
-  //       double px_sigma = msmt.keypoint_measurements[i].pixel_sigma;
-  //       Eigen::Matrix2d R = px_sigma * px_sigma * Eigen::Matrix2d::Identity();
+  //       Eigen::Vector2d zhat =
+  //       camera.project(keypoints_[kp_match_index]->position());
+  //       Eigen::Vector2d residual =
+  //       msmt.keypoint_measurements[i].pixel_measurement - zhat; double
+  //       px_sigma = msmt.keypoint_measurements[i].pixel_sigma; Eigen::Matrix2d
+  //       R = px_sigma * px_sigma * Eigen::Matrix2d::Identity();
 
-  //       Eigen::Matrix<double, 2, 9> H = computeProjectionJacobian(G_T_I, 
-  //                                                                 I_T_C_, 
+  //       Eigen::Matrix<double, 2, 9> H = computeProjectionJacobian(G_T_I,
+  //                                                                 I_T_C_,
   //                                                                 keypoints_[kp_match_index]->position());
 
-  //       Eigen::MatrixXd Plx = getPlx(sym::L(keypoints_[kp_match_index]->id()), Symbol(msmt.observed_key));
-  //       double d = residual.transpose() * (H*Plx*H.transpose() + R).lu().solve(residual);
+  //       Eigen::MatrixXd Plx =
+  //       getPlx(sym::L(keypoints_[kp_match_index]->id()),
+  //       Symbol(msmt.observed_key)); double d = residual.transpose() *
+  //       (H*Plx*H.transpose() + R).lu().solve(residual);
   //       // double d =
   //       //   keypoints_[kp_match_index]->computeMahalanobisDistance(kp_msmt);
   //       matched_distances.push_back(d);
@@ -470,7 +514,8 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
   // for (auto& x : matched_distances)
   //   distance += x;
 
-  // double factor = mahalanobisMultiplicativeFactor(2 * matched_distances.size());
+  // double factor = mahalanobisMultiplicativeFactor(2 *
+  // matched_distances.size());
 
   // ROS_INFO_STREAM(" Mahal distance " << distance << " * factor " << factor <<
   // " = " << distance * factor);
@@ -478,29 +523,37 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
   // return distance * factor;
 }
 
-
-void EstimatedObject::commitGraphSolution()
+void
+EstimatedObject::commitGraphSolution()
 {
   pose_ = graph_pose_node_->pose();
-  if (k_ > 0) basis_coefficients_ = graph_coefficient_node_->vector();
+  if (k_ > 0)
+    basis_coefficients_ = graph_coefficient_node_->vector();
 
-  for (auto& kp : keypoints_) kp->commitGraphSolution();
+  for (auto& kp : keypoints_)
+    kp->commitGraphSolution();
 }
 
-void EstimatedObject::commitGtsamSolution(const gtsam::Values& values)
+void
+EstimatedObject::commitGtsamSolution(const gtsam::Values& values)
 {
   pose_ = values.at<gtsam::Pose3>(sym::O(id_));
-  if (k_ > 0) basis_coefficients_ = values.at<gtsam::Vector>(sym::C(id_));
+  if (k_ > 0)
+    basis_coefficients_ = values.at<gtsam::Vector>(sym::C(id_));
 
-  for (auto& kp : keypoints_) kp->commitGtsamSolution(values);
+  for (auto& kp : keypoints_)
+    kp->commitGtsamSolution(values);
 }
 
-void EstimatedObject::prepareGraphNode()
+void
+EstimatedObject::prepareGraphNode()
 {
   graph_pose_node_->pose() = pose_;
-  if (k_ > 0) graph_coefficient_node_->vector() = basis_coefficients_;
+  if (k_ > 0)
+    graph_coefficient_node_->vector() = basis_coefficients_;
 
-  for (auto& kp : keypoints_) kp->prepareGraphNode();
+  for (auto& kp : keypoints_)
+    kp->prepareGraphNode();
 }
 
 // double EstimatedObject::computeMeasurementLikelihood(const ObjectMeasurement&
@@ -570,7 +623,8 @@ EstimatedObject::keypoints() const
   return keypoints_;
 }
 
-void EstimatedObject::setIsVisible(boost::shared_ptr<SemanticKeyframe> kf)
+void
+EstimatedObject::setIsVisible(boost::shared_ptr<SemanticKeyframe> kf)
 {
   last_visible_ = kf->index();
 }
@@ -581,7 +635,7 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
 {
   // compute mahalanobis distance...
   if (in_graph_) {
-  // if (measurements_.size() > 2) {
+    // if (measurements_.size() > 2) {
     double mahal_d = computeMahalanobisDistance(msmt);
     if (mahal_d < chi2inv95(2)) {
       ROS_INFO_STREAM("Adding measurement with mahal = " << mahal_d);
@@ -636,18 +690,18 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
     optimizeStructure();
   }
 
-  // if we're in the graph, update our local optimization problem without actually solving it. 
-  // we won't ever use the actual optimization but we need it to contain all factors 
-  // for local covariance information
+  // if we're in the graph, update our local optimization problem without
+  // actually solving it. we won't ever use the actual optimization but we need
+  // it to contain all factors for local covariance information
 
   if (in_graph_) {
     structure_problem_->addCamera(keyframe, true);
 
     for (auto& kp_msmt : msmt.keypoint_measurements) {
-      if (kp_msmt.observed) structure_problem_->addKeypointMeasurement(kp_msmt);
+      if (kp_msmt.observed)
+        structure_problem_->addKeypointMeasurement(kp_msmt);
     }
   }
-
 }
 
 // void EstimatedObject::updateAndCheck(uint64_t pose_id, const gtsam::Values&
@@ -656,9 +710,11 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
 // 	// sanityCheck(pose_id);
 // }
 
-void EstimatedObject::updateGraphFactors()
+void
+EstimatedObject::updateGraphFactors()
 {
-  if (!inGraph()) return;
+  if (!inGraph())
+    return;
 
   for (auto& kp : keypoints_) {
     kp->tryAddProjectionFactors();
@@ -671,18 +727,20 @@ EstimatedObject::update(SemanticKeyframe::Ptr keyframe)
   if (bad())
     return;
 
-  if (!params_.include_objects_in_graph && keyframe->index() - last_seen_ < 10) {
+  if (!params_.include_objects_in_graph &&
+      keyframe->index() - last_seen_ < 10) {
     optimizeStructure();
   }
 
   // if (in_graph_) {
-  //   ROS_INFO_STREAM("Object " << id() << " has graph pose " << graph_pose_node_->pose());
+  //   ROS_INFO_STREAM("Object " << id() << " has graph pose " <<
+  //   graph_pose_node_->pose());
   // }
 
   // sanityCheck(spur_node);
 
   if (!in_graph_ && keyframe->index() - last_seen_ > 10) {
-      removeFromEstimation();
+    removeFromEstimation();
   }
 }
 
@@ -722,15 +780,19 @@ EstimatedObject::getKeypointOptimizationWeights() const
   return w;
 }
 
-bool EstimatedObject::readyToAddToGraph()
+bool
+EstimatedObject::readyToAddToGraph()
 {
-  if (in_graph_) return false;
+  if (in_graph_)
+    return false;
 
-  // Count how many keypoints have enough measurements to be considered well localized
+  // Count how many keypoints have enough measurements to be considered well
+  // localized
   // TODO use a better metric than #measurements?
   size_t n_keypoints_localized = 0;
   for (const auto& kp : keypoints_) {
-    if (kp->nMeasurements() > 2) n_keypoints_localized++;
+    if (kp->nMeasurements() > 2)
+      n_keypoints_localized++;
   }
 
   if (n_keypoints_localized >= params_.min_object_n_keypoints) {
@@ -763,11 +825,13 @@ EstimatedObject::addToGraph()
 
   if (params_.include_objects_in_graph) {
     graph_->addNode(graph_pose_node_);
-    if (k_ > 0) graph_->addNode(graph_coefficient_node_);
+    if (k_ > 0)
+      graph_->addNode(graph_coefficient_node_);
     graph_->addFactor(structure_factor_);
 
     semantic_graph_->addNode(graph_pose_node_);
-    if (k_ > 0) semantic_graph_->addNode(graph_coefficient_node_);
+    if (k_ > 0)
+      semantic_graph_->addNode(graph_coefficient_node_);
     semantic_graph_->addFactor(structure_factor_);
 
     in_graph_ = true;
@@ -777,30 +841,38 @@ EstimatedObject::addToGraph()
   ROS_INFO_STREAM("Object " << id() << " added to graph.");
 }
 
-void EstimatedObject::setConstantInGraph()
+void
+EstimatedObject::setConstantInGraph()
 {
-  if (!in_graph_) return;
+  if (!in_graph_)
+    return;
 
   graph_->setNodeConstant(graph_pose_node_);
-  if (k_ > 0) graph_->setNodeConstant(graph_coefficient_node_);
+  if (k_ > 0)
+    graph_->setNodeConstant(graph_coefficient_node_);
 
   semantic_graph_->setNodeConstant(graph_pose_node_);
-  if (k_ > 0) semantic_graph_->setNodeConstant(graph_coefficient_node_);
+  if (k_ > 0)
+    semantic_graph_->setNodeConstant(graph_coefficient_node_);
 
   for (auto& kp : keypoints_) {
     kp->setConstantInGraph();
   }
 }
 
-void EstimatedObject::setVariableInGraph()
+void
+EstimatedObject::setVariableInGraph()
 {
-  if (!in_graph_) return;
+  if (!in_graph_)
+    return;
 
   graph_->setNodeVariable(graph_pose_node_);
-  if (k_ > 0) graph_->setNodeVariable(graph_coefficient_node_);
+  if (k_ > 0)
+    graph_->setNodeVariable(graph_coefficient_node_);
 
   semantic_graph_->setNodeVariable(graph_pose_node_);
-  if (k_ > 0) semantic_graph_->setNodeVariable(graph_coefficient_node_);
+  if (k_ > 0)
+    semantic_graph_->setNodeVariable(graph_coefficient_node_);
 
   for (auto& kp : keypoints_) {
     kp->setVariableInGraph();
@@ -820,11 +892,13 @@ EstimatedObject::removeFromEstimation()
 
   if (params_.include_objects_in_graph) {
     graph_->removeNode(graph_pose_node_);
-    if (k_ > 0) graph_->removeNode(graph_coefficient_node_);
+    if (k_ > 0)
+      graph_->removeNode(graph_coefficient_node_);
     graph_->removeFactor(structure_factor_);
 
     semantic_graph_->removeNode(graph_pose_node_);
-    if (k_ > 0) semantic_graph_->removeNode(graph_coefficient_node_);
+    if (k_ > 0)
+      semantic_graph_->removeNode(graph_coefficient_node_);
     semantic_graph_->removeFactor(structure_factor_);
   }
 
@@ -840,7 +914,8 @@ EstimatedObject::removeFromEstimation()
 //   int64_t latest_idx = static_cast<int64_t>(latest_spur_node->index());
 //   int64_t last_seen = static_cast<int64_t>(last_seen_);
 
-//   // ROS_INFO_STREAM(fmt::format("Last seen: {}, latest index: {}", last_seen,
+//   // ROS_INFO_STREAM(fmt::format("Last seen: {}, latest index: {}",
+//   last_seen,
 //   // latest_idx));
 
 //   if (!in_graph_ && last_seen <= latest_idx - 10) {
@@ -866,7 +941,8 @@ EstimatedObject::removeFromEstimation()
 //     //     graph_->isamUpdate();
 //     //     update(pose_id, graph_->calculateBestEstimate());
 //     //     insane_steps++;
-//     //     ROS_WARN_STREAM("Trying to recover, step " << insane_steps << "/" <<
+//     //     ROS_WARN_STREAM("Trying to recover, step " << insane_steps << "/"
+//     <<
 //     //     limit);
 //     // }
 
@@ -889,7 +965,8 @@ EstimatedObject::removeFromEstimation()
 //     double d_from_centroid = pose_.range(kp->position());
 //     // double d_structure = gtsam::Pose3::identity().range(kp->structure());
 
-//     // ROS_WARN_STREAM("Obj " << i << " kp " << object_keypoint_indices_[i][j]
+//     // ROS_WARN_STREAM("Obj " << i << " kp " <<
+//     object_keypoint_indices_[i][j]
 //     // << " distance = " << d_from_centroid);
 //     if (d_from_centroid > 10) {
 //       any_bad = true;

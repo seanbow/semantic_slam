@@ -5,6 +5,8 @@
 
 #include <ceres/ceres.h>
 
+#include <unordered_map>
+
 namespace gtsam {
 class NonlinearFactor;
 class NonlinearFactorGraph;
@@ -18,7 +20,7 @@ public:
     CeresFactor(FactorType type, int tag=0);
 
     virtual void addToProblem(boost::shared_ptr<ceres::Problem> problem) = 0;
-    virtual void removeFromProblem(boost::shared_ptr<ceres::Problem> problem) = 0;
+    virtual void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
     FactorType type() const { return type_; }
     int tag() const { return tag_; }
@@ -46,7 +48,9 @@ protected:
     std::vector<boost::shared_ptr<CeresNode>> nodes_;
 
     ceres::CostFunction* cf_;
-    ceres::ResidualBlockId residual_id_;
+
+    // We may end up getting added to multiple problems, so we need to keep track of our ID in each
+    std::unordered_map<ceres::Problem*, ceres::ResidualBlockId> residual_ids_;
 
 public:
     using Ptr = boost::shared_ptr<CeresFactor>;
@@ -59,8 +63,7 @@ using CeresFactorConstPtr = CeresFactor::ConstPtr;
 CeresFactor::CeresFactor(FactorType type, int tag)
     : type_(type),
       tag_(tag),
-      active_(false),
-      residual_id_(NULL)
+      active_(false)
 {
 
 }
@@ -71,4 +74,14 @@ bool CeresFactor::operator==(const CeresFactor& other) const
     // equality can be assumed based on the underlying cost function equality...
 
     return this->cf_ == other.cf_;
+}
+
+void CeresFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
+{
+    auto it = residual_ids_.find(problem.get());
+    if (it != residual_ids_.end()) {
+        problem->RemoveResidualBlock(it->second);
+    }
+    
+    active_ = false;
 }

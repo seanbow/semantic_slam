@@ -52,6 +52,8 @@ public:
     bool tryOptimize();
     bool optimizeFully();
 
+    bool optimizeEssential();
+
     void processMessagesUpdateObjectsThread();
     void addObjectsAndOptimizeGraphThread();
 
