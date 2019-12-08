@@ -1,4 +1,4 @@
-#include "semantic_slam/GeometricMapPresenter.h"
+#include "semantic_slam/presenters/GeometricMapPresenter.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
 

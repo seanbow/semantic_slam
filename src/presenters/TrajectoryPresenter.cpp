@@ -1,4 +1,4 @@
-#include "semantic_slam/TrajectoryPresenter.h"
+#include "semantic_slam/presenters/TrajectoryPresenter.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
 

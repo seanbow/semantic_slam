@@ -1,4 +1,4 @@
-#include "semantic_slam/GeometricCovisibilityPresenter.h"
+#include "semantic_slam/presenters/GeometricCovisibilityPresenter.h"
 #include "semantic_slam/SemanticKeyframe.h"
 
 #include <fmt/format.h>

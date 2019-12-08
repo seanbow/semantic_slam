@@ -179,13 +179,13 @@ target_link_libraries(GeometricFeatureHandler
 )
 cotire(GeometricFeatureHandler)
 
-add_library(PosePresenter src/PosePresenter.cpp)
-add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
-add_library(ObjectMeshPresenter src/ObjectMeshPresenter.cpp)
-add_library(GeometricMapPresenter src/GeometricMapPresenter.cpp)
-add_library(ObjectKeypointPresenter src/ObjectKeypointPresenter.cpp)
-add_library(SemanticCovisibilityPresenter src/SemanticCovisibilityPresenter.cpp)
-add_library(GeometricCovisibilityPresenter src/GeometricCovisibilityPresenter.cpp)
+add_library(PosePresenter src/presenters/PosePresenter.cpp)
+add_library(TrajectoryPresenter src/presenters/TrajectoryPresenter.cpp)
+add_library(ObjectMeshPresenter src/presenters/ObjectMeshPresenter.cpp)
+add_library(GeometricMapPresenter src/presenters/GeometricMapPresenter.cpp)
+add_library(ObjectKeypointPresenter src/presenters/ObjectKeypointPresenter.cpp)
+add_library(SemanticCovisibilityPresenter src/presenters/SemanticCovisibilityPresenter.cpp)
+add_library(GeometricCovisibilityPresenter src/presenters/GeometricCovisibilityPresenter.cpp)
 
 add_library(EstimatedObject src/keypoints/EstimatedObject.cpp)
 target_link_libraries(EstimatedObject

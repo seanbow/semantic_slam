@@ -1,4 +1,4 @@
-#include "semantic_slam/SemanticCovisibilityPresenter.h"
+#include "semantic_slam/presenters/SemanticCovisibilityPresenter.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
 

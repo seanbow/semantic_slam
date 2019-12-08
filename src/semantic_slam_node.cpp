@@ -2,14 +2,14 @@
 
 #include "semantic_slam/SemanticMapper.h"
 #include "semantic_slam/ExternalOdometryHandler.h"
-#include "semantic_slam/PosePresenter.h"
-#include "semantic_slam/TrajectoryPresenter.h"
-#include "semantic_slam/ObjectMeshPresenter.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
-#include "semantic_slam/GeometricMapPresenter.h"
-#include "semantic_slam/ObjectKeypointPresenter.h"
-#include "semantic_slam/SemanticCovisibilityPresenter.h"
-#include "semantic_slam/GeometricCovisibilityPresenter.h"
+#include "semantic_slam/presenters/PosePresenter.h"
+#include "semantic_slam/presenters/TrajectoryPresenter.h"
+#include "semantic_slam/presenters/ObjectMeshPresenter.h"
+#include "semantic_slam/presenters/GeometricMapPresenter.h"
+#include "semantic_slam/presenters/ObjectKeypointPresenter.h"
+#include "semantic_slam/presenters/SemanticCovisibilityPresenter.h"
+#include "semantic_slam/presenters/GeometricCovisibilityPresenter.h"
 
 
 int main(int argc, char *argv[])

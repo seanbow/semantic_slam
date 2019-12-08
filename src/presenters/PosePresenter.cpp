@@ -1,4 +1,4 @@
-#include "semantic_slam/PosePresenter.h"
+#include "semantic_slam/presenters/PosePresenter.h"
 #include "semantic_slam/pose_math.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"

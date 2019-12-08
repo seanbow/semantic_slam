@@ -1,5 +1,5 @@
 
-#include "semantic_slam/ObjectKeypointPresenter.h"
+#include "semantic_slam/presenters/ObjectKeypointPresenter.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
 

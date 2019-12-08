@@ -177,7 +177,6 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
             bool optimization_succeeded;
 
             if (operation_mode_ == OperationMode::NORMAL) {
-
                 freezeNonCovisible(new_frames);
                 optimization_succeeded = tryOptimize();
 
@@ -186,9 +185,9 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
                 ROS_INFO_STREAM("Optimizing essential graph...");
                 optimization_succeeded = optimizeEssential();
 
-                ROS_INFO_STREAM("Refining with full graph solve...");
-                freezeNonCovisible(new_frames);
-                optimization_succeeded = tryOptimize();
+                // ROS_INFO_STREAM("Refining with full graph solve...");
+                // freezeNonCovisible(new_frames);
+                // optimization_succeeded = tryOptimize();
                 
                 // computeLoopCovariances();
                 computeLatestCovariance();
@@ -916,7 +915,6 @@ void SemanticMapper::commitGraphSolution()
         Pose3 new_pose = last_in_graph->graph_node()->pose();
         new_pose.rotation().normalize();
 
-        // Pose3 new_T_old = new_pose * old_pose.inverse();
         Pose3 old_T_new = old_pose.inverse() * new_pose;
         old_T_new.rotation().normalize();
 
