@@ -5,7 +5,12 @@
 #include <vector>
 #include <unordered_map>
 
+#include <eigen3/Eigen/Core>
+#include <boost/shared_ptr.hpp>
+
 #include "semantic_slam/Utils.h"
+
+class SemanticKeyframe;
 
 /// Integer nonlinear key type
 typedef std::uint64_t Key;
@@ -68,6 +73,8 @@ struct ObjectParams
 
   double keyframe_translation_threshold;
   double keyframe_rotation_threshold;
+  double keyframe_translation_without_measurement_threshold;
+  double keyframe_rotation_without_measurement_threshold;
 
   char object_symbol_char;
   char keypoint_symbol_char;
@@ -92,6 +99,20 @@ struct BoundingBox
     double ymin;
     double xmax;
     double ymax;
+};
+
+// simple little struct just to help keep track of and update the 
+// geometric covisibility graph information
+struct GeometricFeature
+{
+  int id;
+  bool active;
+  std::vector<boost::shared_ptr<SemanticKeyframe>> keyframe_observations;
+  Eigen::Vector3d point;
+
+  using Ptr = boost::shared_ptr<GeometricFeature>;
+
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
 struct KeypointMeasurement

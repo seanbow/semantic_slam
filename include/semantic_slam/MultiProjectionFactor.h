@@ -36,6 +36,8 @@ public:
                         const Eigen::Vector2d& pixel_coords, 
                         const Eigen::Matrix2d& msmt_covariance);
 
+    bool decideIfTriangulate(const aligned_vector<Pose3>& body_poses) const;
+
     int index() const { return landmark_node_->index(); }
     unsigned char chr() const { return landmark_node_->chr(); }
     Symbol symbol() const { return landmark_node_->symbol(); }
@@ -48,7 +50,7 @@ public:
 
     bool inGraph() const { return in_graph_; }
 
-    void triangulate();
+    void triangulate(const aligned_vector<Pose3>& body_poses) const;
 
     void addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
@@ -71,7 +73,9 @@ private:
     bool in_graph_;
     boost::shared_ptr<ceres::Problem> problem_;
 
-    bool triangulation_good_;
+    mutable bool triangulation_good_;
+
+    mutable aligned_vector<Pose3> triangulation_poses_;
 
     using GtsamFactorType = gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3DS2>;
     std::vector<boost::shared_ptr<GtsamFactorType>> gtsam_factors_;

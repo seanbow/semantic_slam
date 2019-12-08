@@ -1,10 +1,9 @@
+
 #include "semantic_slam/ObjectKeypointPresenter.h"
-// #include "semantic_slam/pose_math.h"
-// #include "semantic_slam/SE3Node.h"
+#include "semantic_slam/SemanticKeyframe.h"
+#include "semantic_slam/keypoints/EstimatedObject.h"
 
 #include <visualization_msgs/MarkerArray.h>
-// #include <gtsam/geometry/Point3.h>
-// #include <gtsam/geometry/Quaternion.h>
 
 void ObjectKeypointPresenter::setup()
 {

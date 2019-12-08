@@ -52,6 +52,8 @@ public:
     boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
     void addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
+    Eigen::Vector3d point() { return landmark_position_; }
+
 private:
     mutable Eigen::Vector3d landmark_position_;
     Pose3 I_T_C_;

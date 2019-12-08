@@ -317,8 +317,6 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
   Eigen::MatrixXd Hpose_compose;
   Camera camera(G_T_I.compose(I_T_C_, Hpose_compose), camera_calibration_);
 
-  std::vector<double> matched_distances;
-
   Eigen::MatrixXd Plx = mapper_->getPlx(sym::O(id()), msmt.observed_key);
 
   // assemble the keypoint measurement vector & Jacobians
@@ -375,6 +373,9 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
 
     } catch (CheiralityException& e) {
       // TODO should we ignore this or should we add a high value or something
+      residuals.segment<2>(2*kp_index) = 100 * Eigen::Vector2d::Ones();
+      H.block<2,3>(2*kp_index, 3*kp_index) = Eigen::MatrixXd::Ones(2,3);
+      H.block<2,6>(2*kp_index, x_index) = Eigen::MatrixXd::Ones(2,6);
     }
   }
 
@@ -384,7 +385,7 @@ EstimatedObject::computeMahalanobisDistance(const ObjectMeasurement& msmt) const
 
   double factor = mahalanobisMultiplicativeFactor(2 * n_observed);
 
-  // ROS_INFO_STREAM(" Mahal distance " << mahal << " * factor " << factor << " = " << mahal * factor);
+  ROS_INFO_STREAM("Object " << id() << "; Mahal distance " << mahal << " * factor " << factor << " = " << mahal * factor);
 
   // right now if all the points are behind the camera (clearly wrong object) the residuals
   // vector will be all zero...
@@ -771,7 +772,7 @@ EstimatedObject::removeFromEstimation()
 
   if (params_.include_objects_in_graph) {
     graph_->removeNode(graph_pose_node_);
-    graph_->removeNode(graph_coefficient_node_);
+    if (k_ > 0) graph_->removeNode(graph_coefficient_node_);
     graph_->removeFactor(structure_factor_);
   }
 

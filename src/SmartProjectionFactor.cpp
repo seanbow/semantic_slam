@@ -61,13 +61,13 @@ bool SmartProjectionFactor::decideIfTriangulate(const aligned_vector<Pose3>& bod
     for (int i = 0; i < body_poses.size(); ++i) {
         Pose3 camera_pose = body_poses[i].compose(I_T_C_);
 
-        if (!camera_pose.equals(triangulation_poses_[i], 1e-2)) {
+        if (!camera_pose.equals(triangulation_poses_[i], 1e-5)) {
             equal = false;
             break;
         }
     }
 
-    return equal;
+    return !equal;
 }
 
 void SmartProjectionFactor::triangulate(const aligned_vector<Pose3>& body_poses) const
@@ -83,7 +83,7 @@ void SmartProjectionFactor::triangulate(const aligned_vector<Pose3>& body_poses)
     }
 
     // double cond;
-    TriangulationResult triangulation = cameras.triangulateMeasurementsApproximate(msmts_, 25);
+    TriangulationResult triangulation = cameras.triangulateMeasurementsApproximate(msmts_, 10);
 
     if (triangulation.max_reprojection_error <= reprojection_error_threshold_ &&
             triangulation.status == TriangulationStatus::SUCCESS) {

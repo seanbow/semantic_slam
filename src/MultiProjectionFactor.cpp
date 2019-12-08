@@ -31,14 +31,16 @@ size_t MultiProjectionFactor::nMeasurements() const
     return msmts_.size();
 }
 
-void MultiProjectionFactor::triangulate()
+void MultiProjectionFactor::triangulate(const aligned_vector<Pose3>& body_poses) const
 {
     triangulation_good_ = false;
+    triangulation_poses_.clear();
 
     if (nMeasurements() >= 2) {
         CameraSet cameras;
         for (int i = 0; i < msmts_.size(); ++i) {
-            Camera camera(body_poses_[i]->pose().compose(I_T_C_), calibration_);
+            triangulation_poses_.push_back(body_poses[i].compose(I_T_C_));
+            Camera camera(triangulation_poses_[i], calibration_);
             cameras.addCamera(camera);
         }
 
@@ -85,8 +87,6 @@ void MultiProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> probl
     // TODO add huber loss
     in_graph_ = true;
     problem_ = problem;
-
-    triangulate();
 
     if (triangulation_good_) {
         residual_id_ = problem->AddResidualBlock(this, NULL, parameter_blocks_);
@@ -148,10 +148,15 @@ void MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
     parameter_blocks_.push_back(body_pose_node->pose().translation_data());
 
     set_num_residuals(2 * nMeasurements());
+    
+    aligned_vector<Pose3> body_poses;
+    for (auto& node : body_poses_) {
+        body_poses.push_back(node->pose());
+    }
 
-    // triangulate();
+    triangulate(body_poses);
 
-    if (in_graph_) {
+    if (in_graph_ && triangulation_good_) {
         addToProblem(problem_);
     }
 
@@ -166,6 +171,30 @@ void MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
         gtsam::Pose3(I_T_C_)
     );
     gtsam_factors_.push_back(gtsam_fac);
+}
+
+bool MultiProjectionFactor::decideIfTriangulate(const aligned_vector<Pose3>& body_poses) const
+{
+    // Triangulate if:
+    //  (1) the last triangulation failed,
+    //  (2) camera poses are sufficiently different from last time,
+    //  (3) or, the number of camera poses is different.
+    if (!triangulation_good_ || body_poses.size() != triangulation_poses_.size()) {
+        return true;
+    }
+
+    // Compare each camera pose
+    bool equal = true;
+    for (int i = 0; i < body_poses.size(); ++i) {
+        Pose3 camera_pose = body_poses[i].compose(I_T_C_);
+
+        if (!camera_pose.equals(triangulation_poses_[i], 1e-5)) {
+            equal = false;
+            break;
+        }
+    }
+
+    return !equal;
 }
 
 bool MultiProjectionFactor::Evaluate(double const* const* parameters, 
@@ -183,6 +212,8 @@ bool MultiProjectionFactor::Evaluate(double const* const* parameters,
     }
 
     Eigen::Map<Eigen::VectorXd> residuals(residuals_ptr, num_residuals());
+
+    if (decideIfTriangulate(body_poses)) triangulate(body_poses);
 
     // Iterate through each measurement computing its residual & jacobian
     // If we need the Jacobians, compute them as we go...

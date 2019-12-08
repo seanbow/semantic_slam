@@ -59,6 +59,20 @@ void GeometricFeatureHandler::processPendingFrames()
         for (int i = 0; i < tracks.size(); ++i) {
             const auto& tf = tracks[i];
 
+            auto feature_it = features_.find(tf.pt_id);
+            boost::shared_ptr<GeometricFeature> feature;
+
+            if (feature_it == features_.end()) {
+                feature = util::allocate_aligned<GeometricFeature>();
+                feature->id = tf.pt_id;
+                features_.emplace(tf.pt_id, feature);
+            } else {
+                feature = feature_it->second;
+            }
+
+            feature->keyframe_observations.push_back(frame);
+            frame->visible_geometric_features().push_back(feature);
+
             if (use_smart_projection_factors_) {
                 SmartProjectionFactor::Ptr factor;
                 Vector3dNode::Ptr landmark_node;
@@ -69,7 +83,7 @@ void GeometricFeatureHandler::processPendingFrames()
                     factor = util::allocate_aligned<SmartProjectionFactor>(I_T_C_,
                                                                         calibration_,
                                                                         reprojection_error_threshold_);
-                    smart_factors_[tf.pt_id] = factor;
+                    smart_factors_.emplace(tf.pt_id, factor);
                     
                 } else {
                     factor = factor_it->second;
@@ -85,6 +99,9 @@ void GeometricFeatureHandler::processPendingFrames()
                     graph_->addFactor(factor);
                 }
 
+                feature->point = factor->point();
+                feature->active = factor->active();
+
             } else {
                 MultiProjectionFactor::Ptr factor;
                 Vector3dNode::Ptr landmark_node;
@@ -97,8 +114,8 @@ void GeometricFeatureHandler::processPendingFrames()
                                                                         I_T_C_,
                                                                         calibration_,
                                                                         reprojection_error_threshold_);
-                    landmark_nodes_[tf.pt_id] = landmark_node;
-                    multi_factors_[tf.pt_id] = factor;
+                    landmark_nodes_.emplace(tf.pt_id, landmark_node);
+                    multi_factors_.emplace(tf.pt_id, factor);
                 } else {
                     factor = factor_it->second;
                     landmark_node = landmark_nodes_[tf.pt_id];
@@ -114,8 +131,27 @@ void GeometricFeatureHandler::processPendingFrames()
                     graph_->addFactor(factor);
                 }
 
+                feature->point = landmark_node->vector();
+                feature->active = factor->active();
+
             }
         }
+
+        frame->updateGeometricConnections();
+    }
+}
+
+void GeometricFeatureHandler::removeLandmark(int index)
+{
+    // this function only really makes sense if we're not using smart factors
+    if (!use_smart_projection_factors_) {
+        ROS_WARN_STREAM("Removing geom. landmark " << index);
+        
+        auto factor = multi_factors_.find(index);
+        if (factor != multi_factors_.end()) graph_->removeFactor(factor->second);
+        
+        auto node = landmark_nodes_.find(index);
+        if (node != landmark_nodes_.end()) graph_->removeNode(node->second);
     }
 }
 

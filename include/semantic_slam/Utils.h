@@ -3,18 +3,11 @@
 #pragma once
 
 #include <ros/ros.h>
-// #include <gtsam/geometry/Pose3.h>
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/Imu.h>
-
-// #include <gtsam/nonlinear/Values.h>
-// #include <gtsam/slam/ProjectionFactor.h>
-// #include <gtsam/geometry/Cal3DS2.h>
-
-// #include <boost/function.hpp>
 #include <boost/preprocessor/arithmetic/sub.hpp>
 #include <boost/optional.hpp>
 

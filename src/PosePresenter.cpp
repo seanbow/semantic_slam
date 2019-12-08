@@ -1,11 +1,9 @@
 #include "semantic_slam/PosePresenter.h"
 #include "semantic_slam/pose_math.h"
-#include "semantic_slam/SE3Node.h"
-#include "semantic_slam/FactorGraph.h"
+#include "semantic_slam/SemanticKeyframe.h"
+#include "semantic_slam/keypoints/EstimatedObject.h"
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
-// #include <gtsam/geometry/Point3.h>
-// #include <gtsam/geometry/Quaternion.h>
 
 void PosePresenter::setup()
 {
@@ -20,19 +18,10 @@ void PosePresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
     // Publish the last (most recent) pose
     // Assume that the keyframes are ordered
     auto keyframe = keyframes.back();
-    // SE3NodePtr node = graph_->findLastNode<SE3Node>('x');
 
     Pose3 pose = keyframe->pose();
 
     Eigen::MatrixXd cov = keyframe->covariance();
-    // TODO!!!
-    // bool got_cov = true;
-    // cov = 0.1 * Eigen::MatrixXd::Identity(6,6);
-    // bool got_cov = graph_->marginalCovariance(node->symbol(), cov);
-    // bool got_cov = graph_->computeMarginalCovariance({node});
-    // cov = graph_->getMarginalCovariance(node, nullptr);
-
-    // if (!got_cov) return;
 
     Eigen::Quaterniond q = pose.rotation();
     Eigen::Vector3d p = pose.translation();

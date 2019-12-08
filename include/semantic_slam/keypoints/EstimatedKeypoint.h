@@ -116,6 +116,8 @@ public:
 
   boost::shared_ptr<EstimatedObject> parent_object() { return parent_; }
 
+  Key key() const { return symbol_shorthand::L(id()); }
+
 private:
   void initializePosition(const KeypointMeasurement& msmt);
 

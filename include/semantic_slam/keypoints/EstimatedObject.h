@@ -133,6 +133,8 @@ public:
   const std::vector<boost::shared_ptr<SemanticKeyframe>>& 
   keyframe_observations() const { return keyframe_observations_; }
 
+  Key key() const { return symbol_shorthand::O(id()); }
+
   // void createMarginals(const std::vector<Key>& extra_keys);
 
   // utils::ProjectionFactor::shared_ptr getProjectionFactor(const KeypointMeasurement &kp_msmt) const;

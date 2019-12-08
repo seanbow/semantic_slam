@@ -8,8 +8,8 @@ class ObjectKeypointPresenter : public Presenter
 public:
     void setup();
 
-    void present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
-                 const std::vector<EstimatedObject::Ptr>& objects);
+    void present(const std::vector<boost::shared_ptr<SemanticKeyframe>>& keyframes,
+                 const std::vector<boost::shared_ptr<EstimatedObject>>& objects);
 
     using Presenter::Presenter;
 

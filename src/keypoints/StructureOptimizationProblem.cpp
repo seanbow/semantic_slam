@@ -193,8 +193,9 @@ StructureOptimizationProblem::addKeypointMeasurement(
   ceres::LossFunction* huber_loss = 
       new ceres::HuberLoss(params_.robust_estimator_parameter);
 
-  double effective_sigma = kp_msmt.pixel_sigma / kp_msmt.score;
+  // double effective_sigma = kp_msmt.pixel_sigma / kp_msmt.score;
 
+  double effective_sigma = kp_msmt.pixel_sigma;
 
   Eigen::Matrix2d msmt_covariance =
     effective_sigma * effective_sigma * Eigen::Matrix2d::Identity();

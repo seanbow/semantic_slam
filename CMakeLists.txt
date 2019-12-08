@@ -3,6 +3,8 @@ project(semantic_slam)
 
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake") 
 
+include(cotire)
+
 ## Compile as C++11, supported in ROS Kinetic and newer
 set(CMAKE_CXX_STANDARD 14)
 
@@ -130,23 +132,27 @@ add_library(CeresProjectionFactor src/CeresProjectionFactor.cpp)
 target_link_libraries(CeresProjectionFactor
   ${CERES_LIBRARIES}
 )
+cotire(CeresProjectionFactor)
 
 add_library(CeresBetweenFactor src/CeresBetweenFactor.cpp)
 target_link_libraries(CeresBetweenFactor
   ${CERES_LIBRARIES}
 )
+cotire(CeresBetweenFactor)
 
 add_library(CeresStructureFactor src/CeresStructureFactor.cpp)
 target_link_libraries(CeresStructureFactor
   StructureFactor
   ${CERES_LIBRARIES}
 )
+cotire(CeresStructureFactor)
 
 add_library(ExternalOdometryHandler src/ExternalOdometryHandler.cpp)
 target_link_libraries(ExternalOdometryHandler
   CeresBetweenFactor
   ${CERES_LIBRARIES}
 )
+cotire(ExternalOdometryHandler)
 
 add_library(MultiProjectionFactor src/MultiProjectionFactor.cpp)
 target_link_libraries(MultiProjectionFactor
@@ -155,6 +161,7 @@ target_link_libraries(MultiProjectionFactor
   ${CERES_LIBRARIES}
   ${BASE_LIBS}
 )
+cotire(MultiProjectionFactor)
 
 add_library(SmartProjectionFactor src/SmartProjectionFactor.cpp)
 target_link_libraries(SmartProjectionFactor
@@ -162,6 +169,7 @@ target_link_libraries(SmartProjectionFactor
   ${CERES_LIBRARIES}
   ${BASE_LIBS}
 )
+cotire(SmartProjectionFactor)
 
 add_library(GeometricFeatureHandler src/GeometricFeatureHandler.cpp)
 target_link_libraries(GeometricFeatureHandler
@@ -169,23 +177,28 @@ target_link_libraries(GeometricFeatureHandler
   MultiProjectionFactor
   SmartProjectionFactor
 )
+cotire(GeometricFeatureHandler)
 
 add_library(PosePresenter src/PosePresenter.cpp)
 add_library(TrajectoryPresenter src/TrajectoryPresenter.cpp)
 add_library(ObjectMeshPresenter src/ObjectMeshPresenter.cpp)
 add_library(GeometricMapPresenter src/GeometricMapPresenter.cpp)
 add_library(ObjectKeypointPresenter src/ObjectKeypointPresenter.cpp)
+add_library(SemanticCovisibilityPresenter src/SemanticCovisibilityPresenter.cpp)
+add_library(GeometricCovisibilityPresenter src/GeometricCovisibilityPresenter.cpp)
 
 add_library(EstimatedObject src/keypoints/EstimatedObject.cpp)
 target_link_libraries(EstimatedObject
   Camera
 )
+cotire(EstimatedObject)
 
 add_library(EstimatedKeypoint src/keypoints/EstimatedKeypoint.cpp)
 #target_link_libraries(EstimatedKeypoint
 #    ${BASE_LIBS}
  #   ${CERES_FACTORS}
 #)
+cotire(EstimatedKeypoint)
 
 add_library(SemanticKeyframe src/SemanticKeyframe.cpp)
 
@@ -221,9 +234,11 @@ target_link_libraries(SemanticMapper
 #  ${CERES_LIBRARIES}
 #  ${BASE_LIBS}
 )
+cotire(SemanticMapper)
 
 
 add_library(StructureOptimizationProblem src/keypoints/StructureOptimizationProblem.cpp)
+cotire(StructureOptimizationProblem)
 
 
 ## Add cmake target dependencies of the library
@@ -267,10 +282,13 @@ target_link_libraries(semantic_slam_node
     ObjectMeshPresenter
     GeometricMapPresenter
     ObjectKeypointPresenter
+    SemanticCovisibilityPresenter
+    GeometricCovisibilityPresenter
     SemanticKeyframe
     gtsam
     ${BASE_LIBS}
 )
+cotire(semantic_slam_node)
 
 add_executable(image_republish_node src/image_republish_node.cpp)
 target_link_libraries(image_republish_node

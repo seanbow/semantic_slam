@@ -1,6 +1,7 @@
 #include "semantic_slam/ObjectMeshPresenter.h"
 #include "semantic_slam/pose_math.h"
-#include "semantic_slam/SE3Node.h"
+#include "semantic_slam/SemanticKeyframe.h"
+#include "semantic_slam/keypoints/EstimatedObject.h"
 
 #include <fmt/format.h>
 

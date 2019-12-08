@@ -22,9 +22,11 @@ I_p_C: [0.0, 0.0, 0.0]
 I_q_C: [-0.5, 0.5, -0.5, 0.5] # IMU x forward, y left, z up <-> camera x right, y down, z forward
 
 ## Optimization parameters
-covariance_delay: 5.0
+# covariance_delay: 5.0
+covariance_delay: 0.1
 max_optimization_time: 1.0
 loop_closure_threshold: 25 # in number of keyframes
+smoothing_length: 50 
 
 optimization_backend: "CERES"
 # optimization_backend: "GTSAM"
@@ -46,12 +48,12 @@ sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = mo
 
 ### Geometric feature parameters
 include_geometric_features: true
-cam_sigma: 6
+cam_sigma: 4
 reprojection_error_threshold: 4
 use_smart_projection_factors: true
 
 ### Semantic measurement parameters
-keypoint_msmt_sigma: 8                 # keypoint measurement sigma (pixels)
+keypoint_msmt_sigma: 15                 # keypoint measurement sigma (pixels)
 keypoint_initialization_depth_sigma: 2  # meters
 
 min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph
@@ -59,10 +61,12 @@ min_landmark_observations: 3           # minimum number of observations needed f
 min_observed_keypoints_to_initialize: 4
 
 keyframe_translation_threshold: 0.5
+keyframe_translation_without_measurement_threshold: 2
 keyframe_rotation_threshold: 10 # degrees
+keyframe_rotation_without_measurement_threshold: 30
 
 ### Semantic object optimization parameters
-structure_regularization_factor: 1     # lambda in structure optimization term lambda * ||c||^2
+structure_regularization_factor: 5     # lambda in structure optimization term lambda * ||c||^2
 robust_estimator_parameter: 1.5
 include_objects_in_graph: true
 
@@ -73,7 +77,7 @@ include_objects_in_graph: true
 # deviations from the calculated object structure
 structure_error_coefficient: 100
 
-keypoint_activation_threshold: 0.15     # threshold above which to consider a keypoint observed
+keypoint_activation_threshold: 0.2     # threshold above which to consider a keypoint observed
 
 # camera_range: 10                        # meters
 
@@ -101,3 +105,7 @@ gravity: [0, 0, -9.81]
 geometric_point_scale: 0.75
 object_keypoint_scale: 0.5
 show_object_labels: true
+trajectory_width: 0.25
+covisibility_width: 0.01
+draw_semantic_covisibility: true
+draw_geometric_covisibility: true

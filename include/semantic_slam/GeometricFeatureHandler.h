@@ -34,6 +34,8 @@ public:
 
     void processPendingFrames();
 
+    void removeLandmark(int index);
+
     std::unordered_map<int, boost::shared_ptr<Vector3dNode>> landmark_nodes() { return landmark_nodes_; }
 
     std::unordered_map<int, boost::shared_ptr<MultiProjectionFactor>> factors() { return multi_factors_; }
@@ -62,6 +64,7 @@ private:
     boost::shared_ptr<FeatureTracker> tracker_;
     FeatureTracker::Params tracker_params_;
 
+    std::unordered_map<int, boost::shared_ptr<GeometricFeature>> features_;
     std::unordered_map<int, boost::shared_ptr<Vector3dNode>> landmark_nodes_;
 
     std::unordered_map<int, boost::shared_ptr<SmartProjectionFactor>> smart_factors_;

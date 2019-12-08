@@ -3,7 +3,7 @@
 #include "semantic_slam/Common.h"
 #include "semantic_slam/Presenter.h"
 
-class TrajectoryPresenter : public Presenter 
+class SemanticCovisibilityPresenter : public Presenter 
 {
 public:
     void setup();
@@ -14,7 +14,8 @@ public:
     using Presenter::Presenter;
 
 private:
-    ros::Publisher publisher_;
+    ros::Publisher vis_pub_;
 
-    double trajectory_width_;
+    double line_width_;
+    bool present_;
 };

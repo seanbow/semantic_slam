@@ -8,6 +8,8 @@
 #include "semantic_slam/GeometricFeatureHandler.h"
 #include "semantic_slam/GeometricMapPresenter.h"
 #include "semantic_slam/ObjectKeypointPresenter.h"
+#include "semantic_slam/SemanticCovisibilityPresenter.h"
+#include "semantic_slam/GeometricCovisibilityPresenter.h"
 
 
 int main(int argc, char *argv[])
@@ -23,17 +25,19 @@ int main(int argc, char *argv[])
     mapper->setGeometricFeatureHandler(geom_handler);
     
     // Setup and add presenters
-    auto pose_presenter = util::allocate_aligned<PosePresenter>();
-    auto trajectory_presenter = util::allocate_aligned<TrajectoryPresenter>();
-    auto object_presenter = util::allocate_aligned<ObjectMeshPresenter>();
-    auto geom_presenter = util::allocate_aligned<GeometricMapPresenter>();
-    auto kp_presenter = util::allocate_aligned<ObjectKeypointPresenter>();
+    // auto pose_presenter = util::allocate_aligned<PosePresenter>();
+    // auto trajectory_presenter = util::allocate_aligned<TrajectoryPresenter>();
+    // auto object_presenter = util::allocate_aligned<ObjectMeshPresenter>();
+    // auto geom_presenter = util::allocate_aligned<GeometricMapPresenter>();
+    // auto kp_presenter = util::allocate_aligned<ObjectKeypointPresenter>();
 
-    mapper->addPresenter(pose_presenter);
-    mapper->addPresenter(trajectory_presenter);
-    mapper->addPresenter(object_presenter);
-    mapper->addPresenter(geom_presenter);
-    mapper->addPresenter(kp_presenter);
+    mapper->addPresenter(util::allocate_aligned<PosePresenter>());
+    mapper->addPresenter(util::allocate_aligned<TrajectoryPresenter>());
+    mapper->addPresenter(util::allocate_aligned<ObjectMeshPresenter>());
+    mapper->addPresenter(util::allocate_aligned<GeometricMapPresenter>());
+    mapper->addPresenter(util::allocate_aligned<ObjectKeypointPresenter>());
+    mapper->addPresenter(util::allocate_aligned<SemanticCovisibilityPresenter>());
+    mapper->addPresenter(util::allocate_aligned<GeometricCovisibilityPresenter>());
 
     // Start message handling thread
     ros::AsyncSpinner message_spinner(1);

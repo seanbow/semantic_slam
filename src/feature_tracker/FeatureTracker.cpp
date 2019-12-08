@@ -169,7 +169,7 @@ void FeatureTracker::trackFeaturesForward(int idx1)
         frame1.feature_tracks[i].descriptor.copyTo(descriptors1.row(i));
     }
 
-    cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_HAMMING, false);
+    cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_HAMMING, true);
 
     std::vector<std::vector<cv::DMatch>> matches;
     matcher->knnMatch(descriptors1, descriptors2, matches, 1);
@@ -293,13 +293,15 @@ void FeatureTracker::addNewKeyframeFeatures(Frame& frame) {
         }
 
         // Compare against new features that we've already added
-        for (int j = 0; j < i; ++j) {
-            if (good_detection[idx[j]] && 
-                    cv::norm(frame.keypoints[idx[i]].pt - frame.keypoints[idx[j]].pt) < params_.feature_spacing) {
-                good_detection[idx[i]] = 0;
-                break;
-            }
-        }
+        // Don't need to do this as it will already be in feature_tracks and accounted for in 
+        // the above loop!!
+        // for (int j = 0; j < i; ++j) {
+        //     if (good_detection[idx[j]] && 
+        //             cv::norm(frame.keypoints[idx[i]].pt - frame.keypoints[idx[j]].pt) < params_.feature_spacing) {
+        //         good_detection[idx[i]] = 0;
+        //         break;
+        //     }
+        // }
 
         if (good_detection[idx[i]]) { 
             TrackedFeature new_feat(frame.keypoints[idx[i]].pt, 

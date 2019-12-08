@@ -22,6 +22,7 @@ I_q_C: [-0.500, 0.500, -0.500, 0.500]
 covariance_delay: 5.0
 max_optimization_time: 1.0
 loop_closure_threshold: 10 # in number of keyframes
+smoothing_length: 50
 
 optimization_backend: "CERES"
 # optimization_backend: "GTSAM"
@@ -100,3 +101,7 @@ init_q_sigma: [0.02, 0.02, 0.02]
 geometric_point_scale: 0.1
 object_keypoint_scale: 0.1
 show_object_labels: false
+trajectory_width: 0.25
+covisibility_width: 0.1
+draw_semantic_covisibility: true
+draw_geometric_covisibility: true

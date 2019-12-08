@@ -50,18 +50,25 @@ public:
     void addToGraph(boost::shared_ptr<FactorGraph> graph);
 
     void updateConnections();
+    void updateGeometricConnections();
 
     void addConnection(SemanticKeyframe::Ptr other, int weight);
+    void addGeometricConnection(SemanticKeyframe::Ptr other, int weight);
 
     bool& measurements_processed() { return measurements_processed_; }
     const bool& measurements_processed() const { return measurements_processed_; }
 
+    bool& covariance_computed_exactly() { return covariance_computed_exactly_; }
+
     aligned_vector<ObjectMeasurement> measurements;
 
     const std::map<SemanticKeyframe::Ptr, int> neighbors() const { return neighbors_; }
+    const std::map<SemanticKeyframe::Ptr, int> geometric_neighbors() const { return geometric_neighbors_; }
 
     // std::vector<ObjectMeasurement>& measurements() { return measurements_; }
     std::vector<EstimatedObject::Ptr>& visible_objects() { return visible_objects_; }
+
+    std::vector<boost::shared_ptr<GeometricFeature>>& visible_geometric_features() { return visible_geometric_features_; }
 
     ros::Time image_time;
 
@@ -78,6 +85,8 @@ private:
     Pose3 pose_;
     Eigen::MatrixXd pose_covariance_;
 
+    bool covariance_computed_exactly_;
+
     SE3NodePtr graph_node_;
 
     CeresFactorPtr spine_factor_;
@@ -85,10 +94,14 @@ private:
     // aligned_vector<ObjectMeasurement> measurements_;
     std::vector<EstimatedObject::Ptr> visible_objects_;
 
+    std::vector<GeometricFeature::Ptr> visible_geometric_features_;
+
     // Connections to keyframes that observe the same objects along with the number of
     // mutually observed objects
     // can't use unordered_map without custom hash function bc std::hash<boost::shared_ptr> is not defined
     std::map<SemanticKeyframe::Ptr, int> neighbors_;
+
+    std::map<SemanticKeyframe::Ptr, int> geometric_neighbors_;
 
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

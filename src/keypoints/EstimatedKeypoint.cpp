@@ -90,7 +90,7 @@ void EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt, double w
 
   // ROS_INFO_STREAM("Adding measurement to keypoint " << id());
 
-  Eigen::Vector2d noise_vec = Eigen::Vector2d::Constant(msmt.pixel_sigma);
+  Eigen::Vector2d noise_vec = Eigen::Vector2d::Constant(msmt.pixel_sigma * msmt.pixel_sigma);
   auto camera_node = mapper_->keyframes()[Symbol(msmt.measured_key).index()]->graph_node();
   // auto camera_node = graph_->getNode<SE3Node>(msmt.measured_key);
   CeresProjectionFactorPtr proj_factor = util::allocate_aligned<CeresProjectionFactor>(

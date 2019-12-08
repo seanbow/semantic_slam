@@ -14,6 +14,7 @@
 
 #include <nav_msgs/Odometry.h>
 #include <mutex>
+#include <memory>
 // #include <shared_mutex>
 #include <deque>
 #include <unordered_map>
@@ -54,9 +55,13 @@ public:
     void processMessagesUpdateObjectsThread();
     void addObjectsAndOptimizeGraphThread();
 
-    void computeCovariances();
+    bool computeLatestCovariance();
+    bool computeCovariances(const std::vector<SemanticKeyframe::Ptr>& frames);
+    bool computeLoopCovariances();
 
     Eigen::MatrixXd getPlx(Key key1, Key key2);
+
+    Eigen::MatrixXd computePlxExact(Key l_key, Key x_key);
 
     void start();
 
@@ -107,6 +112,8 @@ public:
     SemanticKeyframe::Ptr getLastKeyframeInGraph();
 
     EstimatedObject::Ptr getObjectByKey(Key key);
+    EstimatedObject::Ptr getObjectByIndex(int index);
+    EstimatedObject::Ptr getObjectByKeypointKey(Key key);
 
     bool solveGraph();
 
@@ -139,12 +146,13 @@ private:
 
     unsigned char node_chr_;
 
-    OperationMode operation_mode_;
+    std::atomic<OperationMode> operation_mode_;
 
     // SemanticKeyframe::Ptr next_keyframe_;
 
     Eigen::MatrixXd last_kf_covariance_;
     ros::Time last_kf_covariance_time_;
+    int last_optimized_kf_index_;
     // aligned_map<int, Eigen::MatrixXd> Plxs_;
     // size_t Plxs_index_;
     // ros::Time Plxs_time_;
@@ -164,6 +172,7 @@ private:
     bool verbose_optimization_;
     double covariance_delay_;
     double max_optimization_time_;
+    int smoothing_length_;
 
     ceres::Solver::Options solver_options_;
 
@@ -195,9 +204,9 @@ private:
 
     void processGeometricFeatureTracks(const std::vector<SemanticKeyframe::Ptr>& new_keyframes);
 
-    void computeCovariancesWithCeres();
-    void computeCovariancesWithGtsam();
-    void computeCovariancesWithGtsamIsam();
+    bool computeCovariancesWithCeres(const std::vector<SemanticKeyframe::Ptr>& frames);
+    bool computeCovariancesWithGtsam(const std::vector<SemanticKeyframe::Ptr>& frames);
+    bool computeCovariancesWithGtsamIsam(const std::vector<SemanticKeyframe::Ptr>& frames);
 
     void processPendingKeyframes();
 

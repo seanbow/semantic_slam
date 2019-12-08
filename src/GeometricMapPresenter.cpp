@@ -1,10 +1,10 @@
 #include "semantic_slam/GeometricMapPresenter.h"
-#include "semantic_slam/VectorNode.h"
-#include "semantic_slam/FactorGraph.h"
+#include "semantic_slam/SemanticKeyframe.h"
+#include "semantic_slam/keypoints/EstimatedObject.h"
 
 #include <visualization_msgs/Marker.h>
-// #include <gtsam/geometry/Point3.h>
-// #include <gtsam/geometry/Quaternion.h>
+
+#include <unordered_set>
 
 void GeometricMapPresenter::setup()
 {
@@ -46,27 +46,49 @@ void GeometricMapPresenter::present(const std::vector<SemanticKeyframe::Ptr>& ke
     points.id = 0;
     points.action = visualization_msgs::Marker::ADD;
 
-    auto last_node = graph_->findLastNode('g');
+    // auto last_node = graph_->findLastNode('g');
+    // if (!last_node) return;
+    // size_t last_index = last_node->index();
 
-    if (!last_node) return;
+    // We'll get the map information in a sort of roundabout way.
+    // Iterate through the keyframes and get each of their observed features, and keep 
+    // a set to mark which we've already seen as we iterate.
+    std::unordered_set<int> seen_features;
 
-    size_t last_index = last_node->index();
+    for (auto& kf : keyframes) {
+        for (auto& feat : kf->visible_geometric_features()) {
+            if (seen_features.count(feat->id)) continue;
 
-    for (size_t i = 0; i < last_index; ++i) {
+            if (feat->point.norm() > 1e6 || !feat->point.allFinite()) continue;
 
-        auto node = graph_->getNode<Vector3dNode>(Symbol('g', i));
+            if (!feat->active) continue;
 
-        if (!node || !!node->active() || !node->vector().allFinite()) continue;
+            geometry_msgs::Point p_msg;
+            p_msg.x = feat->point(0);
+            p_msg.y = feat->point(1);
+            p_msg.z = feat->point(2);
 
-        if (node->vector().norm() > 1e4) continue;
+            points.points.push_back(p_msg);
 
-        geometry_msgs::Point p_msg;
-        p_msg.x = node->vector()(0);
-        p_msg.y = node->vector()(1);
-        p_msg.z = node->vector()(2);
-
-        points.points.push_back(p_msg);
+            seen_features.insert(feat->id);
+        }
     }
+
+    // for (size_t i = 0; i < last_index; ++i) {
+
+    //     auto node = graph_->getNode<Vector3dNode>(Symbol('g', i));
+
+    //     if (!node || !!node->active() || !node->vector().allFinite()) continue;
+
+    //     if (node->vector().norm() > 1e6) continue;
+
+    //     geometry_msgs::Point p_msg;
+    //     p_msg.x = node->vector()(0);
+    //     p_msg.y = node->vector()(1);
+    //     p_msg.z = node->vector()(2);
+
+    //     points.points.push_back(p_msg);
+    // }
 
     pub_.publish(points);
 }

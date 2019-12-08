@@ -1,11 +1,10 @@
 #pragma once
 
 #include "semantic_slam/Common.h"
-#include "semantic_slam/FactorGraph.h"
-#include "semantic_slam/SemanticKeyframe.h"
-#include "semantic_slam/keypoints/EstimatedObject.h"
 
-#include <condition_variable>
+class FactorGraph;
+class SemanticKeyframe;
+class EstimatedObject;
 
 class Presenter {
 public:
@@ -16,8 +15,8 @@ public:
 
     virtual void setup() { }
     
-    virtual void present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
-                         const std::vector<EstimatedObject::Ptr>& objects) = 0;
+    virtual void present(const std::vector<boost::shared_ptr<SemanticKeyframe>>& keyframes,
+                         const std::vector<boost::shared_ptr<EstimatedObject>>& objects) = 0;
 
     void setGraph(boost::shared_ptr<FactorGraph> graph) { graph_ = graph; }
 
