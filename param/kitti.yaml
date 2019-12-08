@@ -47,7 +47,7 @@ sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = mo
 ## Semslam parameters
 
 ### Geometric feature parameters
-include_geometric_features: true
+include_geometric_features: false
 cam_sigma: 4
 reprojection_error_threshold: 4
 use_smart_projection_factors: true

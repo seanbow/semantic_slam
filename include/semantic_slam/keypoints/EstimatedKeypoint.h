@@ -17,7 +17,7 @@ class EstimatedKeypoint
 public:
     using Ptr = boost::shared_ptr<EstimatedKeypoint>;
 
-    EstimatedKeypoint(boost::shared_ptr<FactorGraph> graph, const ObjectParams& params, size_t id, size_t object_id,
+    EstimatedKeypoint(boost::shared_ptr<FactorGraph> graph, boost::shared_ptr<FactorGraph> semantic_graph, const ObjectParams& params, size_t id, size_t object_id,
             size_t class_id, Pose3 I_T_C, std::string platform,
             boost::shared_ptr<CameraCalibration> camera_calib, boost::shared_ptr<EstimatedObject> parent,
             SemanticMapper* mapper);
@@ -122,6 +122,7 @@ private:
   void initializePosition(const KeypointMeasurement& msmt);
 
   boost::shared_ptr<FactorGraph> graph_;
+  boost::shared_ptr<FactorGraph> semantic_graph_;
   ObjectParams params_;
   uint64_t global_id_;
   uint64_t object_id_;

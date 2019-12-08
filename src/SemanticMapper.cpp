@@ -42,6 +42,7 @@ void SemanticMapper::setup()
     subscriber_ = nh_.subscribe(object_topic, 1000, &SemanticMapper::msgCallback, this);
 
     graph_ = util::allocate_aligned<FactorGraph>();
+    essential_graph_ = util::allocate_aligned<FactorGraph>();
 
     received_msgs_ = 0;
     measurements_processed_ = 0;
@@ -79,6 +80,7 @@ void SemanticMapper::setup()
     solver_options_.num_threads = 4;
 
     graph_->setSolverOptions(solver_options_);
+    essential_graph_->setSolverOptions(solver_options_);
 
     operation_mode_ = OperationMode::NORMAL;
 }
@@ -86,12 +88,14 @@ void SemanticMapper::setup()
 void SemanticMapper::setOdometryHandler(boost::shared_ptr<ExternalOdometryHandler> odom) {
     odometry_handler_ = odom;
     odom->setGraph(graph_);
+    odom->setEssentialGraph(essential_graph_);
     odom->setup();
 }
 
 void SemanticMapper::setGeometricFeatureHandler(boost::shared_ptr<GeometricFeatureHandler> geom) {
     geom_handler_ = geom;
     geom->setGraph(graph_);
+    geom->setEssentialGraph(essential_graph_);
     geom->setExtrinsicCalibration(I_T_C_);
     geom->setup();
 }
@@ -1778,7 +1782,8 @@ bool SemanticMapper::addMeasurementsToObjects(SemanticKeyframe::Ptr kf,
             auto& msmt = measurements[measurement_index[k]];
 
             EstimatedObject::Ptr new_obj =
-                EstimatedObject::create(graph_, params_, object_models_[msmt.obj_name], estimated_objects_.size(),
+                EstimatedObject::Create(graph_, essential_graph_, params_, 
+                                        object_models_[msmt.obj_name], estimated_objects_.size(),
                                         n_landmarks_, msmt, 
                                         map_T_camera, /* G_T_C */
                                         I_T_C_,       

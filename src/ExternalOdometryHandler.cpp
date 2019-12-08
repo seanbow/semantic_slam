@@ -275,8 +275,8 @@ SemanticKeyframe::Ptr ExternalOdometryHandler::createKeyframe(ros::Time time)
 
     // TODO use more accurate relative covariance information...
     // Eigen::Matrix6d cov;
-    double sigma_p = 0.05;
-    double sigma_q = 0.0075;
+    double sigma_p = 0.03;
+    double sigma_q = 0.005;
     Eigen::VectorXd sigmas(6);
     sigmas << sigma_q, sigma_q, sigma_q, sigma_p, sigma_p, sigma_p;
     Eigen::MatrixXd cov = sigmas.array().pow(2).matrix().asDiagonal();

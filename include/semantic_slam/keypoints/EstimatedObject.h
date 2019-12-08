@@ -24,7 +24,9 @@ class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
 public:
   using Ptr = boost::shared_ptr<EstimatedObject>;
 
-  static EstimatedObject::Ptr create(boost::shared_ptr<FactorGraph> graph, const ObjectParams &params,
+  static EstimatedObject::Ptr Create(boost::shared_ptr<FactorGraph> graph, 
+                                     boost::shared_ptr<FactorGraph> semantic_graph,
+                                     const ObjectParams &params,
                                      geometry::ObjectModelBasis object_model, uint64_t object_id,
                                      uint64_t first_keypoint_id, const ObjectMeasurement &msmt,
                                      const Pose3 &G_T_C, const Pose3 &I_T_C, std::string platform,
@@ -140,7 +142,8 @@ public:
   // utils::ProjectionFactor::shared_ptr getProjectionFactor(const KeypointMeasurement &kp_msmt) const;
 
 private:
-  EstimatedObject(boost::shared_ptr<FactorGraph> graph, const ObjectParams &params,
+  EstimatedObject(boost::shared_ptr<FactorGraph> graph, boost::shared_ptr<FactorGraph> semantic_graph, 
+                  const ObjectParams &params,
                   geometry::ObjectModelBasis object_model, uint64_t object_id, uint64_t first_keypoint_id,
                   const ObjectMeasurement &msmt, const Pose3 &G_T_C, const Pose3 &I_T_C,
                   std::string platform, boost::shared_ptr<CameraCalibration> calibration,
@@ -163,6 +166,7 @@ private:
   // bool checkObjectExploded() const;
 
   boost::shared_ptr<FactorGraph> graph_;
+  boost::shared_ptr<FactorGraph> semantic_graph_;
 
   uint64_t id_;            // ID within the *pose graph*
   uint64_t first_kp_id_;

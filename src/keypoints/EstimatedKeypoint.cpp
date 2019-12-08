@@ -20,11 +20,12 @@
 
 namespace sym = symbol_shorthand;
 
-EstimatedKeypoint::EstimatedKeypoint(boost::shared_ptr<FactorGraph> graph, const ObjectParams& params, size_t id,
+EstimatedKeypoint::EstimatedKeypoint(boost::shared_ptr<FactorGraph> graph, boost::shared_ptr<FactorGraph> semantic_graph, const ObjectParams& params, size_t id,
                                      size_t object_id, size_t class_id, Pose3 I_T_C, std::string platform,
                                      boost::shared_ptr<CameraCalibration> camera_calib, EstimatedObject::Ptr parent,
                                      SemanticMapper* mapper)
   : graph_(graph)
+  , semantic_graph_(semantic_graph)
   , params_(params)
   , global_id_(id)
   , object_id_(object_id)

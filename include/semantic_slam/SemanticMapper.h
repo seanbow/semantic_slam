@@ -129,6 +129,9 @@ private:
     std::mutex graph_mutex_; // wish this could be a shared_mutex
     std::mutex map_mutex_;
 
+    boost::shared_ptr<FactorGraph> essential_graph_;
+    // essential graph will share the use of graph_mutex_
+
     ros::NodeHandle nh_;
     ros::NodeHandle pnh_;
 

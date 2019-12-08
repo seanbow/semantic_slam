@@ -24,13 +24,15 @@
 namespace sym = symbol_shorthand;
 
 EstimatedObject::EstimatedObject(
-  boost::shared_ptr<FactorGraph> graph, const ObjectParams& params,
+  boost::shared_ptr<FactorGraph> graph, 
+  boost::shared_ptr<FactorGraph> semantic_graph, const ObjectParams& params,
   geometry::ObjectModelBasis object_model, uint64_t object_id,
   uint64_t first_keypoint_id, const ObjectMeasurement& msmt,
   const Pose3& G_T_C, const Pose3& I_T_C, std::string platform,
   boost::shared_ptr<CameraCalibration> calibration,
   SemanticMapper* mapper)
   : graph_(graph)
+  , semantic_graph_(semantic_graph)
   , id_(object_id)
   , first_kp_id_(first_keypoint_id)
   , obj_name_(msmt.obj_name)
@@ -75,7 +77,8 @@ EstimatedObject::EstimatedObject(
 }
 
 EstimatedObject::Ptr
-EstimatedObject::create(boost::shared_ptr<FactorGraph> graph,
+EstimatedObject::Create(boost::shared_ptr<FactorGraph> graph,
+                        boost::shared_ptr<FactorGraph> semantic_graph, 
                         const ObjectParams& params,
                         geometry::ObjectModelBasis object_model,
                         uint64_t object_id, uint64_t first_keypoint_id,
@@ -86,7 +89,7 @@ EstimatedObject::create(boost::shared_ptr<FactorGraph> graph,
                         SemanticMapper* mapper)
 {
   EstimatedObject::Ptr pt(new EstimatedObject(
-    graph, params, object_model, object_id, first_keypoint_id, msmt, G_T_C,
+    graph, semantic_graph, params, object_model, object_id, first_keypoint_id, msmt, G_T_C,
     I_T_C, platform, calibration, mapper));
   pt->initializeFromMeasurement(msmt, G_T_C);
   return pt;
@@ -125,7 +128,7 @@ EstimatedObject::initializeKeypoints(const ObjectMeasurement& msmt)
       EstimatedObject::Ptr shared_this = shared_from_this();
 
       EstimatedKeypoint::Ptr kp(
-        new EstimatedKeypoint(graph_, params_, first_kp_id_ + i, id_,
+        new EstimatedKeypoint(graph_, semantic_graph_, params_, first_kp_id_ + i, id_,
                               msmt.keypoint_measurements[i].kp_class_id, I_T_C_,
                               platform_, camera_calibration_, shared_this, mapper_));
       keypoints_.push_back(kp);
@@ -763,6 +766,10 @@ EstimatedObject::addToGraph()
     if (k_ > 0) graph_->addNode(graph_coefficient_node_);
     graph_->addFactor(structure_factor_);
 
+    semantic_graph_->addNode(graph_pose_node_);
+    if (k_ > 0) semantic_graph_->addNode(graph_coefficient_node_);
+    semantic_graph_->addFactor(structure_factor_);
+
     in_graph_ = true;
   }
   // pose_added_to_graph_ = msmt.pose_id;
@@ -777,6 +784,9 @@ void EstimatedObject::setConstantInGraph()
   graph_->setNodeConstant(graph_pose_node_);
   if (k_ > 0) graph_->setNodeConstant(graph_coefficient_node_);
 
+  semantic_graph_->setNodeConstant(graph_pose_node_);
+  if (k_ > 0) semantic_graph_->setNodeConstant(graph_coefficient_node_);
+
   for (auto& kp : keypoints_) {
     kp->setConstantInGraph();
   }
@@ -788,6 +798,9 @@ void EstimatedObject::setVariableInGraph()
 
   graph_->setNodeVariable(graph_pose_node_);
   if (k_ > 0) graph_->setNodeVariable(graph_coefficient_node_);
+
+  semantic_graph_->setNodeVariable(graph_pose_node_);
+  if (k_ > 0) semantic_graph_->setNodeVariable(graph_coefficient_node_);
 
   for (auto& kp : keypoints_) {
     kp->setVariableInGraph();
@@ -809,6 +822,10 @@ EstimatedObject::removeFromEstimation()
     graph_->removeNode(graph_pose_node_);
     if (k_ > 0) graph_->removeNode(graph_coefficient_node_);
     graph_->removeFactor(structure_factor_);
+
+    semantic_graph_->removeNode(graph_pose_node_);
+    if (k_ > 0) semantic_graph_->removeNode(graph_coefficient_node_);
+    semantic_graph_->removeFactor(structure_factor_);
   }
 
   in_graph_ = false;
