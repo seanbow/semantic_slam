@@ -1,11 +1,11 @@
 #pragma once
 
-#include <ceres/ceres.h>
-#include "semantic_slam/SE3Node.h"
-#include "semantic_slam/pose_math.h"
 #include "semantic_slam/CeresFactor.h"
+#include "semantic_slam/SE3Node.h"
 #include "semantic_slam/VectorNode.h"
 #include "semantic_slam/keypoints/geometry.h"
+#include "semantic_slam/pose_math.h"
+#include <ceres/ceres.h>
 
 namespace semslam {
 class StructureFactor;
@@ -13,7 +13,7 @@ class StructureFactor;
 
 class CeresStructureFactor : public CeresFactor
 {
-public:
+  public:
     using This = CeresStructureFactor;
     using Ptr = boost::shared_ptr<This>;
 
@@ -22,16 +22,16 @@ public:
                          VectorXdNodePtr coefficient_node,
                          const geometry::ObjectModelBasis& model,
                          const Eigen::VectorXd& weights,
-                         double lambda=1.0,
-                         int tag=0);
+                         double lambda = 1.0,
+                         int tag = 0);
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
     boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
-    void addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
+    void addToGtsamGraph(
+      boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
-
-private:
+  private:
     geometry::ObjectModelBasis model_;
 
     SE3NodePtr object_node_;
@@ -42,7 +42,7 @@ private:
 
     boost::shared_ptr<semslam::StructureFactor> gtsam_factor_;
 
-public:
+  public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 

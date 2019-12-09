@@ -6,7 +6,8 @@
 
 #include <unordered_set>
 
-void GeometricMapPresenter::setup()
+void
+GeometricMapPresenter::setup()
 {
     pub_ = nh_.advertise<visualization_msgs::Marker>("map_points", 10);
 
@@ -16,13 +17,16 @@ void GeometricMapPresenter::setup()
     }
 }
 
-void GeometricMapPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
-                                  const std::vector<EstimatedObject::Ptr>& objects)
+void
+GeometricMapPresenter::present(
+  const std::vector<SemanticKeyframe::Ptr>& keyframes,
+  const std::vector<EstimatedObject::Ptr>& objects)
 {
     visualization_msgs::Marker points;
     points.type = visualization_msgs::Marker::POINTS;
 
-    // initialize quaternion to identity. this isn't actually used anywhere but it suppresses a warning
+    // initialize quaternion to identity. this isn't actually used anywhere but
+    // it suppresses a warning
     points.pose.orientation.x = 0;
     points.pose.orientation.y = 0;
     points.pose.orientation.z = 0;
@@ -51,17 +55,20 @@ void GeometricMapPresenter::present(const std::vector<SemanticKeyframe::Ptr>& ke
     // size_t last_index = last_node->index();
 
     // We'll get the map information in a sort of roundabout way.
-    // Iterate through the keyframes and get each of their observed features, and keep 
-    // a set to mark which we've already seen as we iterate.
+    // Iterate through the keyframes and get each of their observed features,
+    // and keep a set to mark which we've already seen as we iterate.
     std::unordered_set<int> seen_features;
 
     for (auto& kf : keyframes) {
         for (auto& feat : kf->visible_geometric_features()) {
-            if (seen_features.count(feat->id)) continue;
+            if (seen_features.count(feat->id))
+                continue;
 
-            if (feat->point.norm() > 1e6 || !feat->point.allFinite()) continue;
+            if (feat->point.norm() > 1e6 || !feat->point.allFinite())
+                continue;
 
-            if (!feat->active) continue;
+            if (!feat->active)
+                continue;
 
             geometry_msgs::Point p_msg;
             p_msg.x = feat->point(0);
@@ -78,7 +85,8 @@ void GeometricMapPresenter::present(const std::vector<SemanticKeyframe::Ptr>& ke
 
     //     auto node = graph_->getNode<Vector3dNode>(Symbol('g', i));
 
-    //     if (!node || !!node->active() || !node->vector().allFinite()) continue;
+    //     if (!node || !!node->active() || !node->vector().allFinite())
+    //     continue;
 
     //     if (node->vector().norm() > 1e6) continue;
 

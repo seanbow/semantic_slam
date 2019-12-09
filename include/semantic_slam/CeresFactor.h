@@ -1,8 +1,8 @@
 #pragma once
 
+#include "semantic_slam/CeresNode.h"
 #include "semantic_slam/Common.h"
 #include "semantic_slam/registry.h"
-#include "semantic_slam/CeresNode.h"
 
 #include <ceres/ceres.h>
 
@@ -15,8 +15,8 @@ class NonlinearFactorGraph;
 
 class CeresFactor
 {
-public:
-    CeresFactor(FactorType type, int tag=0);
+  public:
+    CeresFactor(FactorType type, int tag = 0);
 
     virtual void addToProblem(boost::shared_ptr<ceres::Problem> problem) = 0;
     virtual void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
@@ -28,19 +28,25 @@ public:
 
     std::vector<Key> keys() const;
 
-    const std::vector<boost::shared_ptr<CeresNode>>& nodes() const { return nodes_; }
+    const std::vector<boost::shared_ptr<CeresNode>>& nodes() const
+    {
+        return nodes_;
+    }
 
-    virtual boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const { 
+    virtual boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const
+    {
         throw std::logic_error("unimplemented");
     }
 
-    virtual void addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const { 
+    virtual void addToGtsamGraph(
+      boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const
+    {
         throw std::logic_error("unimplemented");
     }
 
     virtual bool operator==(const CeresFactor& other) const;
 
-protected:
+  protected:
     FactorType type_;
     int tag_;
 
@@ -50,10 +56,11 @@ protected:
 
     ceres::CostFunction* cf_;
 
-    // We may end up getting added to multiple problems, so we need to keep track of our ID in each
+    // We may end up getting added to multiple problems, so we need to keep
+    // track of our ID in each
     std::unordered_map<ceres::Problem*, ceres::ResidualBlockId> residual_ids_;
 
-public:
+  public:
     using Ptr = boost::shared_ptr<CeresFactor>;
     using ConstPtr = boost::shared_ptr<const CeresFactor>;
 };
@@ -62,22 +69,23 @@ using CeresFactorPtr = CeresFactor::Ptr;
 using CeresFactorConstPtr = CeresFactor::ConstPtr;
 
 CeresFactor::CeresFactor(FactorType type, int tag)
-    : type_(type),
-      tag_(tag),
-      active_(false)
+  : type_(type)
+  , tag_(tag)
+  , active_(false)
+{}
+
+bool
+CeresFactor::operator==(const CeresFactor& other) const
 {
-
-}
-
-bool CeresFactor::operator==(const CeresFactor& other) const
-{  
-    // At its core this class is a wrapper around ceres::CostFunction objects, so
-    // equality can be assumed based on the underlying cost function equality...
+    // At its core this class is a wrapper around ceres::CostFunction objects,
+    // so equality can be assumed based on the underlying cost function
+    // equality...
 
     return this->cf_ == other.cf_;
 }
 
-void CeresFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
+void
+CeresFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
 {
     auto it = residual_ids_.find(problem.get());
     if (it != residual_ids_.end()) {
@@ -88,7 +96,8 @@ void CeresFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
     active_ = !residual_ids_.empty();
 }
 
-std::vector<Key> CeresFactor::keys() const
+std::vector<Key>
+CeresFactor::keys() const
 {
     std::vector<Key> keys;
     for (const auto& node : nodes_) {

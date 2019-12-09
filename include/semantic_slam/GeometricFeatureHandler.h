@@ -1,26 +1,26 @@
 #pragma once
 
+#include "semantic_slam/CameraCalibration.h"
 #include "semantic_slam/Common.h"
 #include "semantic_slam/Handler.h"
-#include "semantic_slam/feature_tracker/FeatureTracker.h"
 #include "semantic_slam/SemanticKeyframe.h"
-#include "semantic_slam/CameraCalibration.h"
+#include "semantic_slam/feature_tracker/FeatureTracker.h"
 
-#include <ros/ros.h>
-#include <image_transport/image_transport.h>
-#include <thread>
-#include <deque>
-#include <mutex>
-#include <unordered_map>
 #include <condition_variable>
+#include <deque>
+#include <image_transport/image_transport.h>
+#include <mutex>
+#include <ros/ros.h>
 #include <sensor_msgs/Image.h>
+#include <thread>
+#include <unordered_map>
 
 class SmartProjectionFactor;
 class MultiProjectionFactor;
 
-class GeometricFeatureHandler : public Handler 
+class GeometricFeatureHandler : public Handler
 {
-public:
+  public:
     void setup();
     void update();
 
@@ -38,12 +38,17 @@ public:
 
     void updateEssentialGraph();
 
-    std::unordered_map<int, boost::shared_ptr<Vector3dNode>> landmark_nodes() { return landmark_nodes_; }
+    std::unordered_map<int, boost::shared_ptr<Vector3dNode>> landmark_nodes()
+    {
+        return landmark_nodes_;
+    }
 
-    std::unordered_map<int, boost::shared_ptr<CeresFactor>> factors() { return factors_; }
+    std::unordered_map<int, boost::shared_ptr<CeresFactor>> factors()
+    {
+        return factors_;
+    }
 
-private:
-
+  private:
     image_transport::Subscriber img_sub_;
 
     Pose3 I_T_C_;
@@ -80,6 +85,6 @@ private:
 
     void extractKeypointsThread();
 
-public:
+  public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };

@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include "semantic_slam/Common.h"
 #include "semantic_slam/Symbol.h"
@@ -9,14 +9,14 @@
 
 // #include <gtsam/base/Value.h>
 
-namespace gtsam{
+namespace gtsam {
 class Value;
 }
 
-class CeresNode {
-public:
-
-    virtual ~CeresNode() { }
+class CeresNode
+{
+  public:
+    virtual ~CeresNode() {}
 
     virtual void addToProblem(boost::shared_ptr<ceres::Problem> problem);
     virtual void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
@@ -29,26 +29,41 @@ public:
     virtual size_t dim() const = 0;
     virtual size_t local_dim() const = 0;
 
-    virtual boost::shared_ptr<gtsam::Value> getGtsamValue() const { 
-        throw std::logic_error("unimplemented"); 
+    virtual boost::shared_ptr<gtsam::Value> getGtsamValue() const
+    {
+        throw std::logic_error("unimplemented");
     }
 
     bool active() const { return active_; }
 
     boost::optional<ros::Time> time() const { return time_; }
 
-    void addParameterBlock(double* values, int size, ceres::LocalParameterization* local_param = nullptr);
+    void addParameterBlock(double* values,
+                           int size,
+                           ceres::LocalParameterization* local_param = nullptr);
 
-    const std::vector<double*>& parameter_blocks() const { return parameter_blocks_; }
-    const std::vector<size_t>& parameter_block_sizes() const { return parameter_block_sizes_; }
-    const std::vector<size_t>& parameter_block_local_sizes() const { return parameter_block_local_sizes_; }
-    const std::vector<ceres::LocalParameterization*> local_parameterizations() const { return local_parameterizations_; }
+    const std::vector<double*>& parameter_blocks() const
+    {
+        return parameter_blocks_;
+    }
+    const std::vector<size_t>& parameter_block_sizes() const
+    {
+        return parameter_block_sizes_;
+    }
+    const std::vector<size_t>& parameter_block_local_sizes() const
+    {
+        return parameter_block_local_sizes_;
+    }
+    const std::vector<ceres::LocalParameterization*> local_parameterizations()
+      const
+    {
+        return local_parameterizations_;
+    }
 
     using Ptr = boost::shared_ptr<CeresNode>;
 
-protected:
-
-    CeresNode(Key key, boost::optional<ros::Time> time=boost::none);
+  protected:
+    CeresNode(Key key, boost::optional<ros::Time> time = boost::none);
 
     std::vector<double*> parameter_blocks_;
     std::vector<size_t> parameter_block_sizes_;
@@ -66,14 +81,15 @@ protected:
 using CeresNodePtr = CeresNode::Ptr;
 
 CeresNode::CeresNode(Key key, boost::optional<ros::Time> time)
-    : key_(key),
-      time_(time),
-      active_(false)
-{
-    
-}
+  : key_(key)
+  , time_(time)
+  , active_(false)
+{}
 
-void CeresNode::addParameterBlock(double* values, int size, ceres::LocalParameterization* local_param)
+void
+CeresNode::addParameterBlock(double* values,
+                             int size,
+                             ceres::LocalParameterization* local_param)
 {
     parameter_blocks_.push_back(values);
     parameter_block_sizes_.push_back(size);
@@ -86,10 +102,13 @@ void CeresNode::addParameterBlock(double* values, int size, ceres::LocalParamete
     }
 }
 
-void CeresNode::addToProblem(boost::shared_ptr<ceres::Problem> problem)
+void
+CeresNode::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
     for (int i = 0; i < parameter_blocks_.size(); ++i) {
-        problem->AddParameterBlock(parameter_blocks_[i], parameter_block_sizes_[i], local_parameterizations_[i]);
+        problem->AddParameterBlock(parameter_blocks_[i],
+                                   parameter_block_sizes_[i],
+                                   local_parameterizations_[i]);
     }
 
     active_problems_.push_back(problem.get());
@@ -97,9 +116,11 @@ void CeresNode::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     active_ = true;
 }
 
-void CeresNode::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
+void
+CeresNode::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
 {
-    auto it = std::find(active_problems_.begin(), active_problems_.end(), problem.get());
+    auto it = std::find(
+      active_problems_.begin(), active_problems_.end(), problem.get());
 
     if (it != active_problems_.end()) {
         for (double* block : parameter_blocks_) {

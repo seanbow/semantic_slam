@@ -1,7 +1,7 @@
 #include "semantic_slam/presenters/ObjectMeshPresenter.h"
-#include "semantic_slam/pose_math.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
+#include "semantic_slam/pose_math.h"
 
 #include <fmt/format.h>
 
@@ -9,20 +9,25 @@
 // #include <gtsam/geometry/Point3.h>
 // #include <gtsam/geometry/Quaternion.h>
 
-void ObjectMeshPresenter::setup()
+void
+ObjectMeshPresenter::setup()
 {
-    vis_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("keypoint_objects/object_markers", 10);
+    vis_pub_ = nh_.advertise<visualization_msgs::MarkerArray>(
+      "keypoint_objects/object_markers", 10);
 
     if (!pnh_.param("show_object_labels", show_object_labels_, true)) {
         ROS_ERROR("Unable to read visualization parameters");
     }
 }
 
-void ObjectMeshPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
-                                  const std::vector<EstimatedObject::Ptr>& objects)
+void
+ObjectMeshPresenter::present(
+  const std::vector<SemanticKeyframe::Ptr>& keyframes,
+  const std::vector<EstimatedObject::Ptr>& objects)
 {
-    if (objects.empty()) return;
-    
+    if (objects.empty())
+        return;
+
     visualization_msgs::MarkerArray object_markers;
     visualization_msgs::Marker object_marker;
     object_marker.type = visualization_msgs::Marker::MESH_RESOURCE;
@@ -50,7 +55,6 @@ void ObjectMeshPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyf
     delete_marker.ns = "objects";
     delete_marker.type = visualization_msgs::Marker::MESH_RESOURCE;
     delete_marker.action = visualization_msgs::Marker::DELETE;
-
 
     visualization_msgs::Marker object_text;
     object_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
@@ -95,7 +99,6 @@ void ObjectMeshPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyf
             object_marker.color.a = 0.5;
         }
 
-
         object_marker.action = visualization_msgs::Marker::ADD;
         // object_text.action = visualization_msgs::Marker::ADD;
 
@@ -132,12 +135,16 @@ void ObjectMeshPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyf
         object_marker.pose.orientation.z = q.z();
         object_marker.pose.orientation.w = q.w();
 
-        object_marker.mesh_resource = std::string("package://semantic_slam/models/viz_meshes/") + obj->obj_name() + ".dae";
-        // object_marker.mesh_resource = std::string("package://semslam/models/viz_meshes/car.dae");
+        object_marker.mesh_resource =
+          std::string("package://semantic_slam/models/viz_meshes/") +
+          obj->obj_name() + ".dae";
+        // object_marker.mesh_resource =
+        // std::string("package://semslam/models/viz_meshes/car.dae");
 
         // object_text.pose.position.x = obj->pose().translation().x();
         // object_text.pose.position.y = obj->pose().translation().y();
-        // object_text.pose.position.z = Z_SCALE * obj->pose().translation().z() + 1.5;
+        // object_text.pose.position.z = Z_SCALE * obj->pose().translation().z()
+        // + 1.5;
 
         object_marker.id = obj->id();
         object_marker.text = obj->obj_name();
@@ -162,5 +169,4 @@ void ObjectMeshPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyf
     }
 
     vis_pub_.publish(object_markers);
-
 }

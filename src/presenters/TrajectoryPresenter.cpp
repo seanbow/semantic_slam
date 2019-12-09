@@ -5,7 +5,8 @@
 #include "semantic_slam/pose_math.h"
 #include <visualization_msgs/Marker.h>
 
-void TrajectoryPresenter::setup()
+void
+TrajectoryPresenter::setup()
 {
     publisher_ = nh_.advertise<visualization_msgs::Marker>("trajectory", 10);
 
@@ -14,15 +15,19 @@ void TrajectoryPresenter::setup()
     }
 }
 
-void TrajectoryPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
-                                  const std::vector<EstimatedObject::Ptr>& objects)
+void
+TrajectoryPresenter::present(
+  const std::vector<SemanticKeyframe::Ptr>& keyframes,
+  const std::vector<EstimatedObject::Ptr>& objects)
 {
-    if (keyframes.empty()) return;
+    if (keyframes.empty())
+        return;
 
     visualization_msgs::Marker traj;
     traj.type = visualization_msgs::Marker::LINE_STRIP;
 
-    // initialize quaternion to identity. this isn't actually used anywhere but it suppresses a warning
+    // initialize quaternion to identity. this isn't actually used anywhere but
+    // it suppresses a warning
     traj.pose.orientation.x = 0;
     traj.pose.orientation.y = 0;
     traj.pose.orientation.z = 0;

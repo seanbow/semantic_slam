@@ -1,6 +1,7 @@
 #pragma once
 
-enum class FactorType {
+enum class FactorType
+{
     UNKNOWN = 0,
 
     PROJECTION = 1,
@@ -14,4 +15,3 @@ enum class FactorType {
 
     ORIGIN = 6
 };
-

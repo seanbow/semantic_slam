@@ -3,17 +3,18 @@
 #include "semantic_slam/Common.h"
 #include "semantic_slam/Presenter.h"
 
-class GeometricCovisibilityPresenter : public Presenter 
+class GeometricCovisibilityPresenter : public Presenter
 {
-public:
+  public:
     void setup();
 
-    void present(const std::vector<boost::shared_ptr<SemanticKeyframe>>& keyframes,
-                 const std::vector<boost::shared_ptr<EstimatedObject>>& objects);
+    void present(
+      const std::vector<boost::shared_ptr<SemanticKeyframe>>& keyframes,
+      const std::vector<boost::shared_ptr<EstimatedObject>>& objects);
 
     using Presenter::Presenter;
 
-private:
+  private:
     ros::Publisher vis_pub_;
 
     double line_width_;

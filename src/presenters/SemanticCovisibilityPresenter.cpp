@@ -6,9 +6,11 @@
 
 #include <visualization_msgs/Marker.h>
 
-void SemanticCovisibilityPresenter::setup()
+void
+SemanticCovisibilityPresenter::setup()
 {
-    vis_pub_ = nh_.advertise<visualization_msgs::Marker>("keypoint_objects/semantic_covisibility", 10);
+    vis_pub_ = nh_.advertise<visualization_msgs::Marker>(
+      "keypoint_objects/semantic_covisibility", 10);
 
     if (!pnh_.param("covisibility_width", line_width_, 0.1) ||
         !pnh_.param("draw_semantic_covisibility", present_, true)) {
@@ -16,12 +18,16 @@ void SemanticCovisibilityPresenter::setup()
     }
 }
 
-void SemanticCovisibilityPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
-                                  const std::vector<EstimatedObject::Ptr>& objects)
+void
+SemanticCovisibilityPresenter::present(
+  const std::vector<SemanticKeyframe::Ptr>& keyframes,
+  const std::vector<EstimatedObject::Ptr>& objects)
 {
-    if (keyframes.empty()) return;
-    if (!present_) return;
-    
+    if (keyframes.empty())
+        return;
+    if (!present_)
+        return;
+
     visualization_msgs::Marker line_list;
     line_list.type = visualization_msgs::Marker::LINE_LIST;
 
@@ -69,5 +75,4 @@ void SemanticCovisibilityPresenter::present(const std::vector<SemanticKeyframe::
     }
 
     vis_pub_.publish(line_list);
-
 }

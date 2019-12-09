@@ -5,26 +5,26 @@
 /*
 enum
 {
-	coef_xxx,
-	coef_xxy,
-	coef_xyy,
-	coef_yyy,
-	coef_xxz,
-	coef_xyz,
-	coef_yyz,
-	coef_xzz,
-	coef_yzz,
-	coef_zzz,
-	coef_xx,
-	coef_xy,
-	coef_yy,
-	coef_xz,
-	coef_yz,
-	coef_zz,
-	coef_x,
-	coef_y,
-	coef_z,
-	coef_1
+        coef_xxx,
+        coef_xxy,
+        coef_xyy,
+        coef_yyy,
+        coef_xxz,
+        coef_xyz,
+        coef_yyz,
+        coef_xzz,
+        coef_yzz,
+        coef_zzz,
+        coef_xx,
+        coef_xy,
+        coef_yy,
+        coef_xz,
+        coef_yz,
+        coef_zz,
+        coef_x,
+        coef_y,
+        coef_z,
+        coef_1
 };
 */
 
@@ -49,55 +49,55 @@ static constexpr int coef_y = 17;
 static constexpr int coef_z = 18;
 static constexpr int coef_1 = 19;
 
-inline Eigen::Matrix<double, 20, 1> o1(const Eigen::Matrix<double, 20, 1> &a, 
-									   const Eigen::Matrix<double, 20, 1> &b)
+inline Eigen::Matrix<double, 20, 1>
+o1(const Eigen::Matrix<double, 20, 1>& a, const Eigen::Matrix<double, 20, 1>& b)
 {
-	Eigen::Matrix<double, 20, 1> res = Eigen::Matrix<double, 20, 1>::Zero();
+    Eigen::Matrix<double, 20, 1> res = Eigen::Matrix<double, 20, 1>::Zero();
 
-	res(coef_xx) = a(coef_x) * b(coef_x);
-	res(coef_xy) = a(coef_x) * b(coef_y) + a(coef_y) * b(coef_x);
-	res(coef_xz) = a(coef_x) * b(coef_z) + a(coef_z) * b(coef_x);
-	res(coef_yy) = a(coef_y) * b(coef_y);
-	res(coef_yz) = a(coef_y) * b(coef_z) + a(coef_z) * b(coef_y);
-	res(coef_zz) = a(coef_z) * b(coef_z);
-	res(coef_x) = a(coef_x) * b(coef_1) + a(coef_1) * b(coef_x);
-	res(coef_y) = a(coef_y) * b(coef_1) + a(coef_1) * b(coef_y);
-	res(coef_z) = a(coef_z) * b(coef_1) + a(coef_1) * b(coef_z);
-	res(coef_1) = a(coef_1) * b(coef_1);
+    res(coef_xx) = a(coef_x) * b(coef_x);
+    res(coef_xy) = a(coef_x) * b(coef_y) + a(coef_y) * b(coef_x);
+    res(coef_xz) = a(coef_x) * b(coef_z) + a(coef_z) * b(coef_x);
+    res(coef_yy) = a(coef_y) * b(coef_y);
+    res(coef_yz) = a(coef_y) * b(coef_z) + a(coef_z) * b(coef_y);
+    res(coef_zz) = a(coef_z) * b(coef_z);
+    res(coef_x) = a(coef_x) * b(coef_1) + a(coef_1) * b(coef_x);
+    res(coef_y) = a(coef_y) * b(coef_1) + a(coef_1) * b(coef_y);
+    res(coef_z) = a(coef_z) * b(coef_1) + a(coef_1) * b(coef_z);
+    res(coef_1) = a(coef_1) * b(coef_1);
 
-	return res;
+    return res;
 }
 
-inline Eigen::Matrix<double, 20, 1> o2(const Eigen::Matrix<double, 20, 1> &a,
-									   const Eigen::Matrix<double, 20, 1> &b)
+inline Eigen::Matrix<double, 20, 1>
+o2(const Eigen::Matrix<double, 20, 1>& a, const Eigen::Matrix<double, 20, 1>& b)
 {
-	Eigen::Matrix<double, 20, 1> res;
+    Eigen::Matrix<double, 20, 1> res;
 
-	res(coef_xxx) = a(coef_xx) * b(coef_x);
-	res(coef_xxy) = a(coef_xx) * b(coef_y) + a(coef_xy) * b(coef_x);
-	res(coef_xxz) = a(coef_xx) * b(coef_z) + a(coef_xz) * b(coef_x);
-	res(coef_xyy) = a(coef_xy) * b(coef_y) + a(coef_yy) * b(coef_x);
-	res(coef_xyz) = a(coef_xy) * b(coef_z) + a(coef_yz) * b(coef_x)
-			+ a(coef_xz) * b(coef_y);
-	res(coef_xzz) = a(coef_xz) * b(coef_z) + a(coef_zz) * b(coef_x);
-	res(coef_yyy) = a(coef_yy) * b(coef_y);
-	res(coef_yyz) = a(coef_yy) * b(coef_z) + a(coef_yz) * b(coef_y);
-	res(coef_yzz) = a(coef_yz) * b(coef_z) + a(coef_zz) * b(coef_y);
-	res(coef_zzz) = a(coef_zz) * b(coef_z);
-	res(coef_xx) = a(coef_xx) * b(coef_1) + a(coef_x) * b(coef_x);
-	res(coef_xy) = a(coef_xy) * b(coef_1) + a(coef_x) * b(coef_y) + a(coef_y)
-			* b(coef_x);
-	res(coef_xz) = a(coef_xz) * b(coef_1) + a(coef_x) * b(coef_z) + a(coef_z)
-			* b(coef_x);
-	res(coef_yy) = a(coef_yy) * b(coef_1) + a(coef_y) * b(coef_y);
-	res(coef_yz) = a(coef_yz) * b(coef_1) + a(coef_y) * b(coef_z) + a(coef_z)
-			* b(coef_y);
-	res(coef_zz) = a(coef_zz) * b(coef_1) + a(coef_z) * b(coef_z);
-	res(coef_x) = a(coef_x) * b(coef_1) + a(coef_1) * b(coef_x);
-	res(coef_y) = a(coef_y) * b(coef_1) + a(coef_1) * b(coef_y);
-	res(coef_z) = a(coef_z) * b(coef_1) + a(coef_1) * b(coef_z);
-	res(coef_1) = a(coef_1) * b(coef_1);
+    res(coef_xxx) = a(coef_xx) * b(coef_x);
+    res(coef_xxy) = a(coef_xx) * b(coef_y) + a(coef_xy) * b(coef_x);
+    res(coef_xxz) = a(coef_xx) * b(coef_z) + a(coef_xz) * b(coef_x);
+    res(coef_xyy) = a(coef_xy) * b(coef_y) + a(coef_yy) * b(coef_x);
+    res(coef_xyz) =
+      a(coef_xy) * b(coef_z) + a(coef_yz) * b(coef_x) + a(coef_xz) * b(coef_y);
+    res(coef_xzz) = a(coef_xz) * b(coef_z) + a(coef_zz) * b(coef_x);
+    res(coef_yyy) = a(coef_yy) * b(coef_y);
+    res(coef_yyz) = a(coef_yy) * b(coef_z) + a(coef_yz) * b(coef_y);
+    res(coef_yzz) = a(coef_yz) * b(coef_z) + a(coef_zz) * b(coef_y);
+    res(coef_zzz) = a(coef_zz) * b(coef_z);
+    res(coef_xx) = a(coef_xx) * b(coef_1) + a(coef_x) * b(coef_x);
+    res(coef_xy) =
+      a(coef_xy) * b(coef_1) + a(coef_x) * b(coef_y) + a(coef_y) * b(coef_x);
+    res(coef_xz) =
+      a(coef_xz) * b(coef_1) + a(coef_x) * b(coef_z) + a(coef_z) * b(coef_x);
+    res(coef_yy) = a(coef_yy) * b(coef_1) + a(coef_y) * b(coef_y);
+    res(coef_yz) =
+      a(coef_yz) * b(coef_1) + a(coef_y) * b(coef_z) + a(coef_z) * b(coef_y);
+    res(coef_zz) = a(coef_zz) * b(coef_1) + a(coef_z) * b(coef_z);
+    res(coef_x) = a(coef_x) * b(coef_1) + a(coef_1) * b(coef_x);
+    res(coef_y) = a(coef_y) * b(coef_1) + a(coef_1) * b(coef_y);
+    res(coef_z) = a(coef_z) * b(coef_1) + a(coef_1) * b(coef_z);
+    res(coef_1) = a(coef_1) * b(coef_1);
 
-	return res;
+    return res;
 }
 #endif // NISTER_COEFFS_H

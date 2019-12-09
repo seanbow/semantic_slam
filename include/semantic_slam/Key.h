@@ -25,13 +25,10 @@
 typedef std::function<std::string(Key)> KeyFormatter;
 
 // Helper function for DefaultKeyFormatter
-std::string _defaultKeyFormatter(Key key);
+std::string
+_defaultKeyFormatter(Key key);
 
 /// The default KeyFormatter, which is used if no KeyFormatter is passed to
 /// a nonlinear 'print' function.  Automatically detects plain integer keys
 /// and Symbol keys.
 static const KeyFormatter DefaultKeyFormatter = &_defaultKeyFormatter;
-
-
-
-

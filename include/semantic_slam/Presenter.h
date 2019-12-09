@@ -6,21 +6,22 @@ class FactorGraph;
 class SemanticKeyframe;
 class EstimatedObject;
 
-class Presenter {
-public:
-
+class Presenter
+{
+  public:
     Presenter();
 
-    virtual ~Presenter() { };
+    virtual ~Presenter(){};
 
-    virtual void setup() { }
-    
-    virtual void present(const std::vector<boost::shared_ptr<SemanticKeyframe>>& keyframes,
-                         const std::vector<boost::shared_ptr<EstimatedObject>>& objects) = 0;
+    virtual void setup() {}
+
+    virtual void present(
+      const std::vector<boost::shared_ptr<SemanticKeyframe>>& keyframes,
+      const std::vector<boost::shared_ptr<EstimatedObject>>& objects) = 0;
 
     void setGraph(boost::shared_ptr<FactorGraph> graph) { graph_ = graph; }
 
-protected:
+  protected:
     boost::shared_ptr<FactorGraph> graph_;
 
     ros::NodeHandle nh_;
@@ -28,7 +29,6 @@ protected:
 };
 
 Presenter::Presenter()
-    : nh_(),
-      pnh_("~")
-{
-}
+  : nh_()
+  , pnh_("~")
+{}

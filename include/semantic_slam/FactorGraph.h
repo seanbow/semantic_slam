@@ -4,12 +4,12 @@
 
 #include <ceres/ceres.h>
 
-#include "semantic_slam/CeresNode.h"
 #include "semantic_slam/CeresFactor.h"
+#include "semantic_slam/CeresNode.h"
 
-#include <unordered_map>
 #include <mutex>
 #include <rosfmt/rosfmt.h>
+#include <unordered_map>
 
 namespace gtsam {
 class NonlinearFactorGraph;
@@ -18,7 +18,7 @@ class Values;
 
 class FactorGraph
 {
-public:
+  public:
     FactorGraph();
 
     void addNode(CeresNodePtr node);
@@ -32,7 +32,7 @@ public:
 
     bool containsFactor(CeresFactorPtr factor);
 
-    bool solve(bool verbose=false);
+    bool solve(bool verbose = false);
 
     size_t num_nodes() { return nodes_.size(); }
     size_t num_factors() { return factors_.size(); }
@@ -44,7 +44,7 @@ public:
     bool setNodeConstant(CeresNodePtr node);
     bool setNodeVariable(CeresNodePtr node);
 
-    template <typename NodeType=CeresNode>
+    template<typename NodeType = CeresNode>
     boost::shared_ptr<NodeType> getNode(Symbol sym) const;
 
     bool computeMarginalCovariance(const std::vector<Key>& keys);
@@ -55,15 +55,19 @@ public:
     void setNumThreads(int n_threads);
 
     Eigen::MatrixXd getMarginalCovariance(const Key& key) const;
-    Eigen::MatrixXd getMarginalCovariance(const Key& key1, const Key& key2) const;
+    Eigen::MatrixXd getMarginalCovariance(const Key& key1,
+                                          const Key& key2) const;
     // Eigen::MatrixXd getMarginalCovariance(CeresNodePtr node) const;
-    Eigen::MatrixXd getMarginalCovariance(const std::vector<CeresNodePtr>& nodes) const;
+    Eigen::MatrixXd getMarginalCovariance(
+      const std::vector<CeresNodePtr>& nodes) const;
 
-    CeresNodePtr findLastNodeBeforeTime(unsigned char symbol_chr, ros::Time time);
-    CeresNodePtr findFirstNodeAfterTime(unsigned char symbol_chr, ros::Time time);
+    CeresNodePtr findLastNodeBeforeTime(unsigned char symbol_chr,
+                                        ros::Time time);
+    CeresNodePtr findFirstNodeAfterTime(unsigned char symbol_chr,
+                                        ros::Time time);
     CeresNodePtr findNearestNode(unsigned char symbol_chr, ros::Time time);
 
-    template <typename NodeType=CeresNode>
+    template<typename NodeType = CeresNode>
     boost::shared_ptr<NodeType> findLastNode(unsigned char symbol_chr);
 
     std::vector<Key> keys();
@@ -73,13 +77,14 @@ public:
     boost::shared_ptr<gtsam::NonlinearFactorGraph> getGtsamGraph() const;
     boost::shared_ptr<gtsam::Values> getGtsamValues() const;
 
-private:
+  private:
     boost::shared_ptr<ceres::Problem> problem_;
 
     std::unordered_map<Key, CeresNodePtr> nodes_;
     std::vector<CeresFactorPtr> factors_;
 
-    bool modified_; //< Whether or not the graph has been modified since the last solving
+    bool modified_; //< Whether or not the graph has been modified since the
+                    //last solving
 
     ceres::Solver::Options solver_options_;
 
@@ -89,15 +94,18 @@ private:
     std::mutex mutex_;
 };
 
-template <typename NodeType>
+template<typename NodeType>
 boost::shared_ptr<NodeType>
 FactorGraph::getNode(Symbol sym) const
 {
     auto node = nodes_.find(sym.key());
 
-    if (node == nodes_.end()) return nullptr;
-    else if (node->second) return boost::dynamic_pointer_cast<NodeType>(node->second);
-    else return nullptr;
+    if (node == nodes_.end())
+        return nullptr;
+    else if (node->second)
+        return boost::dynamic_pointer_cast<NodeType>(node->second);
+    else
+        return nullptr;
 
     // for (auto& key_node : nodes_) {
     //     if (key_node.second->symbol() == sym) {
@@ -107,8 +115,8 @@ FactorGraph::getNode(Symbol sym) const
     // return nullptr;
 }
 
-template <typename NodeType>
-boost::shared_ptr<NodeType> 
+template<typename NodeType>
+boost::shared_ptr<NodeType>
 FactorGraph::findLastNode(unsigned char symbol_chr)
 {
     CeresNodePtr result = nullptr;
@@ -116,7 +124,8 @@ FactorGraph::findLastNode(unsigned char symbol_chr)
     size_t last_index = 0;
 
     for (auto& key_node : nodes_) {
-        if (key_node.second->chr() != symbol_chr) continue;
+        if (key_node.second->chr() != symbol_chr)
+            continue;
 
         if (key_node.second->index() > last_index) {
             last_index = key_node.second->index();

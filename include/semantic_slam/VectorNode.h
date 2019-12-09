@@ -1,7 +1,7 @@
 #pragma once
 
-#include "semantic_slam/Common.h"
 #include "semantic_slam/CeresNode.h"
+#include "semantic_slam/Common.h"
 
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
@@ -12,14 +12,16 @@
 #include <gtsam/base/GenericValue.h>
 #include <gtsam/base/VectorSpace.h> // for type traits
 
-template <int Dim>
+template<int Dim>
 class VectorNode : public CeresNode
 {
-public:
+  public:
     using VectorType = Eigen::Matrix<double, Dim, 1>;
     using This = VectorNode<Dim>;
 
-    VectorNode(Symbol sym, boost::optional<ros::Time> time=boost::none, size_t runtime_size=0);
+    VectorNode(Symbol sym,
+               boost::optional<ros::Time> time = boost::none,
+               size_t runtime_size = 0);
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
@@ -32,20 +34,20 @@ public:
     boost::shared_ptr<gtsam::Value> getGtsamValue() const;
 
     using Ptr = boost::shared_ptr<This>;
-    
+
     static constexpr size_t SizeAtCompileTime = Dim;
 
-private:
+  private:
     Eigen::Matrix<double, Dim, 1> vector_;
 
-public:
+  public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-template <int Dim>
+template<int Dim>
 using VectorNodePtr = typename VectorNode<Dim>::Ptr;
 
-template <int Dim>
+template<int Dim>
 boost::shared_ptr<gtsam::Value>
 VectorNode<Dim>::getGtsamValue() const
 {
@@ -53,15 +55,19 @@ VectorNode<Dim>::getGtsamValue() const
     // return util::allocate_aligned<gtsam::Value>(vector_);
 }
 
-template <int Dim>
-VectorNode<Dim>::VectorNode(Symbol sym, boost::optional<ros::Time> time, size_t runtime_size)
-    : CeresNode(sym, time)
+template<int Dim>
+VectorNode<Dim>::VectorNode(Symbol sym,
+                            boost::optional<ros::Time> time,
+                            size_t runtime_size)
+  : CeresNode(sym, time)
 {
 
     if (Dim == Eigen::Dynamic) {
-        // if Dim == Eigen::Dynamic, require that a size is passed in at construction time
+        // if Dim == Eigen::Dynamic, require that a size is passed in at
+        // construction time
         if (runtime_size == 0) {
-            throw std::runtime_error("Error: dynamic vector nodes must be constructed with a size parameter");
+            throw std::runtime_error("Error: dynamic vector nodes must be "
+                                     "constructed with a size parameter");
         }
 
         vector_ = Eigen::Matrix<double, Dim, 1>(runtime_size);
@@ -77,13 +83,14 @@ VectorNode<Dim>::VectorNode(Symbol sym, boost::optional<ros::Time> time, size_t 
     // local_parameterizations_.push_back(nullptr);
 }
 
-template <int Dim>
-void VectorNode<Dim>::addToProblem(boost::shared_ptr<ceres::Problem> problem)
+template<int Dim>
+void
+VectorNode<Dim>::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
-    // since we don't need to set a local parameterization, just do nothing here...
-    // will automatically be added if we're included in a factor and this way we don't have to
-    // worry about adding a vector with NaNs or something
-    // problem->AddParameterBlock(vector_.data(), vector_.size());
+    // since we don't need to set a local parameterization, just do nothing
+    // here... will automatically be added if we're included in a factor and
+    // this way we don't have to worry about adding a vector with NaNs or
+    // something problem->AddParameterBlock(vector_.data(), vector_.size());
     active_problems_.push_back(problem.get());
     active_ = true;
 }

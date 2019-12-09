@@ -5,24 +5,27 @@
 
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 
-CeresStructureFactor::CeresStructureFactor(SE3NodePtr object_node,
-                         std::vector<Vector3dNodePtr> landmark_nodes,
-                         VectorXdNodePtr coefficient_node,
-                         const geometry::ObjectModelBasis& model,
-                         const Eigen::VectorXd& weights,
-                         double lambda,
-                         int tag)
-    : CeresFactor(FactorType::STRUCTURE, tag),
-      model_(model),
-      object_node_(object_node),
-      landmark_nodes_(landmark_nodes),
-      coefficient_node_(coefficient_node)
+CeresStructureFactor::CeresStructureFactor(
+  SE3NodePtr object_node,
+  std::vector<Vector3dNodePtr> landmark_nodes,
+  VectorXdNodePtr coefficient_node,
+  const geometry::ObjectModelBasis& model,
+  const Eigen::VectorXd& weights,
+  double lambda,
+  int tag)
+  : CeresFactor(FactorType::STRUCTURE, tag)
+  , model_(model)
+  , object_node_(object_node)
+  , landmark_nodes_(landmark_nodes)
+  , coefficient_node_(coefficient_node)
 {
     cf_ = StructureCostTerm::Create(model, weights, lambda);
 
     nodes_.push_back(object_node);
-    for (auto& n : landmark_nodes) nodes_.push_back(n);
-    if (coefficient_node) nodes_.push_back(coefficient_node);
+    for (auto& n : landmark_nodes)
+        nodes_.push_back(n);
+    if (coefficient_node)
+        nodes_.push_back(coefficient_node);
 
     // gtsam support
     std::vector<Key> landmark_keys;
@@ -35,17 +38,17 @@ CeresStructureFactor::CeresStructureFactor(SE3NodePtr object_node,
         coefficient_key = coefficient_node->key();
     }
 
-    gtsam_factor_ = util::allocate_aligned<semslam::StructureFactor>(
-        object_node->key(),
-        landmark_keys,
-        coefficient_key,
-        model,
-        weights,
-        lambda
-    );
+    gtsam_factor_ =
+      util::allocate_aligned<semslam::StructureFactor>(object_node->key(),
+                                                       landmark_keys,
+                                                       coefficient_key,
+                                                       model,
+                                                       weights,
+                                                       lambda);
 }
 
-void CeresStructureFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
+void
+CeresStructureFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
     // Accumulate the parameter blocks...
     std::vector<double*> blocks;
@@ -60,21 +63,22 @@ void CeresStructureFactor::addToProblem(boost::shared_ptr<ceres::Problem> proble
         blocks.push_back(coefficient_node_->vector().data());
     }
 
-    ceres::ResidualBlockId residual_id = problem->AddResidualBlock(cf_, NULL, blocks);
+    ceres::ResidualBlockId residual_id =
+      problem->AddResidualBlock(cf_, NULL, blocks);
     residual_ids_.emplace(problem.get(), residual_id);
 
     active_ = true;
 }
 
-boost::shared_ptr<gtsam::NonlinearFactor> 
+boost::shared_ptr<gtsam::NonlinearFactor>
 CeresStructureFactor::getGtsamFactor() const
 {
     return gtsam_factor_;
 }
 
-
-void 
-CeresStructureFactor::addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const
+void
+CeresStructureFactor::addToGtsamGraph(
+  boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const
 {
     graph->push_back(gtsam_factor_);
 }

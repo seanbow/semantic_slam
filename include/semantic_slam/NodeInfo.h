@@ -3,17 +3,22 @@
 #include <gtsam/inference/Symbol.h>
 
 /**
- * Class that corresponds to a node in the factor graph with some meta-information
+ * Class that corresponds to a node in the factor graph with some
+ * meta-information
  */
-class NodeInfo {
-public:
+class NodeInfo
+{
+  public:
     NodeInfo()
-        : in_graph(false) { }
+      : in_graph(false)
+    {}
 
-    NodeInfo(gtsam::Symbol symbol, boost::optional<ros::Time> time=boost::none)
-        : in_graph(false),
-          symbol_(symbol),
-          time_(time) { }
+    NodeInfo(gtsam::Symbol symbol,
+             boost::optional<ros::Time> time = boost::none)
+      : in_graph(false)
+      , symbol_(symbol)
+      , time_(time)
+    {}
 
     gtsam::Symbol symbol() const { return symbol_; }
     gtsam::Key key() const { return symbol_; /* implicit conversion */ }
@@ -29,11 +34,13 @@ public:
     using ConstPtr = boost::shared_ptr<const NodeInfo>;
 
     static NodeInfo::Ptr Create() { return boost::make_shared<NodeInfo>(); }
-    static NodeInfo::Ptr Create(gtsam::Symbol symbol, boost::optional<ros::Time> time=boost::none) { 
-        return boost::make_shared<NodeInfo>(symbol, time); 
+    static NodeInfo::Ptr Create(gtsam::Symbol symbol,
+                                boost::optional<ros::Time> time = boost::none)
+    {
+        return boost::make_shared<NodeInfo>(symbol, time);
     }
 
-private:
+  private:
     gtsam::Symbol symbol_;
 
     boost::optional<ros::Time> time_;

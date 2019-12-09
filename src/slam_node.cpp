@@ -1,8 +1,9 @@
 #include <ros/ros.h>
 
-int main()
+int
+main()
 {
-  ros::init(argc, argv, "semslam");
-  ros::NodeHandle nh;
-  ros::NodeHandle pnh("~");
+    ros::init(argc, argv, "semslam");
+    ros::NodeHandle nh;
+    ros::NodeHandle pnh("~");
 }

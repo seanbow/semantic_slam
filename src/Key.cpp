@@ -25,12 +25,13 @@
 
 using namespace std;
 
-
 /* ************************************************************************* */
-string _defaultKeyFormatter(Key key) {
-  const Symbol asSymbol(key);
-  if (asSymbol.chr() > 0)
-    return (string) asSymbol;
-  else
-    return boost::lexical_cast<string>(key);
+string
+_defaultKeyFormatter(Key key)
+{
+    const Symbol asSymbol(key);
+    if (asSymbol.chr() > 0)
+        return (string)asSymbol;
+    else
+        return boost::lexical_cast<string>(key);
 }

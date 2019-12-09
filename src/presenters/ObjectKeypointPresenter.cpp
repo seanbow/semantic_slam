@@ -5,21 +5,27 @@
 
 #include <visualization_msgs/MarkerArray.h>
 
-void ObjectKeypointPresenter::setup()
+void
+ObjectKeypointPresenter::setup()
 {
-    pub_ = nh_.advertise<visualization_msgs::MarkerArray>("keypoint_objects/object_keypoint_markers", 10);
+    pub_ = nh_.advertise<visualization_msgs::MarkerArray>(
+      "keypoint_objects/object_keypoint_markers", 10);
 
     if (!pnh_.getParam("object_keypoint_scale", scale_)) {
-        ROS_ERROR("[ObjectKeypointPresenter] Unable to read visualization parameters");
+        ROS_ERROR(
+          "[ObjectKeypointPresenter] Unable to read visualization parameters");
         scale_ = 0.5;
     }
 }
 
-void ObjectKeypointPresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
-                                      const std::vector<EstimatedObject::Ptr>& objects)
+void
+ObjectKeypointPresenter::present(
+  const std::vector<SemanticKeyframe::Ptr>& keyframes,
+  const std::vector<EstimatedObject::Ptr>& objects)
 {
-    if (objects.empty()) return;
-    
+    if (objects.empty())
+        return;
+
     visualization_msgs::MarkerArray object_markers;
     visualization_msgs::Marker object_marker;
     object_marker.type = visualization_msgs::Marker::SPHERE;

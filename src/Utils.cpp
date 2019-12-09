@@ -1,7 +1,7 @@
 // math utilities
 
-#include <ros/ros.h>
 #include <ceres/ceres.h>
+#include <ros/ros.h>
 // #include <gtsam/geometry/Pose3.h>
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
@@ -14,61 +14,78 @@
 #include "semantic_slam/Utils.h"
 #include "semantic_slam/ceres_quaternion_parameterization.h"
 
-double clamp_angle(double angle) {
-  static constexpr double pi = 3.1415926536;
+double
+clamp_angle(double angle)
+{
+    static constexpr double pi = 3.1415926536;
 
-  if (std::isnan(angle) || std::isnan(-angle) || std::isinf(angle)) return angle;
+    if (std::isnan(angle) || std::isnan(-angle) || std::isinf(angle))
+        return angle;
 
-  while (angle > pi) {
-    angle -= 2*pi;
-  }
+    while (angle > pi) {
+        angle -= 2 * pi;
+    }
 
-  while (angle <= -pi) {
-    angle += 2*pi;
-  }
+    while (angle <= -pi) {
+        angle += 2 * pi;
+    }
 
-  return angle;
+    return angle;
 }
 
-double sgn_fn(double x) {
+double
+sgn_fn(double x)
+{
     return (0.0 < x) - (x < 0.0);
 }
 
-Eigen::Matrix3d findRotation(const Eigen::MatrixXd& S1, const Eigen::MatrixXd& S2) {
-  Eigen::Matrix3d M = S1 * S2.transpose();
-  Eigen::JacobiSVD<Eigen::MatrixXd> svd(M, Eigen::ComputeThinU | Eigen::ComputeThinV);
+Eigen::Matrix3d
+findRotation(const Eigen::MatrixXd& S1, const Eigen::MatrixXd& S2)
+{
+    Eigen::Matrix3d M = S1 * S2.transpose();
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(
+      M, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
-  Eigen::Matrix3d R1 = svd.matrixU() * svd.matrixV().transpose();
+    Eigen::Matrix3d R1 = svd.matrixU() * svd.matrixV().transpose();
 
-  Eigen::Vector3d reflect;
-  reflect << 1, 1, sgn_fn(R1.determinant());
+    Eigen::Vector3d reflect;
+    reflect << 1, 1, sgn_fn(R1.determinant());
 
-  return svd.matrixU() * reflect.asDiagonal() * svd.matrixV().transpose();
+    return svd.matrixU() * reflect.asDiagonal() * svd.matrixV().transpose();
 }
 
-void findSimilarityTransform(const Eigen::MatrixXd& S1, const Eigen::MatrixXd& S2, Eigen::Matrix3d& R, Eigen::Vector3d& T, boost::optional<double&> w) {
-  Eigen::Vector3d T1 = S1.rowwise().mean();
-  Eigen::MatrixXd S1_sub = S1.colwise() - T1;
+void
+findSimilarityTransform(const Eigen::MatrixXd& S1,
+                        const Eigen::MatrixXd& S2,
+                        Eigen::Matrix3d& R,
+                        Eigen::Vector3d& T,
+                        boost::optional<double&> w)
+{
+    Eigen::Vector3d T1 = S1.rowwise().mean();
+    Eigen::MatrixXd S1_sub = S1.colwise() - T1;
 
-  Eigen::Vector3d T2 = S2.rowwise().mean();
-  Eigen::MatrixXd S2_sub = S2.colwise() - T2;
+    Eigen::Vector3d T2 = S2.rowwise().mean();
+    Eigen::MatrixXd S2_sub = S2.colwise() - T2;
 
-  R = findRotation(S1_sub, S2_sub);
+    R = findRotation(S1_sub, S2_sub);
 
-  S2_sub = R * S2_sub;
+    S2_sub = R * S2_sub;
 
-  if (w) {
-    *w = (S1_sub.transpose() * S2_sub).trace() / (S2_sub.transpose() * S2_sub).trace();
-    T = T1 - (*w)*R*T2;
-  } else {
-    T = T1 - R*T2;
-  }
+    if (w) {
+        *w = (S1_sub.transpose() * S2_sub).trace() /
+             (S2_sub.transpose() * S2_sub).trace();
+        T = T1 - (*w) * R * T2;
+    } else {
+        T = T1 - R * T2;
+    }
 }
 
-void FromROSMsg(const geometry_msgs::PoseWithCovariance& msg,
-                Eigen::Vector3d& position,
-                Eigen::Quaterniond& orientation,
-                Eigen::Matrix<double, 6, 6>& covariance) {
+void
+FromROSMsg(const geometry_msgs::PoseWithCovariance& msg,
+           Eigen::Vector3d& position,
+           Eigen::Quaterniond& orientation,
+           Eigen::Matrix<double, 6, 6>& covariance)
+{
 
     position << msg.pose.position.x, msg.pose.position.y, msg.pose.position.z;
 
@@ -77,7 +94,7 @@ void FromROSMsg(const geometry_msgs::PoseWithCovariance& msg,
     orientation.z() = msg.pose.orientation.z;
     orientation.w() = msg.pose.orientation.w;
 
-    boostArrayToEigen<6,6>(msg.covariance, covariance);
+    boostArrayToEigen<6, 6>(msg.covariance, covariance);
 }
 
 // void FromROSMsg(const geometry_msgs::PoseWithCovariance& msg,
@@ -88,98 +105,116 @@ void FromROSMsg(const geometry_msgs::PoseWithCovariance& msg,
 
 //     FromROSMsg(msg, position, orientation, covariance);
 
-//     pose = gtsam::Pose3(gtsam::Rot3(orientation.toRotationMatrix()), gtsam::Point3(position));
+//     pose = gtsam::Pose3(gtsam::Rot3(orientation.toRotationMatrix()),
+//     gtsam::Point3(position));
 // }
 
-void FromROSMsg(const sensor_msgs::Imu& msg,
-                Eigen::Vector3d& omega,
-                Eigen::Matrix3d& omega_cov,
-                Eigen::Vector3d& accel,
-                Eigen::Matrix3d& accel_cov) {
+void
+FromROSMsg(const sensor_msgs::Imu& msg,
+           Eigen::Vector3d& omega,
+           Eigen::Matrix3d& omega_cov,
+           Eigen::Vector3d& accel,
+           Eigen::Matrix3d& accel_cov)
+{
 
     // orientation.x() = msg.orientation.x;
     // orientation.y() = msg.orientation.y;
     // orientation.z() = msg.orientation.z;
     // orientation.w() = msg.orientation.w;
 
-    omega << msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z;
+    omega << msg.angular_velocity.x, msg.angular_velocity.y,
+      msg.angular_velocity.z;
 
-    accel << msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z;
+    accel << msg.linear_acceleration.x, msg.linear_acceleration.y,
+      msg.linear_acceleration.z;
 
-    boostArrayToEigen<3,3>(msg.angular_velocity_covariance, omega_cov);
-    boostArrayToEigen<3,3>(msg.linear_acceleration_covariance, accel_cov);
-
+    boostArrayToEigen<3, 3>(msg.angular_velocity_covariance, omega_cov);
+    boostArrayToEigen<3, 3>(msg.linear_acceleration_covariance, accel_cov);
 }
 
-Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Pose3& G_T_I,
-                                                      const Pose3& I_T_C,
-                                                      const Eigen::Vector3d& G_l)
+Eigen::Matrix<double, 2, 9>
+computeProjectionJacobian(const Pose3& G_T_I,
+                          const Pose3& I_T_C,
+                          const Eigen::Vector3d& G_l)
 {
-  Eigen::MatrixXd Hpose1, Hpoint1;
-  Eigen::Vector3d I_p = G_T_I.transform_to(G_l, Hpose1, Hpoint1);
+    Eigen::MatrixXd Hpose1, Hpoint1;
+    Eigen::Vector3d I_p = G_T_I.transform_to(G_l, Hpose1, Hpoint1);
 
-  Eigen::MatrixXd Hpoint2;
-  Eigen::Vector3d C_p = I_T_C.transform_from(I_p, boost::none, Hpoint2);
+    Eigen::MatrixXd Hpoint2;
+    Eigen::Vector3d C_p = I_T_C.transform_from(I_p, boost::none, Hpoint2);
 
-  Eigen::Matrix<double, 2, 3> Hcam;
-  Hcam(0,0) = 1 / C_p(2);
-  Hcam(1,1) = 1 / C_p(2);
-  Hcam(0,1) = 0;
-  Hcam(1,0) = 0;
-  Hcam(0,2) = -C_p(0) / (C_p(2)*C_p(2));
-  Hcam(1,2) = -C_p(1) / (C_p(2)*C_p(2));
+    Eigen::Matrix<double, 2, 3> Hcam;
+    Hcam(0, 0) = 1 / C_p(2);
+    Hcam(1, 1) = 1 / C_p(2);
+    Hcam(0, 1) = 0;
+    Hcam(1, 0) = 0;
+    Hcam(0, 2) = -C_p(0) / (C_p(2) * C_p(2));
+    Hcam(1, 2) = -C_p(1) / (C_p(2) * C_p(2));
 
-  // Eigen::MatrixXd Hpose = Hcam * Hpoint2 * Hpose1;
-  // Eigen::MatrixXd Hpoint = Hcam * Hpoint2 * Hpoint1;
+    // Eigen::MatrixXd Hpose = Hcam * Hpoint2 * Hpose1;
+    // Eigen::MatrixXd Hpoint = Hcam * Hpoint2 * Hpoint1;
 
-  // Hpose is in the *ambient* (4-dimensional) quaternion space.
-  // Want it in the *tangent* (3-dimensional) space.
-  Eigen::Matrix<double, 4, 3, Eigen::RowMajor> Hquat_space;
-  QuaternionLocalParameterization().ComputeJacobian(G_T_I.rotation_data(), Hquat_space.data());
+    // Hpose is in the *ambient* (4-dimensional) quaternion space.
+    // Want it in the *tangent* (3-dimensional) space.
+    Eigen::Matrix<double, 4, 3, Eigen::RowMajor> Hquat_space;
+    QuaternionLocalParameterization().ComputeJacobian(G_T_I.rotation_data(),
+                                                      Hquat_space.data());
 
-  Eigen::Matrix<double, 2, 9> H;
-  H.block<2,3>(0,0) = Hcam * Hpoint2 * Hpoint1;
-  H.block<2,3>(0,3) = Hcam * Hpoint2 * Hpose1.block<3,4>(0,0) * Hquat_space;
-  H.block<2,3>(0,6) = Hcam * Hpoint2 * Hpose1.block<3,3>(0,4);
+    Eigen::Matrix<double, 2, 9> H;
+    H.block<2, 3>(0, 0) = Hcam * Hpoint2 * Hpoint1;
+    H.block<2, 3>(0, 3) =
+      Hcam * Hpoint2 * Hpose1.block<3, 4>(0, 0) * Hquat_space;
+    H.block<2, 3>(0, 6) = Hcam * Hpoint2 * Hpose1.block<3, 3>(0, 4);
 
-  return H;
+    return H;
 }
 
-inline Eigen::MatrixXd erase_column_indices(const Eigen::MatrixXd& data, std::vector<size_t>& indices) {
-  if (indices.empty()) return data;
+inline Eigen::MatrixXd
+erase_column_indices(const Eigen::MatrixXd& data, std::vector<size_t>& indices)
+{
+    if (indices.empty())
+        return data;
 
-  Eigen::MatrixXd newmat(data.rows(), data.cols() - indices.size());
+    Eigen::MatrixXd newmat(data.rows(), data.cols() - indices.size());
 
-  std::sort(indices.begin(), indices.end());
+    std::sort(indices.begin(), indices.end());
 
-  auto index_it = indices.begin();
-  size_t new_col_idx = 0;
-  for (size_t i = 0; i < static_cast<size_t>(data.cols()); ++i) {
-    if (i == *index_it) index_it++;
-    else newmat.col(new_col_idx++) = data.col(i);
-  }
+    auto index_it = indices.begin();
+    size_t new_col_idx = 0;
+    for (size_t i = 0; i < static_cast<size_t>(data.cols()); ++i) {
+        if (i == *index_it)
+            index_it++;
+        else
+            newmat.col(new_col_idx++) = data.col(i);
+    }
 
-  return newmat;
+    return newmat;
 }
 
-inline Eigen::MatrixXd erase_row_indices(const Eigen::MatrixXd& data, std::vector<size_t>& indices) {
-  if (indices.empty()) return data;
+inline Eigen::MatrixXd
+erase_row_indices(const Eigen::MatrixXd& data, std::vector<size_t>& indices)
+{
+    if (indices.empty())
+        return data;
 
-  Eigen::MatrixXd newmat(data.rows() - indices.size(), data.cols());
+    Eigen::MatrixXd newmat(data.rows() - indices.size(), data.cols());
 
-  std::sort(indices.begin(), indices.end());
+    std::sort(indices.begin(), indices.end());
 
-  auto index_it = indices.begin();
-  size_t new_row_idx = 0;
-  for (size_t i = 0; i < static_cast<size_t>(data.rows()); ++i) {
-    if (i == *index_it) index_it++;
-    else newmat.row(new_row_idx++) = data.row(i);
-  }
+    auto index_it = indices.begin();
+    size_t new_row_idx = 0;
+    for (size_t i = 0; i < static_cast<size_t>(data.rows()); ++i) {
+        if (i == *index_it)
+            index_it++;
+        else
+            newmat.row(new_row_idx++) = data.row(i);
+    }
 
-  return newmat;
+    return newmat;
 }
 
-// Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Eigen::Matrix3d& G_R_I,
+// Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Eigen::Matrix3d&
+// G_R_I,
 //                                           const Eigen::Vector3d& G_t_I,
 //                                           const Eigen::Matrix3d& I_R_C,
 //                                           const Eigen::Vector3d& G_l)
@@ -198,9 +233,9 @@ inline Eigen::MatrixXd erase_row_indices(const Eigen::MatrixXd& data, std::vecto
 //   Hcam(0,2) = -C_p(0) / (C_p(2)*C_p(2));
 //   Hcam(1,2) = -C_p(1) / (C_p(2)*C_p(2));
 
-//   Eigen::Matrix3d Hq = I_R_C.transpose() * skewsymm(G_R_I.transpose() * (G_l - G_t_I));
-//   Eigen::Matrix3d Hp = -G_R_C.transpose();
-//   Eigen::Matrix3d Hl = G_R_C.transpose();
+//   Eigen::Matrix3d Hq = I_R_C.transpose() * skewsymm(G_R_I.transpose() * (G_l
+//   - G_t_I)); Eigen::Matrix3d Hp = -G_R_C.transpose(); Eigen::Matrix3d Hl =
+//   G_R_C.transpose();
 
 //   Eigen::Matrix<double, 2, 9> H;
 

@@ -1,10 +1,10 @@
 #pragma once
 
+#include "semantic_slam/CameraCalibration.h"
+#include "semantic_slam/CeresFactor.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/VectorNode.h"
 #include "semantic_slam/pose_math.h"
-#include "semantic_slam/CeresFactor.h"
-#include "semantic_slam/CameraCalibration.h"
 
 namespace gtsam {
 class NonlinearFactor;
@@ -12,7 +12,7 @@ class NonlinearFactor;
 
 class CeresProjectionFactor : public CeresFactor
 {
-public:
+  public:
     using This = CeresProjectionFactor;
     using Ptr = boost::shared_ptr<This>;
 
@@ -30,9 +30,10 @@ public:
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
     boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
-    void addToGtsamGraph(boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
+    void addToGtsamGraph(
+      boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
-private:
+  private:
     SE3NodePtr camera_node_;
     Vector3dNodePtr landmark_node_;
 
@@ -45,7 +46,7 @@ private:
 
     boost::shared_ptr<gtsam::NonlinearFactor> gtsam_factor_;
 
-public:
+  public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 

@@ -3,14 +3,14 @@
 
 #include "semantic_slam/Common.h"
 
-#include <unordered_map>
-#include <mutex>
 #include <deque>
+#include <mutex>
+#include <unordered_map>
 
-#include <ros/ros.h>
-#include <image_transport/image_transport.h>
-#include <sensor_msgs/Imu.h>
 #include <geometry_msgs/Vector3Stamped.h>
+#include <image_transport/image_transport.h>
+#include <ros/ros.h>
+#include <sensor_msgs/Imu.h>
 
 #include <boost/optional.hpp>
 
@@ -23,13 +23,14 @@
 // #include "semantic_slam/feature_tracker/ORBextractor.h"
 
 namespace ORB_SLAM2 {
-    class ORBextractor;
+class ORBextractor;
 }
 
-class FeatureTracker {
-public:
-
-    struct Params {
+class FeatureTracker
+{
+  public:
+    struct Params
+    {
         int ransac_iterations;
         int feature_spacing;
         int max_features_per_im;
@@ -37,31 +38,43 @@ public:
 
         bool use_2pt_ransac;
 
-        double feat_quality; // "quality" threshold within the detector. e.g. harris default is 0.01
+        double feat_quality; // "quality" threshold within the detector. e.g.
+                             // harris default is 0.01
 
         double sqrt_samp_thresh; // RANSAC reprojection error threshold
 
         std::string feature_type;
 
         Params()
-         : ransac_iterations(100),
-           feature_spacing(10),
-           max_features_per_im(100),
-           keyframe_spacing(15),
-           use_2pt_ransac(true),
-           feat_quality(0.01),
-           sqrt_samp_thresh(5.0e-4),
-           feature_type("HARRIS") { }
+          : ransac_iterations(100)
+          , feature_spacing(10)
+          , max_features_per_im(100)
+          , keyframe_spacing(15)
+          , use_2pt_ransac(true)
+          , feat_quality(0.01)
+          , sqrt_samp_thresh(5.0e-4)
+          , feature_type("HARRIS")
+        {}
     };
 
-    struct TrackedFeature {
-        TrackedFeature()  { }
+    struct TrackedFeature
+    {
+        TrackedFeature() {}
 
         TrackedFeature(cv::Point2f pt_in, size_t frame, size_t pt)
-            : pt(pt_in), frame_id(frame), pt_id(pt), n_images_in(1) { }
+          : pt(pt_in)
+          , frame_id(frame)
+          , pt_id(pt)
+          , n_images_in(1)
+        {}
 
         TrackedFeature(cv::Point2f pt_in, size_t frame, size_t pt, float size)
-            : pt(pt_in), frame_id(frame), pt_id(pt), n_images_in(1), size(size) { }
+          : pt(pt_in)
+          , frame_id(frame)
+          , pt_id(pt)
+          , n_images_in(1)
+          , size(size)
+        {}
 
         cv::KeyPoint kp;
         cv::Mat descriptor;
@@ -75,7 +88,8 @@ public:
         size_t n_images_in;
     };
 
-    struct Frame {
+    struct Frame
+    {
         sensor_msgs::ImageConstPtr image;
         std::vector<TrackedFeature> feature_tracks;
         std::vector<cv::KeyPoint> keypoints;
@@ -102,26 +116,30 @@ public:
 
     // void publishKeyframe(const std_msgs::Header& header);
 
-    void setCameraCalibration(double fx, 
-                            double fy, 
-                            double s, 
-                            double u0, 
-                            double v0, 
-                            double k1, 
-                            double k2, 
-                            double p1, 
-                            double p2);
+    void setCameraCalibration(double fx,
+                              double fy,
+                              double s,
+                              double u0,
+                              double v0,
+                              double k1,
+                              double k2,
+                              double p1,
+                              double p2);
 
-    void setCameraExtrinsics(std::vector<double> I_p_C, std::vector<double> I_q_C);
+    void setCameraExtrinsics(std::vector<double> I_p_C,
+                             std::vector<double> I_q_C);
 
     void extractKeypointsDescriptors(Frame& frame);
 
     void trackFeaturesForward(int idx1);
 
-private:
-    // void trackFeatures(const std::vector<cv::KeyPoint>& new_kps, const cv::Mat& new_descriptors, boost::optional<Eigen::Matrix3d> R=boost::none);
+  private:
+    // void trackFeatures(const std::vector<cv::KeyPoint>& new_kps, const
+    // cv::Mat& new_descriptors, boost::optional<Eigen::Matrix3d>
+    // R=boost::none);
 
-    // void extractDescriptors(const std::vector<TrackedFeature>& features, cv::Mat& descriptors);
+    // void extractDescriptors(const std::vector<TrackedFeature>& features,
+    // cv::Mat& descriptors);
 
     void tryProcessNextImage();
 
@@ -142,7 +160,7 @@ private:
     ros::Time last_imu_time_;
     ros::Time last_integrated_imu_time_;
     double imu_dt_;
-    Eigen::Vector3d gyro_bias_; 
+    Eigen::Vector3d gyro_bias_;
     bool received_bias_;
 
     std::deque<Frame> image_buffer_;
@@ -155,7 +173,8 @@ private:
 
     std::mutex buffer_mutex_;
 
-    Eigen::Vector3d previous_omega_; //< should be always equal to omega at time t = last_integrated_imu_time_;
+    Eigen::Vector3d previous_omega_; //< should be always equal to omega at time
+                                     //t = last_integrated_imu_time_;
 
     std::deque<sensor_msgs::ImageConstPtr> img_queue_;
     int64_t last_img_seq_;
@@ -178,8 +197,8 @@ private:
 
     std::unordered_map<size_t, cv::Scalar> pt_colors_;
 
-public:
+  public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-#endif 
+#endif
