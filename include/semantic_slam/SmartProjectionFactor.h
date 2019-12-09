@@ -33,6 +33,10 @@ public:
                          int tag=0);
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
+    void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
+
+    void internalAddToProblem(boost::shared_ptr<ceres::Problem> problem);
+    void internalRemoveFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
     void addMeasurement(SE3NodePtr body_pose_node,
                         const Eigen::Vector2d& pixel_coords, 
@@ -72,7 +76,8 @@ private:
     double reprojection_error_threshold_;
 
     bool in_graph_;
-    boost::shared_ptr<ceres::Problem> problem_;
+    // boost::shared_ptr<ceres::Problem> problem_;
+    std::vector<boost::shared_ptr<ceres::Problem>> problems_;
 
     mutable bool triangulation_good_;
 

@@ -148,9 +148,10 @@ void FactorGraph::removeFactor(CeresFactorPtr factor)
         }
     }
 
-    if (factor->active()) factor->removeFromProblem(problem_);
-
-    modified_ = true;
+    if (found) {
+        factor->removeFromProblem(problem_);
+        modified_ = true;
+    }
 }
 
 std::vector<Key> 
@@ -163,6 +164,16 @@ FactorGraph::keys() {
     return result;
 }
 
+bool FactorGraph::containsFactor(CeresFactorPtr factor)
+{
+    auto fac_it = std::find(factors_.begin(), factors_.end(), factor);
+
+    if (fac_it != factors_.end()) {
+        return true;
+    } else {
+        return false;
+    }
+}
 
 bool FactorGraph::computeMarginalCovariance(const std::vector<Key>& keys)
 {

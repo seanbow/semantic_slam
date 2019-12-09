@@ -30,6 +30,8 @@ public:
 
     void removeFactor(CeresFactorPtr factor);
 
+    bool containsFactor(CeresFactorPtr factor);
+
     bool solve(bool verbose=false);
 
     size_t num_nodes() { return nodes_.size(); }

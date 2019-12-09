@@ -88,6 +88,7 @@ void SemanticMapper::setup()
 void SemanticMapper::setOdometryHandler(boost::shared_ptr<ExternalOdometryHandler> odom) {
     odometry_handler_ = odom;
     odom->setGraph(graph_);
+    odom->setMapper(this);
     odom->setEssentialGraph(essential_graph_);
     odom->setup();
 }
@@ -95,6 +96,7 @@ void SemanticMapper::setOdometryHandler(boost::shared_ptr<ExternalOdometryHandle
 void SemanticMapper::setGeometricFeatureHandler(boost::shared_ptr<GeometricFeatureHandler> geom) {
     geom_handler_ = geom;
     geom->setGraph(graph_);
+    geom->setMapper(this);
     geom->setEssentialGraph(essential_graph_);
     geom->setExtrinsicCalibration(I_T_C_);
     geom->setup();
@@ -173,22 +175,21 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
             if (include_geometric_features_) processGeometricFeatureTracks(new_frames);
             
             tryAddObjectsToGraph();
+            freezeNonCovisible(new_frames);
             
             bool optimization_succeeded;
 
             if (operation_mode_ == OperationMode::NORMAL) {
-                freezeNonCovisible(new_frames);
+                
                 optimization_succeeded = tryOptimize();
 
             } else if (operation_mode_ == OperationMode::LOOP_CLOSING) {
 
                 ROS_INFO_STREAM("Optimizing essential graph...");
-                freezeNonCovisible(new_frames);
                 optimization_succeeded = optimizeEssential();
 
-                // ROS_INFO_STREAM("Refining with full graph solve...");
-                // freezeNonCovisible(new_frames);
-                // optimization_succeeded = tryOptimize();
+                ROS_INFO_STREAM("Refining with full graph solve...");
+                optimization_succeeded = tryOptimize();
                 
                 // computeLoopCovariances();
                 computeLatestCovariance();
@@ -995,11 +996,17 @@ bool SemanticMapper::optimizeFully() {
 
     prepareGraphNodes();
 
-    solver_options_.max_solver_time_in_seconds = 2;
+    solver_options_.max_solver_time_in_seconds = 4;
     // solver_options_.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
     graph_->setSolverOptions(solver_options_);
 
-    bool solve_succeeded = solveGraph();
+    // bool solve_succeeded = solveGraph();
+
+    bool solve_succeeded;
+    {
+        std::lock_guard<std::mutex> lock(graph_mutex_);
+        solve_succeeded = graph_->solve(true);
+    }
 
     // Set the solver back to normal
     solver_options_.max_solver_time_in_seconds = max_optimization_time_;
@@ -1024,8 +1031,12 @@ bool SemanticMapper::optimizeEssential()
 
     prepareGraphNodes();
 
-    solver_options_.max_solver_time_in_seconds = 6;
-    essential_graph_->setSolverOptions(solver_options_);
+    auto essential_options = solver_options_;
+
+    essential_options.max_solver_time_in_seconds = 4;
+    essential_options.linear_solver_type = ceres::CGNR;
+
+    essential_graph_->setSolverOptions(essential_options);
 
     bool solve_succeeded;
 

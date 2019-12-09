@@ -7,6 +7,8 @@
 
 #include <condition_variable>
 
+class SemanticMapper;
+
 class Handler {
 public:
 
@@ -21,6 +23,7 @@ public:
 
     void setGraph(boost::shared_ptr<FactorGraph> graph) { graph_ = graph; }
     void setEssentialGraph(boost::shared_ptr<FactorGraph> graph) { essential_graph_ = graph; }
+    void setMapper(SemanticMapper* mapper) { mapper_ = mapper; }
 
 protected:
     boost::shared_ptr<FactorGraph> graph_;
@@ -28,6 +31,8 @@ protected:
 
     ros::NodeHandle nh_;
     ros::NodeHandle pnh_;
+
+    SemanticMapper* mapper_;
 
     // boost::shared_ptr<std::condition_variable> cv_;
 };

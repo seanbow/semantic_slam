@@ -70,11 +70,10 @@ private:
     std::unordered_map<int, boost::shared_ptr<Vector3dNode>> landmark_nodes_;
 
     std::unordered_map<int, boost::shared_ptr<CeresFactor>> factors_;
-
-    // std::unordered_map<int, boost::shared_ptr<SmartProjectionFactor>> smart_factors_;
-    // std::unordered_map<int, boost::shared_ptr<MultiProjectionFactor>> multi_factors_;
+    std::unordered_map<int, boost::shared_ptr<CeresFactor>> essential_factors_;
 
     std::deque<SemanticKeyframe::Ptr> kfs_to_process_;
+    SemanticKeyframe::Ptr last_kf_processed_;
 
     bool running_;
     std::thread work_thread_;

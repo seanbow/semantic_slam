@@ -2,6 +2,7 @@
 
 #include "semantic_slam/Common.h"
 #include "semantic_slam/registry.h"
+#include "semantic_slam/CeresNode.h"
 
 #include <ceres/ceres.h>
 
@@ -11,8 +12,6 @@ namespace gtsam {
 class NonlinearFactor;
 class NonlinearFactorGraph;
 }
-
-class CeresNode;
 
 class CeresFactor
 {
@@ -26,6 +25,8 @@ public:
     int tag() const { return tag_; }
 
     bool active() const { return active_; }
+
+    std::vector<Key> keys() const;
 
     const std::vector<boost::shared_ptr<CeresNode>>& nodes() const { return nodes_; }
 
@@ -85,4 +86,13 @@ void CeresFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
     }
 
     active_ = !residual_ids_.empty();
+}
+
+std::vector<Key> CeresFactor::keys() const
+{
+    std::vector<Key> keys;
+    for (const auto& node : nodes_) {
+        keys.push_back(node->key());
+    }
+    return keys;
 }

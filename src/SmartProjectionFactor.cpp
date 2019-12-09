@@ -12,7 +12,7 @@ SmartProjectionFactor::SmartProjectionFactor(const Pose3& body_T_sensor,
       calibration_(calibration),
       reprojection_error_threshold_(reprojection_error_threshold),
       in_graph_(false),
-      problem_(nullptr),
+    //   problem_(nullptr),
       triangulation_good_(false)
 {
     // Parameter block ordering:
@@ -98,8 +98,29 @@ void SmartProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> probl
 {
     // TODO add huber loss
     in_graph_ = true;
-    problem_ = problem;
 
+    auto problem_it = std::find(problems_.begin(), problems_.end(), problem);
+    if (problem_it == problems_.end()) {
+        problems_.push_back(problem);
+        internalAddToProblem(problem);
+    } else {
+        // ROS_WARN("Tried to add a factor to a problem it's already in.");
+    }
+}
+
+void SmartProjectionFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
+{
+    auto problem_it = std::find(problems_.begin(), problems_.end(), problem);
+    if (problem_it != problems_.end()) {
+        problems_.erase(problem_it);
+        internalRemoveFromProblem(problem);
+    } else {
+        // ROS_WARN("Tried to remove a factor from a problem it's not in");
+    }
+}
+
+void SmartProjectionFactor::internalAddToProblem(boost::shared_ptr<ceres::Problem> problem)
+{
     if (triangulation_good_) {
         ceres::ResidualBlockId residual_id = problem->AddResidualBlock(this, NULL, parameter_blocks_);
         residual_ids_[problem.get()] = residual_id;
@@ -107,27 +128,37 @@ void SmartProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> probl
     }
 }
 
+void SmartProjectionFactor::internalRemoveFromProblem(boost::shared_ptr<ceres::Problem> problem)
+{
+    auto it = residual_ids_.find(problem.get());
+    if (it != residual_ids_.end()) {
+        problem->RemoveResidualBlock(it->second);
+        residual_ids_.erase(it);
+    }
+    
+    active_ = !residual_ids_.empty();
+}
 
 void SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
                                         const Eigen::Vector2d& pixel_coords, 
                                         const Eigen::Matrix2d& msmt_covariance)
 {
     // Compute the reprojection error...
-    if (in_graph_) {
-        try {
-            Camera camera(body_pose_node->pose().compose(I_T_C_), calibration_);
-            Eigen::Vector2d zhat = camera.project(landmark_position_);
-            double error = (pixel_coords - zhat).transpose() * msmt_covariance.llt().solve(pixel_coords - zhat);
+    // if (in_graph_) {
+    //     try {
+    //         Camera camera(body_pose_node->pose().compose(I_T_C_), calibration_);
+    //         Eigen::Vector2d zhat = camera.project(landmark_position_);
+    //         double error = (pixel_coords - zhat).transpose() * msmt_covariance.llt().solve(pixel_coords - zhat);
 
-            if (error > chi2inv99(2) || !std::isfinite(error)) return;
+    //         if (error > chi2inv99(2) || !std::isfinite(error)) return;
 
-            // ROS_INFO_STREAM("[SmartProjectionFactor] Added measurement with reprojection error " << error);
-            // std::cout << " zhat = " << zhat.transpose() << " ; msmt = " << pixel_coords.transpose() << std::endl;
-        } catch (CheiralityException& e) {
-            return;
-            // ROS_INFO_STREAM("[SmartProjectionFactor] Added measurement behind camera!");
-        }
-    }
+    //         // ROS_INFO_STREAM("[SmartProjectionFactor] Added measurement with reprojection error " << error);
+    //         // std::cout << " zhat = " << zhat.transpose() << " ; msmt = " << pixel_coords.transpose() << std::endl;
+    //     } catch (CheiralityException& e) {
+    //         return;
+    //         // ROS_INFO_STREAM("[SmartProjectionFactor] Added measurement behind camera!");
+    //     }
+    // }
 
     body_poses_.push_back(body_pose_node);
     msmts_.push_back(pixel_coords);
@@ -140,8 +171,8 @@ void SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
 
     // Ceres can't handle block sizes changing if we've already been added to the Problem.
     // So we need to remove and re-add ourself
-    if (in_graph_ && active_) {
-        removeFromProblem(problem_);
+    if (in_graph_) {
+        for (auto& problem : problems_) internalRemoveFromProblem(problem);
     }
 
     mutable_parameter_block_sizes()->push_back(4); // q
@@ -158,8 +189,8 @@ void SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
 
     triangulate(body_poses);
 
-    if (in_graph_ && triangulation_good_) {
-        addToProblem(problem_);
+    if (in_graph_) {
+        for (auto& problem : problems_) internalAddToProblem(problem);
     }
 
     // gtsam support:
