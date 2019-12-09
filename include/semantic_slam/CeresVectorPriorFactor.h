@@ -44,6 +44,8 @@ void CeresVectorPriorFactor<Dim>::addToProblem(boost::shared_ptr<ceres::Problem>
 {
     ceres::ResidualBlockId residual_id = problem->AddResidualBlock(cf_, NULL, node_->vector().data());
     residual_ids_.emplace(problem.get(), residual_id);
+
+    active_ = true;
 }
 
 using CeresVector2dPriorFactor = CeresVectorPriorFactor<2>;

@@ -40,6 +40,21 @@ void GeometricFeatureHandler::addKeyframe(const SemanticKeyframe::Ptr& frame)
     kfs_to_process_.push_back(frame);
 }
 
+void GeometricFeatureHandler::updateEssentialGraph()
+{
+    // remove *all* factors. we will re-add them later.
+    if (use_smart_projection_factors_) {
+        for (auto fac : factors_) {
+            essential_graph_->removeFactor(fac.second);
+        }
+
+        // Work our way through the keyframes
+        // For the next keyframe with no constraints in the essential graph, find the 
+        // projection factor that ties the most frames together and add. Then repeat.
+
+    }
+}
+
 void GeometricFeatureHandler::processPendingFrames()
 {
     while (!kfs_to_process_.empty()) {
@@ -73,20 +88,19 @@ void GeometricFeatureHandler::processPendingFrames()
             feature->keyframe_observations.push_back(frame);
             frame->visible_geometric_features().push_back(feature);
 
+            auto factor_it = factors_.find(tf.pt_id);
+
             if (use_smart_projection_factors_) {
                 SmartProjectionFactor::Ptr factor;
-                Vector3dNode::Ptr landmark_node;
 
-                auto factor_it = smart_factors_.find(tf.pt_id);
-
-                if (factor_it == smart_factors_.end()) {
+                if (factor_it == factors_.end()) {
                     factor = util::allocate_aligned<SmartProjectionFactor>(I_T_C_,
                                                                         calibration_,
                                                                         reprojection_error_threshold_);
-                    smart_factors_.emplace(tf.pt_id, factor);
+                    factors_.emplace(tf.pt_id, factor);
                     
                 } else {
-                    factor = factor_it->second;
+                    factor = boost::static_pointer_cast<SmartProjectionFactor>(factor_it->second);
                 }
 
 
@@ -106,18 +120,16 @@ void GeometricFeatureHandler::processPendingFrames()
                 MultiProjectionFactor::Ptr factor;
                 Vector3dNode::Ptr landmark_node;
 
-                auto factor_it = multi_factors_.find(tf.pt_id);
-
-                if (factor_it == multi_factors_.end()) {
+                if (factor_it == factors_.end()) {
                     landmark_node = util::allocate_aligned<Vector3dNode>(Symbol('g', tf.pt_id));
                     factor = util::allocate_aligned<MultiProjectionFactor>(landmark_node,
                                                                         I_T_C_,
                                                                         calibration_,
                                                                         reprojection_error_threshold_);
                     landmark_nodes_.emplace(tf.pt_id, landmark_node);
-                    multi_factors_.emplace(tf.pt_id, factor);
+                    factors_.emplace(tf.pt_id, factor);
                 } else {
-                    factor = factor_it->second;
+                    factor = boost::static_pointer_cast<MultiProjectionFactor>(factor_it->second);
                     landmark_node = landmark_nodes_[tf.pt_id];
                 }
 
@@ -139,6 +151,8 @@ void GeometricFeatureHandler::processPendingFrames()
 
         frame->updateGeometricConnections();
     }
+
+    updateEssentialGraph();
 }
 
 void GeometricFeatureHandler::removeLandmark(int index)
@@ -147,8 +161,8 @@ void GeometricFeatureHandler::removeLandmark(int index)
     if (!use_smart_projection_factors_) {
         ROS_WARN_STREAM("Removing geom. landmark " << index);
         
-        auto factor = multi_factors_.find(index);
-        if (factor != multi_factors_.end()) graph_->removeFactor(factor->second);
+        auto factor = factors_.find(index);
+        if (factor != factors_.end()) graph_->removeFactor(factor->second);
         
         auto node = landmark_nodes_.find(index);
         if (node != landmark_nodes_.end()) graph_->removeNode(node->second);

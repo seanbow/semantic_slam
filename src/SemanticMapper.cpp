@@ -183,6 +183,7 @@ void SemanticMapper::addObjectsAndOptimizeGraphThread()
             } else if (operation_mode_ == OperationMode::LOOP_CLOSING) {
 
                 ROS_INFO_STREAM("Optimizing essential graph...");
+                freezeNonCovisible(new_frames);
                 optimization_succeeded = optimizeEssential();
 
                 // ROS_INFO_STREAM("Refining with full graph solve...");
@@ -1022,7 +1023,6 @@ bool SemanticMapper::optimizeEssential()
     TIME_TIC;
 
     prepareGraphNodes();
-    unfreezeAll();
 
     solver_options_.max_solver_time_in_seconds = 6;
     essential_graph_->setSolverOptions(solver_options_);

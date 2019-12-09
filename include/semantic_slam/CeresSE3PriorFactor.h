@@ -45,4 +45,6 @@ void CeresSE3PriorFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem
     // TODO do this more intelligently
     ceres::ResidualBlockId residual_id = problem->AddResidualBlock(cf_, NULL, node_->pose().rotation_data(), node_->pose().translation_data());
     residual_ids_[problem.get()] = residual_id;
+
+    active_ = true;
 }

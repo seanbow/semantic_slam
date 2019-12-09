@@ -102,11 +102,12 @@ void MultiProjectionFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> 
 
     if (it != residual_ids_.end()) {
         problem->RemoveResidualBlock(it->second); 
+        residual_ids_.erase(it);
     }
 
     landmark_node_->removeFromProblem(problem);
 
-    active_ = false;
+    active_ = !residual_ids_.empty();
 }
 
 

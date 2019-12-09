@@ -141,7 +141,7 @@ void FactorGraph::removeFactor(CeresFactorPtr factor)
 {
     bool found = false;
     for (auto it = factors_.begin(); it != factors_.end(); ++it) {
-        if (*(*it) == *factor) {
+        if (it->get() == factor.get()) {
             factors_.erase(it);
             found = true;
             break;
@@ -149,8 +149,6 @@ void FactorGraph::removeFactor(CeresFactorPtr factor)
     }
 
     if (factor->active()) factor->removeFromProblem(problem_);
-
-    assert(!factor->active());
 
     modified_ = true;
 }

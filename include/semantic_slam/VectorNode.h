@@ -69,10 +69,12 @@ VectorNode<Dim>::VectorNode(Symbol sym, boost::optional<ros::Time> time, size_t 
 
     vector_.setZero();
 
-    parameter_blocks_.push_back(vector_.data());
-    parameter_block_sizes_.push_back(vector_.size());
-    parameter_block_local_sizes_.push_back(vector_.size());
-    local_parameterizations_.push_back(nullptr);
+    addParameterBlock(vector_.data(), vector_.size());
+
+    // parameter_blocks_.push_back(vector_.data());
+    // parameter_block_sizes_.push_back(vector_.size());
+    // parameter_block_local_sizes_.push_back(vector_.size());
+    // local_parameterizations_.push_back(nullptr);
 }
 
 template <int Dim>
@@ -82,6 +84,7 @@ void VectorNode<Dim>::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     // will automatically be added if we're included in a factor and this way we don't have to
     // worry about adding a vector with NaNs or something
     // problem->AddParameterBlock(vector_.data(), vector_.size());
+    active_problems_.push_back(problem.get());
     active_ = true;
 }
 

@@ -81,7 +81,8 @@ void CeresFactor::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
     auto it = residual_ids_.find(problem.get());
     if (it != residual_ids_.end()) {
         problem->RemoveResidualBlock(it->second);
+        residual_ids_.erase(it);
     }
-    
-    active_ = false;
+
+    active_ = !residual_ids_.empty();
 }

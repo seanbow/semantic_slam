@@ -36,9 +36,11 @@ public:
 
     void removeLandmark(int index);
 
+    void updateEssentialGraph();
+
     std::unordered_map<int, boost::shared_ptr<Vector3dNode>> landmark_nodes() { return landmark_nodes_; }
 
-    std::unordered_map<int, boost::shared_ptr<MultiProjectionFactor>> factors() { return multi_factors_; }
+    std::unordered_map<int, boost::shared_ptr<CeresFactor>> factors() { return factors_; }
 
 private:
 
@@ -67,8 +69,10 @@ private:
     std::unordered_map<int, boost::shared_ptr<GeometricFeature>> features_;
     std::unordered_map<int, boost::shared_ptr<Vector3dNode>> landmark_nodes_;
 
-    std::unordered_map<int, boost::shared_ptr<SmartProjectionFactor>> smart_factors_;
-    std::unordered_map<int, boost::shared_ptr<MultiProjectionFactor>> multi_factors_;
+    std::unordered_map<int, boost::shared_ptr<CeresFactor>> factors_;
+
+    // std::unordered_map<int, boost::shared_ptr<SmartProjectionFactor>> smart_factors_;
+    // std::unordered_map<int, boost::shared_ptr<MultiProjectionFactor>> multi_factors_;
 
     std::deque<SemanticKeyframe::Ptr> kfs_to_process_;
 

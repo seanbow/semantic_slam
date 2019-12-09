@@ -38,7 +38,6 @@ CeresBetweenFactor::~CeresBetweenFactor()
 void
 CeresBetweenFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
-    active_ = true;
     ceres::ResidualBlockId residual_id = problem->AddResidualBlock(cf_, 
                                             NULL, 
                                             node1_->pose().rotation_data(), 
@@ -46,6 +45,8 @@ CeresBetweenFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
                                             node2_->pose().rotation_data(),
                                             node2_->pose().translation_data());
     residual_ids_[problem.get()] = residual_id;
+
+    active_ = true;
 }
 
 
