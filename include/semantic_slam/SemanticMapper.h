@@ -186,7 +186,7 @@ class SemanticMapper
     double max_optimization_time_;
     int smoothing_length_;
 
-    ceres::Solver::Options solver_options_;
+    // ceres::Solver::Options solver_options_;
 
     int loop_closure_threshold_;
 

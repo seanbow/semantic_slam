@@ -460,6 +460,9 @@ EstimatedKeypoint::addToGraphForced()
         graph_->addNode(graph_node_);
         semantic_graph_->addNode(graph_node_);
 
+        // graph_node_->addToOrderingGroup(
+        //   graph_->solver_options().linear_solver_ordering, 3);
+
         tryAddProjectionFactors();
         // graph_->addFactors(projection_factors_);
 

@@ -58,6 +58,8 @@ class FactorGraph
 
     void setSolverOptions(ceres::Solver::Options opts);
 
+    ceres::Solver::Options& solver_options() { return solver_options_; }
+
     void setNumThreads(int n_threads);
 
     Eigen::MatrixXd getMarginalCovariance(const Key& key) const;

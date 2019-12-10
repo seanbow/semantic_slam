@@ -73,19 +73,23 @@ SemanticMapper::setup()
 
     // solver_options_.max_num_iterations = 10;
 
-    solver_options_.max_solver_time_in_seconds = max_optimization_time_;
+    graph_->solver_options().max_solver_time_in_seconds =
+      max_optimization_time_;
 
-    solver_options_.linear_solver_type = ceres::SPARSE_SCHUR;
+    graph_->solver_options().linear_solver_type = ceres::SPARSE_SCHUR;
 
-    // solver_options_.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    // solver_options_.preconditioner_type = ceres::SCHUR_JACOBI;
-    // solver_options_.use_explicit_schur_complement = true;
+    // graph_->solver_options().linear_solver_type = ceres::ITERATIVE_SCHUR;
+    // graph_->solver_options().preconditioner_type = ceres::SCHUR_JACOBI;
+    // graph_->solver_options().use_explicit_schur_complement = true;
 
-    // solver_options_.linear_solver_type = ceres::CGNR;
-    solver_options_.num_threads = 4;
+    // graph_->solver_options().linear_solver_type = ceres::CGNR;
+    graph_->solver_options().num_threads = 4;
 
-    graph_->setSolverOptions(solver_options_);
-    essential_graph_->setSolverOptions(solver_options_);
+    // graph_->solver_options().linear_solver_ordering =
+    //   std::make_shared<ceres::ParameterBlockOrdering>();
+
+    // graph_->setSolverOptions(solver_options_);
+    essential_graph_->setSolverOptions(graph_->solver_options());
 
     operation_mode_ = OperationMode::NORMAL;
 }
@@ -1083,15 +1087,15 @@ SemanticMapper::optimizeFully()
 
     prepareGraphNodes();
 
-    auto full_options = solver_options_;
+    // auto full_options = graph_->solver_options();
 
     // full_options.max_solver_time_in_seconds = 4;
     // full_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
 
-    full_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    full_options.minimizer_type = ceres::LINE_SEARCH;
+    graph_->solver_options().linear_solver_type = ceres::ITERATIVE_SCHUR;
+    graph_->solver_options().minimizer_type = ceres::LINE_SEARCH;
 
-    graph_->setSolverOptions(solver_options_);
+    // graph_->setSolverOptions(full_options);
 
     // bool solve_succeeded = solveGraph();
 
@@ -1102,9 +1106,10 @@ SemanticMapper::optimizeFully()
     }
 
     // Set the solver back to normal
-    solver_options_.max_solver_time_in_seconds = max_optimization_time_;
-    // solver_options_.linear_solver_type = ceres::CGNR;
-    graph_->setSolverOptions(solver_options_);
+    graph_->solver_options().max_solver_time_in_seconds =
+      max_optimization_time_;
+    graph_->solver_options().linear_solver_type = ceres::SPARSE_SCHUR;
+    // graph_->setSolverOptions(solver_options_);
 
     if (solve_succeeded) {
         commitGraphSolution();
@@ -1128,10 +1133,11 @@ SemanticMapper::optimizeEssential()
 
     prepareGraphNodes();
 
-    auto essential_options = solver_options_;
+    // auto essential_options = solver_options_;
+    essential_graph_->solver_options() = graph_->solver_options();
 
-    essential_options.max_solver_time_in_seconds = 1;
-    essential_options.max_num_iterations = 100000;
+    essential_graph_->solver_options().max_solver_time_in_seconds = 1;
+    essential_graph_->solver_options().max_num_iterations = 100000;
 
     // essential_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
 
@@ -1139,9 +1145,9 @@ SemanticMapper::optimizeEssential()
     // essential_options.line_search_direction_type =
     // ceres::NONLINEAR_CONJUGATE_GRADIENT;
 
-    essential_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    essential_graph_->solver_options().linear_solver_type = ceres::SPARSE_SCHUR;
 
-    essential_graph_->setSolverOptions(essential_options);
+    // essential_graph_->setSolverOptions(essential_options);
 
     bool solve_succeeded;
 
@@ -1170,7 +1176,7 @@ SemanticMapper::solveGraph()
     std::lock_guard<std::mutex> lock(graph_mutex_);
 
     if (params_.optimization_backend == OptimizationBackend::CERES) {
-        return graph_->solve(false);
+        return graph_->solve(true);
     } else {
         auto gtsam_graph = graph_->getGtsamGraph();
         auto gtsam_values = graph_->getGtsamValues();
@@ -1404,11 +1410,9 @@ SemanticMapper::anchorOrigin()
       odometry_handler_->originKeyframe(ros::Time(0));
 
     origin_kf->addToGraph(graph_);
-    // graph_->addNode(origin_kf->graph_node());
     graph_->setNodeConstant(origin_kf->graph_node());
 
     origin_kf->addToGraph(essential_graph_);
-    // graph_->addNode(origin_kf->graph_node());
     essential_graph_->setNodeConstant(origin_kf->graph_node());
 
     keyframes_.push_back(origin_kf);

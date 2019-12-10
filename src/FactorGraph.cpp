@@ -97,6 +97,11 @@ FactorGraph::clone() const
         new_graph->addFactor(new_fac);
     }
 
+    new_graph->setSolverOptions(solver_options_);
+
+    // copying elimination ordering is not yet supported
+    new_graph->solver_options().linear_solver_ordering = nullptr;
+
     return new_graph;
 }
 

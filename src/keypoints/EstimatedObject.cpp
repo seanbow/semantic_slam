@@ -842,6 +842,12 @@ EstimatedObject::addToGraph()
             semantic_graph_->addNode(graph_coefficient_node_);
         semantic_graph_->addFactor(structure_factor_);
 
+        // graph_pose_node_->addToOrderingGroup(
+        //   graph_->solver_options().linear_solver_ordering, 0);
+        // if (k_ > 0)
+        //     graph_coefficient_node_->addToOrderingGroup(
+        //       graph_->solver_options().linear_solver_ordering, 1);
+
         in_graph_ = true;
     }
     // pose_added_to_graph_ = msmt.pose_id;

@@ -18,6 +18,8 @@ SemanticKeyframe::addToGraph(boost::shared_ptr<FactorGraph> graph)
 {
     graph->addNode(graph_node_);
     graph->addFactor(spine_factor_);
+    // graph_node_->addToOrderingGroup(
+    //   graph->solver_options().linear_solver_ordering, 10);
     in_graph_ = true;
 }
 

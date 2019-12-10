@@ -29,6 +29,10 @@ class CeresNode
     virtual size_t dim() const = 0;
     virtual size_t local_dim() const = 0;
 
+    void addToOrderingGroup(
+      std::shared_ptr<ceres::ParameterBlockOrdering> ordering,
+      int group) const;
+
     virtual boost::shared_ptr<CeresNode> clone() const = 0;
 
     virtual boost::shared_ptr<gtsam::Value> getGtsamValue() const
@@ -133,4 +137,14 @@ CeresNode::removeFromProblem(boost::shared_ptr<ceres::Problem> problem)
     }
 
     active_ = !active_problems_.empty();
+}
+
+void
+CeresNode::addToOrderingGroup(
+  std::shared_ptr<ceres::ParameterBlockOrdering> ordering,
+  int group) const
+{
+    for (double* block : parameter_blocks_) {
+        ordering->AddElementToGroup(block, group);
+    }
 }
