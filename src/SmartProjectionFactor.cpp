@@ -45,6 +45,17 @@ SmartProjectionFactor::SmartProjectionFactor(
     //                                                         projection_params);
 }
 
+CeresFactor::Ptr
+SmartProjectionFactor::clone() const
+{
+    auto fac = util::allocate_aligned<SmartProjectionFactor>(
+      I_T_C_, calibration_, reprojection_error_threshold_, tag_);
+
+    for (int i = 0; i < msmts_.size(); ++i) {
+        fac->addMeasurement(nullptr, msmts_[i], covariances_[i]);
+    }
+}
+
 size_t
 SmartProjectionFactor::nMeasurements() const
 {
@@ -111,6 +122,13 @@ SmartProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
     // TODO add huber loss
     in_graph_ = true;
+
+    aligned_vector<Pose3> body_poses;
+    for (int i = 0; i < msmts_.size(); ++i) {
+        body_poses.push_back(camera_node(i)->pose());
+    }
+
+    triangulate(body_poses);
 
     auto problem_it = std::find(problems_.begin(), problems_.end(), problem);
     if (problem_it == problems_.end()) {
@@ -186,7 +204,7 @@ SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
     //     }
     // }
 
-    body_poses_.push_back(body_pose_node);
+    // body_poses_.push_back(body_pose_node);
     msmts_.push_back(pixel_coords);
     nodes_.push_back(body_pose_node);
     covariances_.push_back(msmt_covariance);
@@ -211,8 +229,8 @@ SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
     set_num_residuals(2 * nMeasurements() - 3);
 
     aligned_vector<Pose3> body_poses;
-    for (auto& node : body_poses_) {
-        body_poses.push_back(node->pose());
+    for (int i = 0; i < msmts_.size(); ++i) {
+        body_poses.push_back(camera_node(i)->pose());
     }
 
     triangulate(body_poses);
@@ -242,7 +260,7 @@ SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
       projection_params);
 
     for (int i = 0; i < msmts_.size(); ++i) {
-        gtsam_factor_->add(msmts_[i], body_poses_[i]->key());
+        gtsam_factor_->add(msmts_[i], camera_node(i)->key());
     }
 }
 

@@ -31,6 +31,8 @@ class MultiProjectionFactor
                           double reprojection_error_threshold,
                           int tag = 0);
 
+    CeresFactor::Ptr clone() const;
+
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
     void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
@@ -40,11 +42,13 @@ class MultiProjectionFactor
 
     bool decideIfTriangulate(const aligned_vector<Pose3>& body_poses) const;
 
-    int index() const { return landmark_node_->index(); }
-    unsigned char chr() const { return landmark_node_->chr(); }
-    Symbol symbol() const { return landmark_node_->symbol(); }
+    int index() const { return landmark()->index(); }
+    unsigned char chr() const { return landmark()->chr(); }
+    Symbol symbol() const { return landmark()->symbol(); }
 
-    Vector3dNodePtr landmark() { return landmark_node_; }
+    Vector3dNodePtr landmark() const { return boost::static_pointer_cast<Vector3dNode>(nodes_[0]); }
+
+    SE3NodePtr camera_node(int i) const { return boost::static_pointer_cast<SE3Node>(nodes_[i + 1]); }
 
     size_t nMeasurements() const;
 
@@ -60,18 +64,14 @@ class MultiProjectionFactor
       boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
   private:
-    Vector3dNodePtr landmark_node_;
     Pose3 I_T_C_;
     boost::shared_ptr<CameraCalibration> calibration_;
 
-    std::vector<SE3NodePtr> body_poses_;
     aligned_vector<Eigen::Vector2d> msmts_;
-    // aligned_vector<Eigen::Matrix2d> covariances_;
+    aligned_vector<Eigen::Matrix2d> covariances_;
     aligned_vector<Eigen::Matrix2d> sqrt_informations_;
 
     std::vector<double*> parameter_blocks_;
-
-    // std::vector<CeresProjectionFactorPtr> projection_factors_;
 
     double reprojection_error_threshold_;
 

@@ -26,6 +26,8 @@ class CeresBetweenFactor : public CeresFactor
     void addToGtsamGraph(
       boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
+    CeresFactor::Ptr clone() const;
+
     using This = CeresBetweenFactor;
     using Ptr = boost::shared_ptr<This>;
 

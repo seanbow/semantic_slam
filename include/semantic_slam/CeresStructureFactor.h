@@ -27,6 +27,8 @@ class CeresStructureFactor : public CeresFactor
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
+    CeresFactor::Ptr clone() const;
+
     boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
     void addToGtsamGraph(
       boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
@@ -38,6 +40,7 @@ class CeresStructureFactor : public CeresFactor
     std::vector<Vector3dNodePtr> landmark_nodes_;
     VectorXdNodePtr coefficient_node_;
 
+    Eigen::VectorXd weights_;
     double lambda_;
 
     boost::shared_ptr<semslam::StructureFactor> gtsam_factor_;

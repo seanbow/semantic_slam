@@ -28,6 +28,8 @@ class CeresFactor
 
     std::vector<Key> keys() const;
 
+    // Returns a cloned copy of this factor, except where all
+    // nodes are set to NULL. must set the nodes prior to use.
     virtual boost::shared_ptr<CeresFactor> clone() const = 0;
 
     const std::vector<boost::shared_ptr<CeresNode>>& nodes() const

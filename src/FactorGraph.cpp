@@ -53,6 +53,18 @@ FactorGraph::setNodeVariable(CeresNodePtr node)
     return true;
 }
 
+boost::shared_ptr<FactorGraph>
+FactorGraph::clone() const
+{
+    auto new_graph = util::allocate_aligned<FactorGraph>();
+
+    // Create the set of new nodes over which we'll be operating
+    std::unordered_map<Key, CeresNodePtr> new_nodes;
+    for (const auto& node : nodes_) {
+        new_nodes.emplace(node.first, node.second->clone());
+    }
+}
+
 bool
 FactorGraph::solve(bool verbose)
 {

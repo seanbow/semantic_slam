@@ -34,6 +34,13 @@ CeresBetweenFactor::~CeresBetweenFactor()
     delete cf_;
 }
 
+CeresFactor::Ptr
+CeresBetweenFactor::clone() const
+{
+    return util::allocate_aligned<CeresBetweenFactor>(
+      nullptr, nullptr, between_, covariance_, tag_);
+}
+
 void
 CeresBetweenFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {

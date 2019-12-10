@@ -10,7 +10,6 @@ MultiProjectionFactor::MultiProjectionFactor(
   double reprojection_error_threshold,
   int tag)
   : CeresFactor(FactorType::DUMB_PROJECTION, tag)
-  , landmark_node_(landmark_node)
   , I_T_C_(body_T_sensor)
   , calibration_(calibration)
   , reprojection_error_threshold_(reprojection_error_threshold)
@@ -21,11 +20,31 @@ MultiProjectionFactor::MultiProjectionFactor(
     // Parameter block ordering:
     // Landmark position "pt", camera poses (q1 p1), (q2 p2), ...
     // [pt q1 p1 q2 p2 ... qn pn]
-    mutable_parameter_block_sizes()->push_back(
-      3); // add landmark parameter block
-    parameter_blocks_.push_back(landmark_node_->vector().data());
+    mutable_parameter_block_sizes()->push_back(3);
+    nodes_.push_back(landmark_node);
 
-    nodes_.push_back(landmark_node_);
+    // parameter_blocks_.push_back(nodes[0]->vector().data());
+    parameter_blocks_.insert(parameter_blocks_.end(),
+                             nodes_[0]->parameter_blocks().begin(),
+                             nodes_[0]->parameter_blocks().end());
+}
+
+CeresFactor::Ptr
+MultiProjectionFactor::clone() const
+{
+    auto fac = util::allocate_aligned<MultiProjectionFactor>(
+        nullptr,
+        I_T_C_,
+        calibration_,
+        reprojection_error_threshold_,
+        tag_
+    );
+
+    for (int i = 0; i < nMeasurements(); ++i) {
+        fac->addMeasurement(nullptr, msmts_[i], covariances_[i]);
+    }
+
+    return fac;
 }
 
 size_t
@@ -92,7 +111,7 @@ MultiProjectionFactor::triangulate(
         if (triangulation.status == TriangulationStatus::SUCCESS &&
             triangulation.max_reprojection_error <=
               reprojection_error_threshold_) {
-            landmark_node_->vector() = triangulation.point;
+            landmark()->vector() = triangulation.point;
             triangulation_good_ = true;
         }
     }
@@ -109,7 +128,7 @@ MultiProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
         ceres::ResidualBlockId residual_id =
           problem->AddResidualBlock(this, NULL, parameter_blocks_);
         residual_ids_[problem.get()] = residual_id;
-        landmark_node_->addToProblem(problem);
+        landmark()->addToProblem(problem);
         active_ = true;
     }
 }
@@ -125,7 +144,7 @@ MultiProjectionFactor::removeFromProblem(
         residual_ids_.erase(it);
     }
 
-    landmark_node_->removeFromProblem(problem);
+    landmark()->removeFromProblem(problem);
 
     active_ = !residual_ids_.empty();
 }
@@ -140,7 +159,7 @@ MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
     //     try {
     //         Camera camera(body_pose_node->pose().compose(I_T_C_),
     //         calibration_); Eigen::Vector2d zhat =
-    //         camera.project(landmark_node_->vector()); double error =
+    //         camera.project(landmark()->vector()); double error =
     //         (pixel_coords - zhat).transpose() *
     //         msmt_covariance.llt().solve(pixel_coords - zhat);
 
@@ -157,9 +176,9 @@ MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
     //     }
     // }
 
-    body_poses_.push_back(body_pose_node);
+    // body_poses_.push_back(body_pose_node);
     msmts_.push_back(pixel_coords);
-    // covariances_.push_back(msmt_covariance);
+    covariances_.push_back(msmt_covariance);
 
     nodes_.push_back(body_pose_node);
 
@@ -175,20 +194,24 @@ MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
     }
 
     mutable_parameter_block_sizes()->push_back(4); // q
-    parameter_blocks_.push_back(body_pose_node->pose().rotation_data());
     mutable_parameter_block_sizes()->push_back(3); // p
-    parameter_blocks_.push_back(body_pose_node->pose().translation_data());
+
+    // Must support construction with body_pose_node == nullptr!!
+    if (body_pose_node) {
+        parameter_blocks_.push_back(body_pose_node->pose().rotation_data());
+        parameter_blocks_.push_back(body_pose_node->pose().translation_data());
+    }
 
     set_num_residuals(2 * nMeasurements());
 
-    aligned_vector<Pose3> body_poses;
-    for (auto& node : body_poses_) {
-        body_poses.push_back(node->pose());
-    }
+    // aligned_vector<Pose3> body_poses;
+    // for (auto& node : body_poses_) {
+    //     body_poses.push_back(node->pose());
+    // }
 
-    triangulate(body_poses);
+    // triangulate(body_poses);
 
-    if (in_graph_ && triangulation_good_) {
+    if (in_graph_) {
         addToProblem(problem_);
     }
 
@@ -198,7 +221,7 @@ MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
       pixel_coords,
       gtsam_noise,
       body_pose_node->key(),
-      landmark_node_->key(),
+      landmark()->key(),
       util::allocate_aligned<gtsam::Cal3DS2>(*calibration_),
       gtsam::Pose3(I_T_C_));
     gtsam_factors_.push_back(gtsam_fac);

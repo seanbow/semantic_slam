@@ -18,6 +18,8 @@ CeresStructureFactor::CeresStructureFactor(
   , object_node_(object_node)
   , landmark_nodes_(landmark_nodes)
   , coefficient_node_(coefficient_node)
+  , weights_(weights)
+  , lambda_(lambda)
 {
     cf_ = StructureCostTerm::Create(model, weights, lambda);
 
@@ -45,6 +47,17 @@ CeresStructureFactor::CeresStructureFactor(
                                                        model,
                                                        weights,
                                                        lambda);
+}
+
+CeresFactor::Ptr
+CeresStructureFactor::clone() const
+{
+    // ugh
+    std::vector<Vector3dNodePtr> new_landmark_placeholder(model_.mu.cols(),
+                                                          nullptr);
+
+    return util::allocate_aligned<CeresStructureFactor>(
+      nullptr, new_landmark_placeholder, nullptr, model_, weights_, lambda_);
 }
 
 void

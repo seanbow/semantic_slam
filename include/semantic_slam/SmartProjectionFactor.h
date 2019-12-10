@@ -33,6 +33,10 @@ class SmartProjectionFactor
                           double reprojection_error_threshold,
                           int tag = 0);
 
+    CeresFactor::Ptr clone() const;
+
+    SE3NodePtr camera_node(int i) const { return boost::static_pointer_cast<SE3Node>(nodes_[i]); }
+
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
     void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
@@ -66,7 +70,7 @@ class SmartProjectionFactor
     Pose3 I_T_C_;
     boost::shared_ptr<CameraCalibration> calibration_;
 
-    std::vector<SE3NodePtr> body_poses_;
+    // std::vector<SE3NodePtr> body_poses_;
     aligned_vector<Eigen::Vector2d> msmts_;
     aligned_vector<Eigen::Matrix2d> covariances_;
     aligned_vector<Eigen::Matrix2d> sqrt_informations_;

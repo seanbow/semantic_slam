@@ -29,6 +29,8 @@ class CeresProjectionFactor : public CeresFactor
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
+    CeresFactor::Ptr clone() const;
+
     boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
     void addToGtsamGraph(
       boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;

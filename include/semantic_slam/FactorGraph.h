@@ -34,6 +34,10 @@ class FactorGraph
 
     bool solve(bool verbose = false);
 
+    // Returns an identical copy of this factor graph except
+    // that it operates on a new cloned set of nodes
+    boost::shared_ptr<FactorGraph> clone() const;
+
     size_t num_nodes() { return nodes_.size(); }
     size_t num_factors() { return factors_.size(); }
 

@@ -47,6 +47,19 @@ CeresProjectionFactor::CeresProjectionFactor(
         gtsam::Pose3(body_T_sensor));
 }
 
+CeresFactor::Ptr
+CeresProjectionFactor::clone() const
+{
+    return util::allocate_aligned<CeresProjectionFactor>(nullptr,
+                                                         nullptr,
+                                                         image_coords_,
+                                                         covariance_,
+                                                         calibration_,
+                                                         body_T_sensor_,
+                                                         robust_loss_,
+                                                         tag_);
+}
+
 CeresProjectionFactor::~CeresProjectionFactor()
 {
     delete cf_;
