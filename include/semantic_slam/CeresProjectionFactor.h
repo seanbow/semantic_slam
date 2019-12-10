@@ -27,18 +27,18 @@ class CeresProjectionFactor : public CeresFactor
 
     ~CeresProjectionFactor();
 
+    SE3NodePtr camera_node() const { return boost::static_pointer_cast<SE3Node>(nodes_[0]); }
+    Vector3dNodePtr landmark_node() const { return boost::static_pointer_cast<Vector3dNode>(nodes_[1]); }
+
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
     CeresFactor::Ptr clone() const;
 
-    boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
+    void createGtsamFactor() const;
     void addToGtsamGraph(
       boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
   private:
-    SE3NodePtr camera_node_;
-    Vector3dNodePtr landmark_node_;
-
     Eigen::Vector2d image_coords_;
     Eigen::Matrix2d covariance_;
     boost::shared_ptr<CameraCalibration> calibration_;
@@ -46,7 +46,7 @@ class CeresProjectionFactor : public CeresFactor
 
     bool robust_loss_;
 
-    boost::shared_ptr<gtsam::NonlinearFactor> gtsam_factor_;
+    mutable boost::shared_ptr<gtsam::NonlinearFactor> gtsam_factor_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

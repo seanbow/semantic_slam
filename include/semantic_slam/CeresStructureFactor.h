@@ -27,23 +27,36 @@ class CeresStructureFactor : public CeresFactor
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
+    SE3NodePtr object_node() const
+    {
+        return boost::static_pointer_cast<SE3Node>(nodes_[0]);
+    }
+
+    Vector3dNodePtr landmark_node(int i) const
+    {
+        return boost::static_pointer_cast<Vector3dNode>(nodes_[i + 1]);
+    }
+
+    VectorXdNodePtr coefficient_node() const
+    {
+        return boost::static_pointer_cast<VectorXdNode>(nodes_[m_ + 1]);
+    }
+
     CeresFactor::Ptr clone() const;
 
-    boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
+    void createGtsamFactor() const;
     void addToGtsamGraph(
       boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
   private:
     geometry::ObjectModelBasis model_;
 
-    SE3NodePtr object_node_;
-    std::vector<Vector3dNodePtr> landmark_nodes_;
-    VectorXdNodePtr coefficient_node_;
+    int m_, k_;
 
     Eigen::VectorXd weights_;
     double lambda_;
 
-    boost::shared_ptr<semslam::StructureFactor> gtsam_factor_;
+    mutable boost::shared_ptr<semslam::StructureFactor> gtsam_factor_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

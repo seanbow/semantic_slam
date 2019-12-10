@@ -15,8 +15,6 @@ CeresProjectionFactor::CeresProjectionFactor(
   bool use_huber,
   int tag)
   : CeresFactor(FactorType::PROJECTION, tag)
-  , camera_node_(camera_node)
-  , landmark_node_(landmark_node)
   , robust_loss_(use_huber)
   , image_coords_(image_coords)
   , covariance_(msmt_covariance)
@@ -32,19 +30,7 @@ CeresProjectionFactor::CeresProjectionFactor(
     nodes_.push_back(camera_node);
     nodes_.push_back(landmark_node);
 
-    auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(covariance_);
-    auto gtsam_calib = util::allocate_aligned<gtsam::Cal3DS2>(*calibration_);
-
-    gtsam_factor_ =
-      util::allocate_aligned<gtsam::GenericProjectionFactor<gtsam::Pose3,
-                                                            gtsam::Point3,
-                                                            gtsam::Cal3DS2>>(
-        image_coords,
-        gtsam_noise,
-        camera_node->key(),
-        landmark_node->key(),
-        gtsam_calib,
-        gtsam::Pose3(body_T_sensor));
+    createGtsamFactor();
 }
 
 CeresFactor::Ptr
@@ -80,22 +66,41 @@ CeresProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     ceres::ResidualBlockId residual_id =
       problem->AddResidualBlock(cf_,
                                 lf,
-                                camera_node_->pose().rotation_data(),
-                                camera_node_->pose().translation_data(),
-                                landmark_node_->vector().data());
+                                camera_node()->pose().rotation_data(),
+                                camera_node()->pose().translation_data(),
+                                landmark_node()->vector().data());
 
     residual_ids_[problem.get()] = residual_id;
 }
 
-boost::shared_ptr<gtsam::NonlinearFactor>
-CeresProjectionFactor::getGtsamFactor() const
+void
+CeresProjectionFactor::createGtsamFactor() const
 {
-    return gtsam_factor_;
+    if (camera_node() && landmark_node()) {
+
+        auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(covariance_);
+        auto gtsam_calib =
+          util::allocate_aligned<gtsam::Cal3DS2>(*calibration_);
+
+        gtsam_factor_ = util::allocate_aligned<
+          gtsam::GenericProjectionFactor<gtsam::Pose3,
+                                         gtsam::Point3,
+                                         gtsam::Cal3DS2>>(
+          image_coords_,
+          gtsam_noise,
+          camera_node()->key(),
+          landmark_node()->key(),
+          gtsam_calib,
+          gtsam::Pose3(body_T_sensor_));
+    }
 }
 
 void
 CeresProjectionFactor::addToGtsamGraph(
   boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const
 {
-    graph->push_back(getGtsamFactor());
+    if (!gtsam_factor_)
+        createGtsamFactor();
+
+    graph->push_back(gtsam_factor_);
 }
