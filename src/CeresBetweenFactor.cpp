@@ -18,13 +18,7 @@ CeresBetweenFactor::CeresBetweenFactor(SE3NodePtr node0,
     nodes_.push_back(node0);
     nodes_.push_back(node1);
 
-    auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(covariance_);
-
-    gtsam_factor_ = util::allocate_aligned<gtsam::BetweenFactor<gtsam::Pose3>>(
-      nodes_[0]->key(),
-      nodes_[1]->key(),
-      gtsam::Pose3(gtsam::Rot3(between.rotation()), between.translation()),
-      gtsam_noise);
+    createGtsamFactor();
 }
 
 CeresBetweenFactor::~CeresBetweenFactor()
@@ -54,15 +48,24 @@ CeresBetweenFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     active_ = true;
 }
 
-boost::shared_ptr<gtsam::NonlinearFactor>
-CeresBetweenFactor::getGtsamFactor() const
+void
+CeresBetweenFactor::createGtsamFactor() const
 {
-    return gtsam_factor_;
+    if (!node0() || !node1())
+        return;
+
+    auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(covariance_);
+
+    gtsam_factor_ = util::allocate_aligned<gtsam::BetweenFactor<gtsam::Pose3>>(
+      nodes_[0]->key(), nodes_[1]->key(), gtsam::Pose3(between_), gtsam_noise);
 }
 
 void
 CeresBetweenFactor::addToGtsamGraph(
   boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const
 {
-    graph->push_back(getGtsamFactor());
+    if (!gtsam_factor_)
+        createGtsamFactor();
+
+    graph->push_back(gtsam_factor_);
 }

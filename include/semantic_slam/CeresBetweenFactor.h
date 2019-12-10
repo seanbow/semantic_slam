@@ -25,7 +25,8 @@ class CeresBetweenFactor : public CeresFactor
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
-    boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
+    void createGtsamFactor() const;
+
     void addToGtsamGraph(
       boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
@@ -38,7 +39,7 @@ class CeresBetweenFactor : public CeresFactor
     Pose3 between_;
     Eigen::MatrixXd covariance_;
 
-    boost::shared_ptr<gtsam::NonlinearFactor> gtsam_factor_;
+    mutable boost::shared_ptr<gtsam::NonlinearFactor> gtsam_factor_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

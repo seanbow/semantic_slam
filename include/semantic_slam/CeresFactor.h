@@ -26,6 +26,8 @@ class CeresFactor
 
     bool active() const { return active_; }
 
+    void setNodes(std::vector<CeresNodePtr> new_nodes) { nodes_ = new_nodes; }
+
     std::vector<Key> keys() const;
 
     // Returns a cloned copy of this factor, except where all

@@ -209,17 +209,6 @@ MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
     if (in_graph_) {
         addToProblem(problem_);
     }
-
-    // gtsam support
-    auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(msmt_covariance);
-    auto gtsam_fac = util::allocate_aligned<GtsamFactorType>(
-      pixel_coords,
-      gtsam_noise,
-      body_pose_node->key(),
-      landmark()->key(),
-      util::allocate_aligned<gtsam::Cal3DS2>(*calibration_),
-      gtsam::Pose3(I_T_C_));
-    gtsam_factors_.push_back(gtsam_fac);
 }
 
 bool
@@ -364,6 +353,31 @@ MultiProjectionFactor::Evaluate(double const* const* parameters,
 }
 
 void
+MultiProjectionFactor::createGtsamFactors() const
+{
+    if (!landmark())
+        return;
+
+    for (int i = gtsam_factors_.size(); i < msmts_.size(); ++i) {
+
+        if (!camera_node(i))
+            return;
+
+        auto gtsam_noise =
+          gtsam::noiseModel::Gaussian::Covariance(covariances_[i]);
+        auto gtsam_fac = util::allocate_aligned<GtsamFactorType>(
+          msmts_[i],
+          gtsam_noise,
+          camera_node(i)->key(),
+          landmark()->key(),
+          util::allocate_aligned<gtsam::Cal3DS2>(*calibration_),
+          gtsam::Pose3(I_T_C_));
+
+        gtsam_factors_.push_back(gtsam_fac);
+    }
+}
+
+void
 MultiProjectionFactor::addToGtsamGraph(
   boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const
 {
@@ -372,6 +386,9 @@ MultiProjectionFactor::addToGtsamGraph(
     //         graph->push_back(gtsam_factors_[i]);
     //     }
     // }
+
+    if (gtsam_factors_.size() != msmts_.size())
+        createGtsamFactors();
 
     for (auto& f : gtsam_factors_)
         graph->push_back(f);

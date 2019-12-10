@@ -59,7 +59,8 @@ class SmartProjectionFactor
 
     bool decideIfTriangulate(const aligned_vector<Pose3>& body_poses) const;
 
-    boost::shared_ptr<gtsam::NonlinearFactor> getGtsamFactor() const;
+    void createGtsamFactor() const;
+
     void addToGtsamGraph(
       boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
@@ -86,7 +87,7 @@ class SmartProjectionFactor
     mutable bool triangulation_good_;
 
     using GtsamFactorType = gtsam::SmartProjectionPoseFactor<gtsam::Cal3DS2>;
-    boost::shared_ptr<GtsamFactorType> gtsam_factor_;
+    mutable boost::shared_ptr<GtsamFactorType> gtsam_factor_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

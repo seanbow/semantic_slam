@@ -60,6 +60,8 @@ class MultiProjectionFactor
 
     void triangulate(const aligned_vector<Pose3>& body_poses) const;
 
+    void createGtsamFactors() const;
+
     void addToGtsamGraph(
       boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
@@ -84,7 +86,7 @@ class MultiProjectionFactor
 
     using GtsamFactorType = gtsam::
       GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3DS2>;
-    std::vector<boost::shared_ptr<GtsamFactorType>> gtsam_factors_;
+    mutable std::vector<boost::shared_ptr<GtsamFactorType>> gtsam_factors_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
