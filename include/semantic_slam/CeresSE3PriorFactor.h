@@ -18,6 +18,8 @@ class CeresSE3PriorFactor : public CeresFactor
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
+    CeresFactor::Ptr clone() const;
+
     using Ptr = boost::shared_ptr<CeresSE3PriorFactor>;
 
   private:
@@ -40,6 +42,11 @@ CeresSE3PriorFactor::CeresSE3PriorFactor(SE3NodePtr node,
 CeresSE3PriorFactor::~CeresSE3PriorFactor()
 {
     delete cf_;
+}
+
+CeresFactor::Ptr CeresSE3PriorFactor::clone() const
+{
+    
 }
 
 void

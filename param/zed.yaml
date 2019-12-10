@@ -59,7 +59,9 @@ min_landmark_observations: 4           # minimum number of observations needed f
 min_observed_keypoints_to_initialize: 4
 
 keyframe_translation_threshold: 0.05
+keyframe_translation_without_measurement_threshold: 0.05
 keyframe_rotation_threshold: 5 # degrees
+keyframe_rotation_without_measurement_threshold: 5
 
 ### Semantic object optimization parameters
 structure_regularization_factor: 10     # lambda in structure optimization term lambda * ||c||^2
@@ -78,6 +80,7 @@ keypoint_activation_threshold: 0.65     # threshold above which to consider a ke
 camera_range: 10                        # meters
 
 mahal_thresh_assign: 4                  # Mahalanobis distance below which to assign data (MLDataAssociator)
+loop_closure_mahal_thresh: 3            # used in place of mahal_thresh_assign if an assignment would trigger a loop closure
 mahal_thresh_init: 25                   # Mahalanobis distance above which to assign new mapped landmarks (MLDataAssociator)
 
 max_new_factor_error: 300

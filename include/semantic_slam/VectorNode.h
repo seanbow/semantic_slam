@@ -31,6 +31,8 @@ class VectorNode : public CeresNode
     const VectorType& vector() const { return vector_; }
     VectorType& vector() { return vector_; }
 
+    boost::shared_ptr<CeresNode> clone() const;
+
     boost::shared_ptr<gtsam::Value> getGtsamValue() const;
 
     using Ptr = boost::shared_ptr<This>;
@@ -53,6 +55,15 @@ VectorNode<Dim>::getGtsamValue() const
 {
     return util::allocate_aligned<gtsam::GenericValue<VectorType>>(vector_);
     // return util::allocate_aligned<gtsam::Value>(vector_);
+}
+
+template <int Dim>
+boost::shared_ptr<CeresNode>
+VectorNode<Dim>::clone() const
+{
+    auto node = util::allocate_aligned<This>(symbol(), time(), vector_.size());
+    node->vector() = vector_;
+    return node;
 }
 
 template<int Dim>

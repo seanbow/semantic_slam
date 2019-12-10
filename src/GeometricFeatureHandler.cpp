@@ -115,7 +115,7 @@ GeometricFeatureHandler::updateEssentialGraph(
             }
         };
 
-        // count how many factors already effect this keyframe
+        // count how many factors already affect this keyframe
         int n_factors_already = 0;
         for (int i = 0; i < observed_factors.size(); ++i) {
             if (essential_graph_->containsFactor(observed_factors[i])) {
@@ -124,7 +124,7 @@ GeometricFeatureHandler::updateEssentialGraph(
         }
 
         // add the top N factors to the graph...
-        int N = 4;
+        int N = 5;
         int n_added = n_factors_already;
         for (int i = 0; i < observed_factors.size() && n_added < N; ++i) {
             if (in_graph_fn(observed_factors[i]) &&

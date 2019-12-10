@@ -28,6 +28,8 @@ class CeresFactor
 
     std::vector<Key> keys() const;
 
+    virtual boost::shared_ptr<CeresFactor> clone() const = 0;
+
     const std::vector<boost::shared_ptr<CeresNode>>& nodes() const
     {
         return nodes_;

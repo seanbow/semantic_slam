@@ -23,6 +23,8 @@ class SE3Node : public CeresNode
     const Pose3& pose() const { return pose_; }
     Pose3& pose() { return pose_; }
 
+    boost::shared_ptr<CeresNode> clone() const;
+
     const Eigen::Quaterniond& rotation() const { return pose_.rotation(); }
     Eigen::Quaterniond& rotation() { return pose_.rotation(); }
 
@@ -60,6 +62,14 @@ SE3Node::SE3Node(Symbol sym, boost::optional<ros::Time> time)
     addParameterBlock(
       pose_.rotation_data(), 4, new QuaternionLocalParameterization);
     addParameterBlock(pose_.translation_data(), 3);
+}
+
+boost::shared_ptr<CeresNode>
+SE3Node::clone() const
+{
+    auto node = util::allocate_aligned<SE3Node>(symbol(), time());
+    node->pose() = pose_;
+    return node;
 }
 
 boost::shared_ptr<gtsam::Value>

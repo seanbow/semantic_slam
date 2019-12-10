@@ -29,6 +29,8 @@ class CeresNode
     virtual size_t dim() const = 0;
     virtual size_t local_dim() const = 0;
 
+    virtual boost::shared_ptr<CeresNode> clone() const = 0;
+
     virtual boost::shared_ptr<gtsam::Value> getGtsamValue() const
     {
         throw std::logic_error("unimplemented");

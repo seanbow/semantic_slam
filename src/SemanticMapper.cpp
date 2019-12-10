@@ -75,6 +75,8 @@ SemanticMapper::setup()
 
     solver_options_.max_solver_time_in_seconds = max_optimization_time_;
 
+    solver_options_.linear_solver_type = ceres::SPARSE_SCHUR;
+
     // solver_options_.linear_solver_type = ceres::ITERATIVE_SCHUR;
     // solver_options_.preconditioner_type = ceres::SCHUR_JACOBI;
     // solver_options_.use_explicit_schur_complement = true;
@@ -202,6 +204,7 @@ SemanticMapper::addObjectsAndOptimizeGraphThread()
 
                 ROS_INFO_STREAM("Optimizing essential graph...");
                 optimization_succeeded = optimizeEssential();
+                // optimization_succeeded = optimizeFully();
 
                 ROS_INFO_STREAM("Refining with full graph solve...");
                 optimization_succeeded = tryOptimize();
@@ -1080,8 +1083,14 @@ SemanticMapper::optimizeFully()
 
     prepareGraphNodes();
 
-    solver_options_.max_solver_time_in_seconds = 4;
-    // solver_options_.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+    auto full_options = solver_options_;
+
+    // full_options.max_solver_time_in_seconds = 4;
+    // full_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+
+    full_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+    full_options.minimizer_type = ceres::LINE_SEARCH;
+
     graph_->setSolverOptions(solver_options_);
 
     // bool solve_succeeded = solveGraph();
@@ -1121,13 +1130,16 @@ SemanticMapper::optimizeEssential()
 
     auto essential_options = solver_options_;
 
-    // essential_options.max_solver_time_in_seconds = 2;
-    essential_options.max_num_iterations = 100;
+    essential_options.max_solver_time_in_seconds = 1;
+    essential_options.max_num_iterations = 100000;
 
-    essential_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+    // essential_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
 
-    essential_options.minimizer_type = ceres::LINE_SEARCH;
-    // essential_options.line_search_direction_type = ceres::NONLINEAR_CONJUGATE_GRADIENT;
+    // essential_options.minimizer_type = ceres::LINE_SEARCH;
+    // essential_options.line_search_direction_type =
+    // ceres::NONLINEAR_CONJUGATE_GRADIENT;
+
+    essential_options.linear_solver_type = ceres::SPARSE_SCHUR;
 
     essential_graph_->setSolverOptions(essential_options);
 
