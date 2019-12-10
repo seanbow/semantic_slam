@@ -1,6 +1,7 @@
 #include "semantic_slam/FactorGraph.h"
 
 // #include <gtsam/slam/PriorFactor.h>
+#include "semantic_slam/CeresSE3PriorFactor.h"
 #include "semantic_slam/CeresVectorPriorFactor.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/VectorNode.h"
@@ -179,6 +180,34 @@ TEST(FactorGraphTest, testClone_SimplePriorExample)
     // Check solving the cloned graph
     cloned_graph->solve(false);
     EXPECT_TRUE(new_node->vector().isApprox(prior, 1e-8));
+}
+
+/******************************/
+
+TEST(FactorGraphTest, testSolve_SE3PriorFactor)
+{
+    FactorGraph graph2;
+    Symbol symb = sym::X(0);
+
+    SE3NodePtr node = util::allocate_aligned<SE3Node>(symb);
+
+    graph2.addNode(node);
+
+    Pose3 prior;
+    prior.rotation() = Eigen::Quaterniond(.5, -.5, .5, -.5);
+    prior.rotation().normalize();
+    prior.translation() << 1, 1, 1;
+    Eigen::MatrixXd cov = Eigen::MatrixXd::Identity(6, 6);
+
+    auto fac = util::allocate_aligned<CeresSE3PriorFactor>(node, prior, cov);
+
+    graph2.addFactor(fac);
+
+    graph2.solve(false);
+
+    EXPECT_TRUE(node->pose().translation().isApprox(prior.translation(), 1e-8));
+    EXPECT_TRUE(node->pose().rotation().coeffs().isApprox(
+      prior.rotation().coeffs(), 1e-8));
 }
 
 // Run all the tests that were declared with TEST()

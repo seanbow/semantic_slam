@@ -25,11 +25,17 @@ class SE3Node : public CeresNode
 
     boost::shared_ptr<CeresNode> clone() const;
 
-    const Eigen::Quaterniond& rotation() const { return pose_.rotation(); }
-    Eigen::Quaterniond& rotation() { return pose_.rotation(); }
+    const Eigen::Map<Eigen::Quaterniond>& rotation() const
+    {
+        return pose_.rotation();
+    }
+    Eigen::Map<Eigen::Quaterniond>& rotation() { return pose_.rotation(); }
 
-    const Eigen::Vector3d& translation() const { return pose_.translation(); }
-    Eigen::Vector3d& translation() { return pose_.translation(); }
+    const Eigen::Map<Eigen::Vector3d>& translation() const
+    {
+        return pose_.translation();
+    }
+    Eigen::Map<Eigen::Vector3d>& translation() { return pose_.translation(); }
 
     boost::shared_ptr<gtsam::Value> getGtsamValue() const;
 
@@ -59,8 +65,11 @@ SE3Node::SE3Node(Symbol sym, boost::optional<ros::Time> time)
     // parameter_block_local_sizes_.push_back(3);
     // local_parameterizations_.push_back(nullptr);
 
-    addParameterBlock(
-      pose_.rotation_data(), 4, new QuaternionLocalParameterization);
+    auto local_param =
+      new ceres::ProductParameterization(new QuaternionLocalParameterization,
+                                         new ceres::IdentityTransformation(3));
+
+    addParameterBlock(pose_.rotation_data(), 4, local_param);
     addParameterBlock(pose_.translation_data(), 3);
 }
 

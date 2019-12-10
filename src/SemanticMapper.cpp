@@ -1176,7 +1176,7 @@ SemanticMapper::solveGraph()
     std::lock_guard<std::mutex> lock(graph_mutex_);
 
     if (params_.optimization_backend == OptimizationBackend::CERES) {
-        return graph_->solve(true);
+        return graph_->solve(false);
     } else {
         auto gtsam_graph = graph_->getGtsamGraph();
         auto gtsam_values = graph_->getGtsamValues();

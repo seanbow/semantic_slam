@@ -14,19 +14,28 @@ class Pose3
 
     Pose3(const gtsam::Pose3& pose);
 
+    Pose3(const Pose3& other);
+    Pose3& operator=(const Pose3& other);
+
+    // Do we need these?
+    Pose3(Pose3&& other);
+    Pose3& operator=(Pose3&& other);
+
     static Pose3 Identity();
 
-    const Eigen::Quaterniond& rotation() const { return q_; }
-    Eigen::Quaterniond& rotation() { return q_; }
+    const Eigen::Map<Eigen::Quaterniond>& rotation() const { return q_; }
+    Eigen::Map<Eigen::Quaterniond>& rotation() { return q_; }
 
-    const Eigen::Vector3d& translation() const { return p_; }
-    Eigen::Vector3d& translation() { return p_; }
+    const Eigen::Map<Eigen::Vector3d>& translation() const { return p_; }
+    Eigen::Map<Eigen::Vector3d>& translation() { return p_; }
 
-    double* rotation_data() { return q_.coeffs().data(); }
-    double* translation_data() { return p_.data(); }
+    double* data() { return data_vector_.data(); }
+    double* rotation_data() { return data_vector_.data(); }
+    double* translation_data() { return data_vector_.data() + 4; }
 
-    const double* rotation_data() const { return q_.coeffs().data(); }
-    const double* translation_data() const { return p_.data(); }
+    const double* data() const { return data_vector_.data(); }
+    const double* rotation_data() const { return data_vector_.data(); }
+    const double* translation_data() const { return data_vector_.data() + 4; }
 
     Eigen::Vector3d transform_from(
       const Eigen::Vector3d& p,
@@ -62,27 +71,68 @@ class Pose3
     operator gtsam::Pose3() const;
 
   private:
-    Eigen::Quaterniond q_;
-    Eigen::Vector3d p_;
+    Eigen::Matrix<double, 7, 1> data_vector_;
+    Eigen::Map<Eigen::Quaterniond> q_;
+    Eigen::Map<Eigen::Vector3d> p_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 Pose3::Pose3()
-  : q_(Eigen::Quaterniond(1, 0, 0, 0))
-  , p_(Eigen::Vector3d::Zero())
-{}
+  : q_(data_vector_.data())
+  , p_(data_vector_.data() + 4)
+{
+    data_vector_.setZero();
+    data_vector_(3) = 1.0; // identity quaternion initialization
+}
 
 Pose3::Pose3(Eigen::Quaterniond q, Eigen::Vector3d p)
-  : q_(q)
-  , p_(p)
-{}
+  : q_(data_vector_.data())
+  , p_(data_vector_.data() + 4)
+{
+    q_ = q;
+    p_ = p;
+}
+
+Pose3::Pose3(const Pose3& other)
+  : q_(data_vector_.data())
+  , p_(data_vector_.data() + 4)
+{
+    q_ = other.rotation();
+    p_ = other.translation();
+}
 
 Pose3::Pose3(const gtsam::Pose3& pose)
-  : q_(pose.rotation().toQuaternion())
-  , p_(pose.translation())
+  : q_(data_vector_.data())
+  , p_(data_vector_.data() + 4)
+{
+    q_ = pose.rotation().toQuaternion();
+    p_ = pose.translation();
+}
+
+Pose3&
+Pose3::operator=(const Pose3& other)
+{
+    if (this != &other) {
+        q_ = other.rotation();
+        p_ = other.translation();
+    }
+    return *this;
+}
+
+Pose3::Pose3(Pose3&& other)
+  : data_vector_(std::move(other.data_vector_))
+  , q_(data_vector_.data())
+  , p_(data_vector_.data() + 4)
 {}
+
+Pose3&
+Pose3::operator=(Pose3&& other)
+{
+    q_ = other.rotation();
+    p_ = other.translation();
+}
 
 Pose3
 Pose3::Identity()
