@@ -53,6 +53,15 @@ FactorGraph::setNodeVariable(CeresNodePtr node)
     return true;
 }
 
+bool
+FactorGraph::isNodeConstant(CeresNodePtr node) const
+{
+    // assume that the user is not interfacing with the ceres::Problem
+    // directly... i.e. assume that one of the node's parameter blocks is
+    // constant iff they all are.
+    return problem_->IsParameterBlockConstant(node->parameter_blocks()[0]);
+}
+
 boost::shared_ptr<FactorGraph>
 FactorGraph::clone() const
 {
@@ -61,8 +70,34 @@ FactorGraph::clone() const
     // Create the set of new nodes over which we'll be operating
     std::unordered_map<Key, CeresNodePtr> new_nodes;
     for (const auto& node : nodes_) {
-        new_nodes.emplace(node.first, node.second->clone());
+        auto new_node = node.second->clone();
+
+        new_nodes.emplace(node.first, new_node);
+        new_graph->addNode(new_node);
+
+        if (isNodeConstant(node.second)) {
+            new_graph->setNodeConstant(new_node);
+        }
     }
+
+    // Need to iterate over each factor, clone it, and set it to operate on
+    // the new nodes
+    for (const auto& factor : factors_) {
+        auto new_fac = factor->clone();
+
+        // new_fac contains all the correct measurement info etc but is
+        // currently set with all NULL nodes. collect the set of nodes based on
+        // keys from the old factor
+        std::vector<CeresNodePtr> new_factor_nodes;
+        for (const auto& old_node : factor->nodes()) {
+            new_factor_nodes.push_back(new_nodes[old_node->key()]);
+        }
+
+        new_fac->setNodes(new_factor_nodes);
+        new_graph->addFactor(new_fac);
+    }
+
+    return new_graph;
 }
 
 bool

@@ -48,6 +48,8 @@ class FactorGraph
     bool setNodeConstant(CeresNodePtr node);
     bool setNodeVariable(CeresNodePtr node);
 
+    bool isNodeConstant(CeresNodePtr node) const;
+
     template<typename NodeType = CeresNode>
     boost::shared_ptr<NodeType> getNode(Symbol sym) const;
 
