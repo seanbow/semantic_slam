@@ -137,25 +137,48 @@ TEST(FactorGraphTest, testSolve_SimplePriorFactor)
     auto fac =
       util::allocate_aligned<CeresVector2dPriorFactor>(node, prior, cov);
 
-    //   auto noise_model = gtsam::noiseModel::Isotropic::Sigma(1,1);
-    //   Eigen::Matrix
-
-    //   auto fac = util::allocate_aligned<gtsam::PriorFactor<double>>(symb, 0,
-    //   noise_model); FactorInfoPtr fac_info =
-    //   FactorInfo::Create(FactorType::PRIOR, fac);
-
     graph2.addFactor(fac);
 
     graph2.solve(false);
 
-    //   bool opt_succeeded = graph2.solve();
-
-    //   double result;
-    //   bool get_result_succeeded = graph2.getEstimate(symb, result);
-
-    //   EXPECT_TRUE(opt_succeeded);
-    //   EXPECT_TRUE(get_result_succeeded);
     EXPECT_TRUE(node->vector().isApprox(prior, 1e-8));
+}
+
+/******************************/
+
+TEST(FactorGraphTest, testClone_SimplePriorExample)
+{
+    FactorGraph graph2;
+    Symbol symb = sym::X(0);
+
+    Vector2dNodePtr node = util::allocate_aligned<VectorNode<2>>(symb);
+    node->vector() << 0, 0;
+
+    graph2.addNode(node);
+
+    Eigen::Vector2d prior;
+    prior << 2, -4;
+    Eigen::Matrix2d cov = Eigen::Matrix2d::Identity();
+
+    auto fac =
+      util::allocate_aligned<CeresVector2dPriorFactor>(node, prior, cov);
+
+    graph2.addFactor(fac);
+
+    boost::shared_ptr<FactorGraph> cloned_graph = graph2.clone();
+
+    graph2.solve(false);
+
+    auto new_node = cloned_graph->getNode<Vector2dNode>(sym::X(0));
+
+    // Check that the new node remains unsolved...
+    EXPECT_TRUE(node != new_node);
+    EXPECT_TRUE(new_node->vector().norm() < 1e-10);
+    EXPECT_TRUE(node->vector().isApprox(prior, 1e-8));
+
+    // Check solving the cloned graph
+    cloned_graph->solve(false);
+    EXPECT_TRUE(new_node->vector().isApprox(prior, 1e-8));
 }
 
 // Run all the tests that were declared with TEST()

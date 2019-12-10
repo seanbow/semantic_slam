@@ -15,13 +15,21 @@ class CeresVectorPriorFactor : public CeresFactor
                            const Eigen::MatrixXd& covariance,
                            int tag = 0);
 
+    CeresFactor::Ptr clone() const;
+
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
+
+    VectorNodePtr<Dim> node() const { return boost::static_pointer_cast<VectorNode<Dim>>(nodes_[0]); }
 
     using This = CeresVectorPriorFactor<Dim>;
     using Ptr = boost::shared_ptr<This>;
 
   private:
-    VectorNodePtr<Dim> node_;
+    Eigen::MatrixXd covariance_;
+    typename VectorNode<Dim>::VectorType prior_;
+
+  public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
 template<int Dim>
@@ -34,11 +42,21 @@ CeresVectorPriorFactor<Dim>::CeresVectorPriorFactor(
   const Eigen::MatrixXd& covariance,
   int tag)
   : CeresFactor(FactorType::PRIOR, tag)
-  , node_(node)
+  , prior_(prior)
+  , covariance_(covariance)
 {
     // ceres::Problem will take ownership of this cost function
     cf_ = VectorPriorCostTerm<typename VectorNode<Dim>::VectorType>::Create(
       prior, covariance);
+
+    nodes_.push_back(node);
+}
+
+template <int Dim>
+CeresFactor::Ptr
+CeresVectorPriorFactor<Dim>::clone() const
+{
+    return util::allocate_aligned<This>(nullptr, prior_, covariance_, tag_);
 }
 
 template<int Dim>
@@ -47,7 +65,8 @@ CeresVectorPriorFactor<Dim>::addToProblem(
   boost::shared_ptr<ceres::Problem> problem)
 {
     ceres::ResidualBlockId residual_id =
-      problem->AddResidualBlock(cf_, NULL, node_->vector().data());
+      problem->AddResidualBlock(cf_, NULL, node()->vector().data());
+      
     residual_ids_.emplace(problem.get(), residual_id);
 
     active_ = true;
