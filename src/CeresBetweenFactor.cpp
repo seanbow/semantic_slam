@@ -4,27 +4,25 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/slam/BetweenFactor.h>
 
-CeresBetweenFactor::CeresBetweenFactor(SE3NodePtr node1,
-                                       SE3NodePtr node2,
+CeresBetweenFactor::CeresBetweenFactor(SE3NodePtr node0,
+                                       SE3NodePtr node1,
                                        Pose3 between,
                                        Eigen::MatrixXd covariance,
                                        int tag)
   : CeresFactor(FactorType::ODOMETRY, tag)
-  , node1_(node1)
-  , node2_(node2)
   , between_(between)
   , covariance_(covariance)
 {
     cf_ = BetweenCostTerm::Create(between, covariance);
 
+    nodes_.push_back(node0);
     nodes_.push_back(node1);
-    nodes_.push_back(node2);
 
     auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(covariance_);
 
     gtsam_factor_ = util::allocate_aligned<gtsam::BetweenFactor<gtsam::Pose3>>(
-      node1->key(),
-      node2->key(),
+      nodes_[0]->key(),
+      nodes_[1]->key(),
       gtsam::Pose3(gtsam::Rot3(between.rotation()), between.translation()),
       gtsam_noise);
 }
@@ -47,10 +45,10 @@ CeresBetweenFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     ceres::ResidualBlockId residual_id =
       problem->AddResidualBlock(cf_,
                                 NULL,
-                                node1_->pose().rotation_data(),
-                                node1_->pose().translation_data(),
-                                node2_->pose().rotation_data(),
-                                node2_->pose().translation_data());
+                                node0()->pose().rotation_data(),
+                                node0()->pose().translation_data(),
+                                node1()->pose().rotation_data(),
+                                node1()->pose().translation_data());
     residual_ids_[problem.get()] = residual_id;
 
     active_ = true;

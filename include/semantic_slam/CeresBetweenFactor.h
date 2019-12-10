@@ -13,12 +13,15 @@ class NonlinearFactor;
 class CeresBetweenFactor : public CeresFactor
 {
   public:
-    CeresBetweenFactor(SE3NodePtr node1,
-                       SE3NodePtr node2,
+    CeresBetweenFactor(SE3NodePtr node0,
+                       SE3NodePtr node1,
                        Pose3 between,
                        Eigen::MatrixXd covariance,
                        int tag = 0);
     ~CeresBetweenFactor();
+
+    SE3NodePtr node0() const { return boost::static_pointer_cast<SE3Node>(nodes_[0]); }
+    SE3NodePtr node1() const { return boost::static_pointer_cast<SE3Node>(nodes_[1]); }
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
@@ -32,9 +35,6 @@ class CeresBetweenFactor : public CeresFactor
     using Ptr = boost::shared_ptr<This>;
 
   private:
-    SE3NodePtr node1_;
-    SE3NodePtr node2_;
-
     Pose3 between_;
     Eigen::MatrixXd covariance_;
 
