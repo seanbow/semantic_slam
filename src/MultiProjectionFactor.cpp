@@ -33,12 +33,7 @@ CeresFactor::Ptr
 MultiProjectionFactor::clone() const
 {
     auto fac = util::allocate_aligned<MultiProjectionFactor>(
-        nullptr,
-        I_T_C_,
-        calibration_,
-        reprojection_error_threshold_,
-        tag_
-    );
+      nullptr, I_T_C_, calibration_, reprojection_error_threshold_, tag_);
 
     for (int i = 0; i < nMeasurements(); ++i) {
         fac->addMeasurement(nullptr, msmts_[i], covariances_[i]);

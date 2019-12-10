@@ -70,7 +70,6 @@ class SmartProjectionFactor
     Pose3 I_T_C_;
     boost::shared_ptr<CameraCalibration> calibration_;
 
-    // std::vector<SE3NodePtr> body_poses_;
     aligned_vector<Eigen::Vector2d> msmts_;
     aligned_vector<Eigen::Matrix2d> covariances_;
     aligned_vector<Eigen::Matrix2d> sqrt_informations_;
@@ -79,12 +78,9 @@ class SmartProjectionFactor
 
     std::vector<double*> parameter_blocks_;
 
-    // std::vector<CeresProjectionFactorPtr> projection_factors_;
-
     double reprojection_error_threshold_;
 
     bool in_graph_;
-    // boost::shared_ptr<ceres::Problem> problem_;
     std::vector<boost::shared_ptr<ceres::Problem>> problems_;
 
     mutable bool triangulation_good_;

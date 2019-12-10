@@ -156,12 +156,10 @@ void
 SmartProjectionFactor::internalAddToProblem(
   boost::shared_ptr<ceres::Problem> problem)
 {
-    if (triangulation_good_) {
-        ceres::ResidualBlockId residual_id =
-          problem->AddResidualBlock(this, NULL, parameter_blocks_);
-        residual_ids_[problem.get()] = residual_id;
-        active_ = true;
-    }
+    ceres::ResidualBlockId residual_id =
+      problem->AddResidualBlock(this, NULL, parameter_blocks_);
+    residual_ids_[problem.get()] = residual_id;
+    active_ = true;
 }
 
 void
@@ -230,7 +228,8 @@ SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
 
     aligned_vector<Pose3> body_poses;
     for (int i = 0; i < msmts_.size(); ++i) {
-        body_poses.push_back(camera_node(i)->pose());
+        if (camera_node(i))
+            body_poses.push_back(camera_node(i)->pose());
     }
 
     triangulate(body_poses);
@@ -280,15 +279,39 @@ SmartProjectionFactor::Evaluate(double const* const* parameters,
 
     Eigen::Map<Eigen::VectorXd> residuals(residuals_ptr, num_residuals());
 
+    using JacobianType =
+      Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
     if (decideIfTriangulate(body_poses)) {
         triangulate(body_poses);
+    }
+
+    // If the triangulation was good, add the actual factor. But if it wasn't,
+    // zero out the residuals and jacobian.
+    if (!triangulation_good_) {
+        residuals.setZero();
+        if (jacobians) {
+            for (int i = 0; i < nMeasurements(); ++i) {
+                if (jacobians[2 * i]) {
+                    Eigen::Map<JacobianType> Dr_dq(
+                      jacobians[2 * i], num_residuals(), 4);
+                    Dr_dq.setZero();
+                }
+
+                if (jacobians[2 * i + 1]) {
+                    Eigen::Map<JacobianType> Dr_dp(
+                      jacobians[2 * i + 1], num_residuals(), 3);
+                    Dr_dp.setZero();
+                }
+            }
+        }
+
+        return true;
     }
 
     // Iterate through each measurement computing its residual & jacobian
     // If we need the Jacobians, compute them as we go...
     // Indices corresponding to this are 0 (pt), 2*i, and 1 + 2*i...
-    using JacobianType =
-      Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
     // Begin by collecting all the jacobians
     // We have to do this whether ceres is requesting the Jacobians or not
