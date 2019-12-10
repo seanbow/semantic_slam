@@ -262,9 +262,9 @@ main(int argc, char* argv[])
 
     // wait until there's a subscriber
     // while (ros::ok() && (cam0_pub.getNumSubscribers() == 0 &&
-    // cam1_pub.getNumSubscribers() == 0)) { 	ROS_INFO_STREAM("[KITTI_data_node]
-    // No subscribers, trying again in 1 second...");
-    // 	ros::Duration(1.0).sleep();
+    // cam1_pub.getNumSubscribers() == 0)) {
+    // ROS_INFO_STREAM("[KITTI_data_node] No subscribers, trying again in 1
+    // second..."); 	ros::Duration(1.0).sleep();
     // }
 
     // Find first index

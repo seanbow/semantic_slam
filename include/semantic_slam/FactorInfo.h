@@ -42,7 +42,7 @@ class FactorInfo
     int tag() const { return tag_; }
 
     size_t index; //< Index within a graph or optimization structure e.g.
-                  //gtsam::ISAM2
+                  // gtsam::ISAM2
 
     bool in_graph;
 

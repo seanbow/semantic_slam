@@ -1121,8 +1121,13 @@ SemanticMapper::optimizeEssential()
 
     auto essential_options = solver_options_;
 
-    essential_options.max_solver_time_in_seconds = 4;
-    essential_options.linear_solver_type = ceres::CGNR;
+    // essential_options.max_solver_time_in_seconds = 2;
+    essential_options.max_num_iterations = 100;
+
+    essential_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+
+    essential_options.minimizer_type = ceres::LINE_SEARCH;
+    // essential_options.line_search_direction_type = ceres::NONLINEAR_CONJUGATE_GRADIENT;
 
     essential_graph_->setSolverOptions(essential_options);
 

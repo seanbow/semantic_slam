@@ -45,20 +45,20 @@ struct ObjectParams
     double max_new_factor_error;
     double keypoint_initialization_depth_sigma;
     int min_landmark_observations; //< minimum number of observations before
-                                   //triangulating & including in optim.
+                                   // triangulating & including in optim.
     double camera_range; //< maximum range at which camera can detect objects
 
     double calibration_tolerance; //< when undistorting a point, enforce that
-                                  //its reprojection error is < this
+                                  // its reprojection error is < this
 
     double mahal_thresh_assign; //< Mahalanobis distance threshold below which
-                                //to assign data
+                                // to assign data
     double mahal_thresh_init;   //< Mahal. distance threshold above which to
-                                //initialize new mapped landmarks
+                                // initialize new mapped landmarks
 
     double
       keypoint_activation_threshold; //< threshold on heatmap above which to
-                                     //consider a keypoint observation valid
+                                     // consider a keypoint observation valid
     double
       keypoint_msmt_sigma; //< keypoint measurement sigma for observed keypoints
 
@@ -69,16 +69,16 @@ struct ObjectParams
 
     double
       landmark_merge_threshold; //< Threshold on between-landmark bhattacharyya
-                                //distance below which to merge landmarks
+                                // distance below which to merge landmarks
     double probability_landmark_new;    //< fixed probability that a measurement
-                                        //corresponds to a new landmark
+                                        // corresponds to a new landmark
     double constraint_weight_threshold; //< if weight of a constraint is < this
-                                        //do not add to factor graph
+                                        // do not add to factor graph
     double new_landmark_weight_threshold; //< same as above but for new landmark
-                                          //initializations
+                                          // initializations
 
     int min_object_n_keypoints; //< minimum number of observed/estimated
-                                //keypoints to consider an object good
+                                // keypoints to consider an object good
 
     int min_observed_keypoints_to_initialize;
 
@@ -169,7 +169,7 @@ struct ObjectMeasurement
     std::string obj_name;
 
     size_t track_id; //< If this object was tracked along multiple images, the
-                     //id of the track
+                     // id of the track
 
     BoundingBox bbox;
 

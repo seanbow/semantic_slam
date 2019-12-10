@@ -24,7 +24,7 @@ I_q_C: [-0.5, 0.5, -0.5, 0.5] # IMU x forward, y left, z up <-> camera x right, 
 ## Optimization parameters
 # covariance_delay: 5.0
 covariance_delay: 0.1
-max_optimization_time: 1.0
+max_optimization_time: 0.5
 loop_closure_threshold: 25 # in number of keyframes
 smoothing_length: 50 
 
@@ -48,7 +48,7 @@ sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = mo
 
 ### Geometric feature parameters
 include_geometric_features: true
-cam_sigma: 4
+cam_sigma: 5
 reprojection_error_threshold: 4
 use_smart_projection_factors: true
 

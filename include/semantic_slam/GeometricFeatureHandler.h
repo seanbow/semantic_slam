@@ -36,7 +36,8 @@ class GeometricFeatureHandler : public Handler
 
     void removeLandmark(int index);
 
-    void updateEssentialGraph();
+    void updateEssentialGraph(
+      const std::vector<SemanticKeyframe::Ptr>& keyframes_processed);
 
     std::unordered_map<int, boost::shared_ptr<Vector3dNode>> landmark_nodes()
     {

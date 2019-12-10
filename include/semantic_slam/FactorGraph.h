@@ -84,7 +84,7 @@ class FactorGraph
     std::vector<CeresFactorPtr> factors_;
 
     bool modified_; //< Whether or not the graph has been modified since the
-                    //last solving
+                    // last solving
 
     ceres::Solver::Options solver_options_;
 

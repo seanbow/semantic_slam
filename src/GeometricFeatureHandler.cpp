@@ -48,7 +48,8 @@ GeometricFeatureHandler::addKeyframe(const SemanticKeyframe::Ptr& frame)
 }
 
 void
-GeometricFeatureHandler::updateEssentialGraph()
+GeometricFeatureHandler::updateEssentialGraph(
+  const std::vector<SemanticKeyframe::Ptr>& keyframes_processed)
 {
     TIME_TIC;
 
@@ -79,10 +80,12 @@ GeometricFeatureHandler::updateEssentialGraph()
     //   int kf_index = 0;
     //   while (kf_index <= last_kf_processed_->index()) {
 
-    for (int kf_index = 0; kf_index <= last_kf_processed_->index();
-         ++kf_index) {
+    // for (int kf_index = 0; kf_index <= last_kf_processed_->index();
+    //      ++kf_index) {
 
-        auto kf = mapper_->getKeyframeByIndex(kf_index);
+    for (auto kf : keyframes_processed) {
+
+        // auto kf = mapper_->getKeyframeByIndex(kf_index);
         const auto& observed_features = kf->visible_geometric_features();
 
         if (observed_features.empty()) {
@@ -202,6 +205,8 @@ GeometricFeatureHandler::updateEssentialGraph()
 void
 GeometricFeatureHandler::processPendingFrames()
 {
+    std::vector<SemanticKeyframe::Ptr> keyframes_processed;
+
     while (!kfs_to_process_.empty()) {
 
         auto frame = kfs_to_process_.front();
@@ -300,12 +305,11 @@ GeometricFeatureHandler::processPendingFrames()
         }
 
         frame->updateGeometricConnections();
-        // ROS_INFO_STREAM("Processed frame " << frame->index() << ", ptr "
-        //                                    << frame.get());
         last_kf_processed_ = frame;
+        keyframes_processed.push_back(frame);
     }
 
-    updateEssentialGraph();
+    updateEssentialGraph(keyframes_processed);
 }
 
 void
