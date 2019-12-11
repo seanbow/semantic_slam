@@ -76,17 +76,19 @@ SemanticMapper::setup()
     graph_->solver_options().max_solver_time_in_seconds =
       max_optimization_time_;
 
-    graph_->solver_options().linear_solver_type = ceres::SPARSE_SCHUR;
+    // graph_->solver_options().linear_solver_type = ceres::SPARSE_SCHUR;
 
     // graph_->solver_options().linear_solver_type = ceres::ITERATIVE_SCHUR;
     // graph_->solver_options().preconditioner_type = ceres::SCHUR_JACOBI;
     // graph_->solver_options().use_explicit_schur_complement = true;
 
-    // graph_->solver_options().linear_solver_type = ceres::CGNR;
+    graph_->solver_options().linear_solver_type = ceres::CGNR;
     graph_->solver_options().num_threads = 4;
 
-    // graph_->solver_options().linear_solver_ordering =
-    //   std::make_shared<ceres::ParameterBlockOrdering>();
+    if (params_.use_manual_elimination_ordering) {
+        graph_->solver_options().linear_solver_ordering =
+          std::make_shared<ceres::ParameterBlockOrdering>();
+    }
 
     // graph_->setSolverOptions(solver_options_);
     essential_graph_->setSolverOptions(graph_->solver_options());
@@ -170,7 +172,12 @@ SemanticMapper::processMessagesUpdateObjectsThread()
                 }
 
                 {
-                    std::lock_guard<std::mutex> lock(map_mutex_);
+                    std::unique_lock<std::mutex> lock(map_mutex_,
+                                                      std::defer_lock);
+                    std::unique_lock<std::mutex> present_lock(present_mutex_,
+                                                              std::defer_lock);
+                    std::lock(lock, present_lock);
+
                     for (auto& p : presenters_)
                         p->present(keyframes_, estimated_objects_);
                 }
@@ -309,7 +316,9 @@ SemanticMapper::processGeometricFeatureTracks(
         geom_handler_->addKeyframe(kf);
     }
 
-    std::lock_guard<std::mutex> lock(graph_mutex_);
+    std::unique_lock<std::mutex> graph_lock(graph_mutex_, std::defer_lock);
+    std::unique_lock<std::mutex> present_lock(present_mutex_, std::defer_lock);
+    std::lock(graph_lock, present_lock);
 
     geom_handler_->processPendingFrames();
 
@@ -1139,13 +1148,15 @@ SemanticMapper::optimizeEssential()
     essential_graph_->solver_options().max_solver_time_in_seconds = 1;
     essential_graph_->solver_options().max_num_iterations = 100000;
 
-    // essential_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+    // essential_graph_->solver_options().linear_solver_type =
+    // ceres::ITERATIVE_SCHUR;
 
-    // essential_options.minimizer_type = ceres::LINE_SEARCH;
-    // essential_options.line_search_direction_type =
+    // essential_graph_->solver_options().minimizer_type = ceres::LINE_SEARCH;
+    // essential_graph_->solver_options().line_search_direction_type =
     // ceres::NONLINEAR_CONJUGATE_GRADIENT;
 
-    essential_graph_->solver_options().linear_solver_type = ceres::SPARSE_SCHUR;
+    // essential_graph_->solver_options().linear_solver_type =
+    // ceres::SPARSE_SCHUR;
 
     // essential_graph_->setSolverOptions(essential_options);
 
@@ -1334,7 +1345,9 @@ SemanticMapper::loadParameters()
         !pnh_.getParam("covariance_delay", covariance_delay_) ||
         !pnh_.getParam("max_optimization_time", max_optimization_time_) ||
         !pnh_.getParam("loop_closure_threshold", loop_closure_threshold_) ||
-        !pnh_.getParam("smoothing_length", smoothing_length_)) {
+        !pnh_.getParam("smoothing_length", smoothing_length_) ||
+        !pnh_.getParam("use_manual_elimination_ordering",
+                       params_.use_manual_elimination_ordering)) {
 
         ROS_ERROR("Unable to load object handler parameters");
         return false;
@@ -1547,18 +1560,18 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
 
         // std::cout << "Mahals:\n" << mahals << std::endl;
 
-        std::cout << "Mahals: ";
-        for (int i = 0; i < measurement_index.size(); ++i) {
-            std::cout << "MSMT " << measurement_index[i] << ": ";
+        // std::cout << "Mahals: ";
+        // for (int i = 0; i < measurement_index.size(); ++i) {
+        //     std::cout << "MSMT " << measurement_index[i] << ": ";
 
-            for (int j = 0; j < n_visible; ++j) {
-                std::cout << DefaultKeyFormatter(sym::O(
-                               estimated_objects_[object_index[j]]->id()))
-                          << ": " << mahals(i, j) << " ";
-            }
-            std::cout << std::endl;
-        }
-        std::cout << std::endl;
+        //     for (int j = 0; j < n_visible; ++j) {
+        //         std::cout << DefaultKeyFormatter(sym::O(
+        //                        estimated_objects_[object_index[j]]->id()))
+        //                   << ": " << mahals(i, j) << " ";
+        //     }
+        //     std::cout << std::endl;
+        // }
+        // std::cout << std::endl;
 
         Eigen::MatrixXd weights_matrix =
           MLDataAssociator(params_).computeConstraintWeights(mahals);

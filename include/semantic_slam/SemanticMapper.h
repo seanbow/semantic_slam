@@ -137,6 +137,7 @@ class SemanticMapper
     boost::shared_ptr<FactorGraph> graph_;
     std::mutex graph_mutex_; // wish this could be a shared_mutex
     std::mutex map_mutex_;
+    std::mutex present_mutex_;
 
     boost::shared_ptr<FactorGraph> essential_graph_;
     // essential graph will share the use of graph_mutex_

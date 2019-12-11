@@ -32,7 +32,8 @@ class FactorGraph
 
     bool containsFactor(CeresFactorPtr factor);
 
-    bool solve(bool verbose = false);
+    bool solve(bool verbose = false,
+               boost::optional<ceres::Solver::Summary&> summary = boost::none);
 
     // Returns an identical copy of this factor graph except
     // that it operates on a new cloned set of nodes
@@ -99,7 +100,7 @@ class FactorGraph
     ceres::Covariance::Options covariance_options_;
     boost::shared_ptr<ceres::Covariance> covariance_;
 
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
 };
 
 template<typename NodeType>

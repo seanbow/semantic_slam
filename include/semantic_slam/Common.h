@@ -66,6 +66,7 @@ struct ObjectParams
 
     OptimizationBackend optimization_backend; // CERES or GTSAM
     OptimizationBackend covariance_backend;   // CERES or GTSAM
+    bool use_manual_elimination_ordering;
 
     double
       landmark_merge_threshold; //< Threshold on between-landmark bhattacharyya

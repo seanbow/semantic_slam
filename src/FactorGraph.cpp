@@ -67,6 +67,8 @@ FactorGraph::clone() const
 {
     auto new_graph = util::allocate_aligned<FactorGraph>();
 
+    std::lock_guard<std::mutex> lock(mutex_);
+
     // Create the set of new nodes over which we'll be operating
     std::unordered_map<Key, CeresNodePtr> new_nodes;
     for (const auto& node : nodes_) {
@@ -106,7 +108,8 @@ FactorGraph::clone() const
 }
 
 bool
-FactorGraph::solve(bool verbose)
+FactorGraph::solve(bool verbose,
+                   boost::optional<ceres::Solver::Summary&> summary_in)
 {
     ceres::Solver::Summary summary;
 
@@ -133,6 +136,9 @@ FactorGraph::solve(bool verbose)
         std::cout << "Schur structure used: " << summary.schur_structure_used
                   << std::endl;
     }
+
+    if (summary_in)
+        *summary_in = summary;
 
     return summary.IsSolutionUsable();
     // return summary.termination_type == ceres::CONVERGENCE;
@@ -182,6 +188,8 @@ FactorGraph::addFactors(std::vector<CeresFactorPtr> factors)
 void
 FactorGraph::removeNode(CeresNodePtr node)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     auto it = nodes_.find(node->key());
     if (it != nodes_.end()) {
         nodes_.erase(it);
@@ -206,6 +214,8 @@ FactorGraph::removeNode(CeresNodePtr node)
 void
 FactorGraph::removeFactor(CeresFactorPtr factor)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     bool found = false;
     for (auto it = factors_.begin(); it != factors_.end(); ++it) {
         if (it->get() == factor.get()) {
@@ -224,6 +234,8 @@ FactorGraph::removeFactor(CeresFactorPtr factor)
 std::vector<Key>
 FactorGraph::keys()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     std::vector<Key> result;
     result.reserve(nodes_.size());
     for (auto& node : nodes_) {
@@ -235,6 +247,8 @@ FactorGraph::keys()
 bool
 FactorGraph::containsFactor(CeresFactorPtr factor)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     auto fac_it = std::find(factors_.begin(), factors_.end(), factor);
 
     if (fac_it != factors_.end()) {
@@ -260,6 +274,8 @@ FactorGraph::computeMarginalCovariance(const std::vector<Key>& keys)
 bool
 FactorGraph::computeMarginalCovariance(const std::vector<CeresNodePtr>& nodes)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     std::vector<const double*> blocks;
     for (const CeresNodePtr& node : nodes) {
         blocks.insert(blocks.end(),
@@ -267,10 +283,10 @@ FactorGraph::computeMarginalCovariance(const std::vector<CeresNodePtr>& nodes)
                       node->parameter_blocks().end());
     }
 
-    std::vector<std::pair<const double*, const double*>> block_pairs =
-      produceAllPairs(blocks);
+    // std::vector<std::pair<const double*, const double*>> block_pairs =
+    //   produceAllPairs(blocks);
 
-    return covariance_->Compute(block_pairs, problem_.get());
+    return covariance_->Compute(blocks, problem_.get());
 
     // std::vector<std::pair<const double*, const double*>> cov_blocks;
 

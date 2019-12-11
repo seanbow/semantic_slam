@@ -219,6 +219,11 @@ add_library(geometry src/keypoints/geometry.cpp)
 #   gtsam
 # )
 
+add_library(LoopCloser src/LoopCloser.cpp)
+target_link_libraries(LoopCloser
+  ${CERES_LIBRARIES}
+)
+
 add_library(SemanticMapper src/SemanticMapper.cpp)
 target_link_libraries(SemanticMapper
   geometry

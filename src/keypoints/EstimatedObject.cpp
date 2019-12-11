@@ -543,6 +543,18 @@ EstimatedObject::commitGraphSolution()
 }
 
 void
+EstimatedObject::commitGraphSolution(boost::shared_ptr<FactorGraph> graph)
+{
+    pose_ = graph->getNode<SE3Node>(sym::O(id()))->pose();
+    if (k_ > 0)
+        basis_coefficients_ =
+          graph->getNode<VectorXdNode>(sym::C(id()))->vector();
+
+    for (auto& kp : keypoints_)
+        kp->commitGraphSolution(graph);
+}
+
+void
 EstimatedObject::commitGtsamSolution(const gtsam::Values& values)
 {
     pose_ = values.at<gtsam::Pose3>(sym::O(id_));
@@ -646,9 +658,10 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
         // if (measurements_.size() > 2) {
         double mahal_d = computeMahalanobisDistance(msmt);
         if (mahal_d < chi2inv95(2)) {
-            ROS_INFO_STREAM("Adding measurement with mahal = " << mahal_d);
+            // ROS_INFO_STREAM("Adding measurement with mahal = " << mahal_d);
         } else {
-            ROS_INFO_STREAM("Rejecting measurement with mahal = " << mahal_d);
+            // ROS_INFO_STREAM("Rejecting measurement with mahal = " <<
+            // mahal_d);
             return;
         }
     }
@@ -842,11 +855,19 @@ EstimatedObject::addToGraph()
             semantic_graph_->addNode(graph_coefficient_node_);
         semantic_graph_->addFactor(structure_factor_);
 
-        // graph_pose_node_->addToOrderingGroup(
-        //   graph_->solver_options().linear_solver_ordering, 0);
-        // if (k_ > 0)
-        //     graph_coefficient_node_->addToOrderingGroup(
-        //       graph_->solver_options().linear_solver_ordering, 1);
+        if (params_.use_manual_elimination_ordering) {
+            graph_pose_node_->addToOrderingGroup(
+              graph_->solver_options().linear_solver_ordering, 0);
+            graph_pose_node_->addToOrderingGroup(
+              semantic_graph_->solver_options().linear_solver_ordering, 0);
+
+            if (k_ > 0) {
+                graph_coefficient_node_->addToOrderingGroup(
+                  graph_->solver_options().linear_solver_ordering, 1);
+                graph_coefficient_node_->addToOrderingGroup(
+                  semantic_graph_->solver_options().linear_solver_ordering, 1);
+            }
+        }
 
         in_graph_ = true;
     }

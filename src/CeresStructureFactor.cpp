@@ -42,7 +42,7 @@ CeresStructureFactor::createGtsamFactor() const
         }
 
         Key coefficient_key = 0;
-        if (coefficient_node()) {
+        if (k_ > 0) {
             coefficient_key = coefficient_node()->key();
         }
 
@@ -78,7 +78,7 @@ CeresStructureFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
         blocks.push_back(landmark_node(i)->vector().data());
     }
 
-    if (coefficient_node()) {
+    if (k_ > 0) {
         blocks.push_back(coefficient_node()->vector().data());
     }
 

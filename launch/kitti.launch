@@ -37,7 +37,7 @@
     <param name="/yolo"                             value="$(arg yolo)" type="bool"/>
 
     <node pkg="semantic_slam" type="semantic_slam_node" name="semantic_slam" output="screen"
-                launch-prefix="" >
+                launch-prefix="gdb -ex run --args" >
         <param name="odom_topic" value="$(arg odom_topic)" />
 
         <param name="image_topic"                   value="$(arg cam_topic)"/>
@@ -116,7 +116,7 @@
 
     <node pkg="semantic_slam" type="kitti_data_node" name="kitti_data_node" output="screen">
         <param name="data_dir" value="/mnt/MyBook/ubuntu_home/data/dataset/sequences/05" />
-        <param name="delay" value="5" />
+        <param name="delay" value="25" />
         <param name="rate" value="1" />
     </node>
 

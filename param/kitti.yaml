@@ -36,6 +36,7 @@ covariance_backend: "GTSAM"
 # covariance_backend: "GTSAM_ISAM"
 
 verbose_optimization: true
+use_manual_elimination_ordering: false
 
 
 ## Feature_tracker parameters

@@ -61,6 +61,12 @@ EstimatedKeypoint::commitGraphSolution()
 }
 
 void
+EstimatedKeypoint::commitGraphSolution(boost::shared_ptr<FactorGraph> graph)
+{
+    global_position_ = graph->getNode<Vector3dNode>(sym::L(id()))->vector();
+}
+
+void
 EstimatedKeypoint::commitGtsamSolution(const gtsam::Values& values)
 {
     global_position_ = values.at<gtsam::Point3>(graph_node_->key());
@@ -460,8 +466,12 @@ EstimatedKeypoint::addToGraphForced()
         graph_->addNode(graph_node_);
         semantic_graph_->addNode(graph_node_);
 
-        // graph_node_->addToOrderingGroup(
-        //   graph_->solver_options().linear_solver_ordering, 3);
+        if (params_.use_manual_elimination_ordering) {
+            graph_node_->addToOrderingGroup(
+              graph_->solver_options().linear_solver_ordering, 3);
+            graph_node_->addToOrderingGroup(
+              semantic_graph_->solver_options().linear_solver_ordering, 3);
+        }
 
         tryAddProjectionFactors();
         // graph_->addFactors(projection_factors_);
