@@ -10,8 +10,8 @@
 
 #include <ceres/ceres.h>
 
+#include "semantic_slam/ceres_cost_terms/ceres_structure_projection.h"
 #include "semantic_slam/ceres_quaternion_parameterization.h"
-#include "semantic_slam/keypoints/ceres_structure_projection.h"
 
 // #include <gtsam/geometry/Point3.h>
 // #include <gtsam/geometry/Pose3.h>
