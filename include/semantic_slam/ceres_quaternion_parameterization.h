@@ -9,38 +9,81 @@ class QuaternionLocalParameterization : public ceres::LocalParameterization
     using Jacobian = Eigen::Matrix<double, 4, 3, Eigen::RowMajor>;
     using LiftJacobian = Eigen::Matrix<double, 3, 4, Eigen::RowMajor>;
 
-    virtual bool Plus(const double* x,
-                      const double* delta,
-                      double* x_plus_delta) const;
-    virtual bool ComputeJacobian(const double* x, double* jacobian) const;
+    bool Plus(const double* x, const double* delta, double* x_plus_delta) const;
+    bool ComputeJacobian(const double* x, double* jacobian) const;
 
-    virtual int GlobalSize() const { return 4; }
-    virtual int LocalSize() const { return 3; }
+    int GlobalSize() const { return 4; }
+    int LocalSize() const { return 3; }
 };
+
+class SE3LocalParameterization : public ceres::LocalParameterization
+{
+  public:
+    SE3LocalParameterization();
+    ~SE3LocalParameterization();
+
+    bool Plus(const double* x, const double* delta, double* x_plus_delta) const;
+    bool ComputeJacobian(const double* x, double* jacobian) const;
+
+    int GlobalSize() const { return 7; }
+    int LocalSize() const { return 6; }
+
+  private:
+    ceres::LocalParameterization* quaternion_parameterization_;
+};
+
+SE3LocalParameterization::SE3LocalParameterization()
+{
+    quaternion_parameterization_ = new QuaternionLocalParameterization;
+}
+
+SE3LocalParameterization::~SE3LocalParameterization()
+{
+    delete quaternion_parameterization_;
+}
+
+bool
+SE3LocalParameterization::Plus(const double* x,
+                               const double* delta,
+                               double* x_plus_delta) const
+{
+    // fill in the rotation parts
+    quaternion_parameterization_->Plus(x, delta, x_plus_delta);
+
+    // and the translation parts
+    x_plus_delta[4] = x[4] + delta[3];
+    x_plus_delta[5] = x[5] + delta[4];
+    x_plus_delta[6] = x[6] + delta[5];
+
+    return true;
+}
+
+bool
+SE3LocalParameterization::ComputeJacobian(const double* x,
+                                          double* jacobian) const
+{
+    Eigen::Map<Eigen::Matrix<double, -1, -1, Eigen::RowMajor>> J(
+      jacobian, 7, 6);
+    J.setZero();
+
+    // Dq_dq...
+    Eigen::Matrix<double, 4, 3, Eigen::RowMajor> Dq_dq;
+    quaternion_parameterization_->ComputeJacobian(x, Dq_dq.data());
+    J.block<4, 3>(0, 0) = Dq_dq;
+
+    // Dq_dp and Dp_dq are zero
+
+    // Dp_dp
+    J.block<3, 3>(4, 3) = Eigen::Matrix3d::Identity();
+
+    return true;
+}
 
 bool
 QuaternionLocalParameterization::Plus(const double* x_ptr,
                                       const double* delta,
                                       double* x_plus_delta_ptr) const
 {
-    // Eigen::Map<Eigen::Quaterniond> x_plus_delta(x_plus_delta_ptr);
-    // Eigen::Map<const Eigen::Quaterniond> x(x_ptr);
-
-    // const double norm_delta =
-    // sqrt(delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2]);
-    // if (norm_delta > 0.0) {
-    //     const double sin_delta_by_delta = sin(norm_delta) / norm_delta;
-
-    //     // Note, in the constructor w is first.
-    //     Eigen::Quaterniond delta_q(cos(norm_delta),
-    //                                 sin_delta_by_delta * delta[0],
-    //                                 sin_delta_by_delta * delta[1],
-    //                                 sin_delta_by_delta * delta[2]);
-    //     x_plus_delta = delta_q * x;
-    // } else {
-    //     x_plus_delta = x;
-    // }
-
     Eigen::Quaterniond dq(1.0, 0.5 * delta[0], 0.5 * delta[1], 0.5 * delta[2]);
     dq.normalize();
 

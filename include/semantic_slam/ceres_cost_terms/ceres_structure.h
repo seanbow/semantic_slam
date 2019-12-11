@@ -79,8 +79,7 @@ StructureCostTerm::Create(const ObjectModelBasis& model,
     ceres::DynamicAutoDiffCostFunction<StructureCostTerm, 4>* cost_function =
       new ceres::DynamicAutoDiffCostFunction<StructureCostTerm, 4>(cost_term);
 
-    cost_function->AddParameterBlock(4);
-    cost_function->AddParameterBlock(3);
+    cost_function->AddParameterBlock(7);
     for (int i = 0; i < cost_term->m(); ++i) {
         cost_function->AddParameterBlock(3);
     }
@@ -117,7 +116,7 @@ StructureCostTerm::structure(T const* const* parameters) const
     if (k_ == 0)
         return S;
 
-    Eigen::Map<const Eigen::Matrix<T, -1, 1>> c(parameters[2 + m_], k_);
+    Eigen::Map<const Eigen::Matrix<T, -1, 1>> c(parameters[m_ + 1], k_);
 
     for (size_t i = 0; i < k_; ++i) {
         S += c[i] * model_.pc.block(3 * i, 0, 3, m_);
@@ -136,14 +135,14 @@ StructureCostTerm::unwhitenedError(T const* const* parameters,
                                    T* residuals_ptr) const
 {
     Eigen::Map<const Eigen::Quaternion<T>> q(parameters[0]);
-    Eigen::Map<const Eigen::Matrix<T, 3, 1>> t(parameters[1]);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> t(parameters[0] + 4);
 
     Eigen::Map<Eigen::Matrix<T, -1, 1>> residuals(residuals_ptr, dim());
 
     Eigen::Matrix<T, 3, Eigen::Dynamic> S = structure(parameters);
 
     for (size_t i = 0; i < m_; ++i) {
-        Eigen::Map<const Eigen::Matrix<T, 3, 1>> p(parameters[2 + i]);
+        Eigen::Map<const Eigen::Matrix<T, 3, 1>> p(parameters[1 + i]);
 
         residuals.template segment<3>(3 * i) = p - q * S.col(i) - t;
         // cout << "Index " << i << ", key " <<
@@ -153,7 +152,7 @@ StructureCostTerm::unwhitenedError(T const* const* parameters,
     }
 
     if (k_ > 0) {
-        Eigen::Map<const Eigen::Matrix<T, -1, 1>> c(parameters[2 + m_], k_);
+        Eigen::Map<const Eigen::Matrix<T, -1, 1>> c(parameters[1 + m_], k_);
 
         residuals.template tail(k_) = c;
     }

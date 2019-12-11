@@ -11,6 +11,8 @@
 #include "semantic_slam/presenters/SemanticCovisibilityPresenter.h"
 #include "semantic_slam/presenters/TrajectoryPresenter.h"
 
+#include <glog/logging.h>
+
 int
 main(int argc, char* argv[])
 {
@@ -41,6 +43,8 @@ main(int argc, char* argv[])
       util::allocate_aligned<SemanticCovisibilityPresenter>());
     mapper->addPresenter(
       util::allocate_aligned<GeometricCovisibilityPresenter>());
+
+    google::InitGoogleLogging(argv[0]);
 
     // Start message handling thread
     ros::AsyncSpinner message_spinner(1);

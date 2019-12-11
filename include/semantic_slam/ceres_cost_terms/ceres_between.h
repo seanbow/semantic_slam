@@ -6,7 +6,7 @@ using CeresBetweenFactorPtr = CeresBetweenFactor::Ptr;
 
 class BetweenCostTerm
 #if !(AUTODIFF)
-  : public ceres::SizedCostFunction<6, 4, 3, 4, 3>
+  : public ceres::SizedCostFunction<6, 7, 7>
 #endif
 {
   private:
@@ -112,16 +112,13 @@ BetweenCostTerm::Evaluate(double const* const* parameters,
                           double* residuals_ptr,
                           double** jacobians) const
 {
-    Eigen::Map<const Eigen::Quaterniond> q1(parameters[0]);
-    Eigen::Map<const Eigen::Vector3d> p1(parameters[1]);
-
-    Eigen::Map<const Eigen::Quaterniond> q2(parameters[2]);
-    Eigen::Map<const Eigen::Vector3d> p2(parameters[3]);
+    Eigen::Map<const Eigen::VectorXd> qp1(parameters[0], 7);
+    Eigen::Map<const Eigen::VectorXd> qp2(parameters[1], 7);
 
     Eigen::Map<Eigen::Matrix<double, 6, 1>> residual(residuals_ptr);
 
-    Pose3 pose1(q1, p1);
-    Pose3 pose2(q2, p2);
+    Pose3 pose1(qp1);
+    Pose3 pose2(qp2);
 
     Eigen::MatrixXd Hpose1, Hpose2;
 
@@ -145,43 +142,56 @@ BetweenCostTerm::Evaluate(double const* const* parameters,
     if (jacobians != NULL) {
 
         if (jacobians[0] != NULL) {
-            // 6x4, w.r.t. q1
-            Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::RowMajor>> dr_dq1(
+            // 6x4, w.r.t. q1 and p1
+            Eigen::Map<Eigen::Matrix<double, 6, 7, Eigen::RowMajor>> dr_dx1(
               jacobians[0]);
 
-            dr_dq1.block<3, 4>(0, 0) =
+            // compute separately for now... first w.r.t. q1
+            dr_dx1.block<3, 4>(0, 0) =
               2.0 * (H_q_error * Hpose1.block<4, 4>(0, 0)).block<3, 4>(0, 0);
-            dr_dq1.block<3, 4>(3, 0) = Hpose1.block<3, 4>(4, 0);
-            dr_dq1.applyOnTheLeft(sqrt_information_);
+            dr_dx1.block<3, 4>(3, 0) = Hpose1.block<3, 4>(4, 0);
+
+            // and now w.r.t. p1
+            dr_dx1.block<3, 3>(0, 4) = Hpose1.block<3, 3>(0, 4);
+            dr_dx1.block<3, 3>(3, 4) = Hpose1.block<3, 3>(4, 4);
+
+            dr_dx1.applyOnTheLeft(sqrt_information_);
         }
+
+        // if (jacobians[1] != NULL) {
+        //     // 6x3, w.r.t. p1
+        //     Eigen::Map<Eigen::Matrix<double, 6, 3, Eigen::RowMajor>> dr_dp1(
+        //       jacobians[1]);
+        //     dr_dp1.block<3, 3>(0, 0) = Hpose1.block<3, 3>(0, 4);
+        //     dr_dp1.block<3, 3>(3, 0) = Hpose1.block<3, 3>(4, 4);
+        //     dr_dp1.applyOnTheLeft(sqrt_information_);
+        // }
 
         if (jacobians[1] != NULL) {
-            // 6x3, w.r.t. p1
-            Eigen::Map<Eigen::Matrix<double, 6, 3, Eigen::RowMajor>> dr_dp1(
+            // 6x4, w.r.t. q2, p2
+            Eigen::Map<Eigen::Matrix<double, 6, 7, Eigen::RowMajor>> dr_dx2(
               jacobians[1]);
-            dr_dp1.block<3, 3>(0, 0) = Hpose1.block<3, 3>(0, 4);
-            dr_dp1.block<3, 3>(3, 0) = Hpose1.block<3, 3>(4, 4);
-            dr_dp1.applyOnTheLeft(sqrt_information_);
-        }
 
-        if (jacobians[2] != NULL) {
-            // 6x4, w.r.t. q2
-            Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::RowMajor>> dr_dq2(
-              jacobians[2]);
-            dr_dq2.block<3, 4>(0, 0) =
+            // again compute separately. first q2
+            dr_dx2.block<3, 4>(0, 0) =
               2.0 * (H_q_error * Hpose2.block<4, 4>(0, 0)).block<3, 4>(0, 0);
-            dr_dq2.block<3, 4>(3, 0) = Hpose2.block<3, 4>(4, 0);
-            dr_dq2.applyOnTheLeft(sqrt_information_);
+            dr_dx2.block<3, 4>(3, 0) = Hpose2.block<3, 4>(4, 0);
+
+            // now p2
+            dr_dx2.block<3, 3>(0, 4) = Hpose2.block<3, 3>(0, 4);
+            dr_dx2.block<3, 3>(3, 4) = Hpose2.block<3, 3>(4, 4);
+
+            dr_dx2.applyOnTheLeft(sqrt_information_);
         }
 
-        if (jacobians[3] != NULL) {
-            // 6x3, w.r.t. p2
-            Eigen::Map<Eigen::Matrix<double, 6, 3, Eigen::RowMajor>> dr_dp2(
-              jacobians[3]);
-            dr_dp2.block<3, 3>(0, 0) = Hpose2.block<3, 3>(0, 4);
-            dr_dp2.block<3, 3>(3, 0) = Hpose2.block<3, 3>(4, 4);
-            dr_dp2.applyOnTheLeft(sqrt_information_);
-        }
+        // if (jacobians[3] != NULL) {
+        //     // 6x3, w.r.t. p2
+        //     Eigen::Map<Eigen::Matrix<double, 6, 3, Eigen::RowMajor>> dr_dp2(
+        //       jacobians[3]);
+        //     dr_dp2.block<3, 3>(0, 0) = Hpose2.block<3, 3>(0, 4);
+        //     dr_dp2.block<3, 3>(3, 0) = Hpose2.block<3, 3>(4, 4);
+        //     dr_dp2.applyOnTheLeft(sqrt_information_);
+        // }
     }
 
     return true;

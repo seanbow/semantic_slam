@@ -21,6 +21,8 @@ class Pose3
     Pose3(Pose3&& other);
     Pose3& operator=(Pose3&& other);
 
+    Pose3(const Eigen::VectorXd& data_vec);
+
     static Pose3 Identity();
 
     const Eigen::Map<Eigen::Quaterniond>& rotation() const { return q_; }
@@ -132,6 +134,13 @@ Pose3::operator=(Pose3&& other)
 {
     q_ = other.rotation();
     p_ = other.translation();
+}
+
+Pose3::Pose3(const Eigen::VectorXd& data_vec)
+  : q_(data_vector_.data())
+  , p_(data_vector_.data() + 4)
+{
+    data_vector_ = data_vec;
 }
 
 Pose3

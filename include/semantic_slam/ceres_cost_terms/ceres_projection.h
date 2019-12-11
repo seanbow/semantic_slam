@@ -16,8 +16,7 @@ class ProjectionCostTerm
                        boost::shared_ptr<CameraCalibration> camera_calibration);
 
     template<typename T>
-    bool operator()(const T* const map_q_body_ptr,
-                    const T* const map_p_body_ptr,
+    bool operator()(const T* const map_x_body_ptr,
                     const T* const map_pt_ptr,
                     T* residual_ptr) const;
 
@@ -59,13 +58,12 @@ ProjectionCostTerm::ProjectionCostTerm(
 
 template<typename T>
 bool
-ProjectionCostTerm::operator()(const T* const map_q_body_ptr,
-                               const T* const map_p_body_ptr,
+ProjectionCostTerm::operator()(const T* const map_x_body_ptr,
                                const T* const map_pt_ptr,
                                T* residual_ptr) const
 {
-    Eigen::Map<const Eigen::Quaternion<T>> map_q_body(map_q_body_ptr);
-    Eigen::Map<const Eigen::Matrix<T, 3, 1>> map_p_body(map_p_body_ptr);
+    Eigen::Map<const Eigen::Quaternion<T>> map_q_body(map_x_body_ptr);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> map_p_body(map_x_body_ptr + 4);
     Eigen::Map<const Eigen::Matrix<T, 3, 1>> map_pt(map_pt_ptr);
 
     // Transform point to camera coordinates
@@ -116,7 +114,7 @@ ProjectionCostTerm::Create(
   const Eigen::Vector3d& body_p_camera,
   boost::shared_ptr<CameraCalibration> camera_calibration)
 {
-    return new ceres::AutoDiffCostFunction<ProjectionCostTerm, 2, 4, 3, 3>(
+    return new ceres::AutoDiffCostFunction<ProjectionCostTerm, 2, 7, 3>(
       new ProjectionCostTerm(measured,
                              msmt_covariance,
                              body_q_camera,

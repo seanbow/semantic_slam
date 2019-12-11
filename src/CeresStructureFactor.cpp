@@ -72,8 +72,7 @@ CeresStructureFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
     // Accumulate the parameter blocks...
     std::vector<double*> blocks;
-    blocks.push_back(object_node()->pose().rotation_data());
-    blocks.push_back(object_node()->pose().translation_data());
+    blocks.push_back(object_node()->pose().data());
 
     for (size_t i = 0; i < m_; ++i) {
         blocks.push_back(landmark_node(i)->vector().data());

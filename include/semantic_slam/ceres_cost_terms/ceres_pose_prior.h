@@ -14,7 +14,7 @@ class PosePriorCostTerm
                       const Eigen::MatrixXd& prior_covariance);
 
     template<typename T>
-    bool operator()(const T* const q, const T* const p, T* residual_ptr) const;
+    bool operator()(const T* const data, T* residual_ptr) const;
 
     static ceres::CostFunction* Create(const Pose3& prior_pose,
                                        const Eigen::MatrixXd& prior_covariance);
@@ -38,19 +38,16 @@ PosePriorCostTerm::PosePriorCostTerm(const Pose3& prior_pose,
     sqrtC.triangularView<Eigen::Lower>().solveInPlace(sqrt_information_);
 
     // q_prior_inverse_ = math::quat_inv(prior_pose.rotation());
-    q_prior_inverse_ =
-      Eigen::Quaterniond(prior_pose.rotation_data()).conjugate();
+    q_prior_inverse_ = prior_pose.rotation().conjugate();
     p_prior_ = prior_pose.translation();
 }
 
 template<typename T>
 bool
-PosePriorCostTerm::operator()(const T* const q_ptr,
-                              const T* const p_ptr,
-                              T* residual_ptr) const
+PosePriorCostTerm::operator()(const T* const data_ptr, T* residual_ptr) const
 {
-    Eigen::Map<const Eigen::Quaternion<T>> q(q_ptr);
-    Eigen::Map<const Eigen::Matrix<T, 3, 1>> p(p_ptr);
+    Eigen::Map<const Eigen::Quaternion<T>> q(data_ptr);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> p(data_ptr + 4);
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residual(residual_ptr);
 
@@ -71,6 +68,6 @@ ceres::CostFunction*
 PosePriorCostTerm::Create(const Pose3& prior_pose,
                           const Eigen::MatrixXd& prior_covariance)
 {
-    return new ceres::AutoDiffCostFunction<PosePriorCostTerm, 6, 4, 3>(
+    return new ceres::AutoDiffCostFunction<PosePriorCostTerm, 6, 7>(
       new PosePriorCostTerm(prior_pose, prior_covariance));
 }

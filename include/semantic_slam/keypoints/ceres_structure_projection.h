@@ -21,95 +21,81 @@ using geometry::ObjectModelBasis;
 
 class StructureProjectionCostTerm
 {
-private:
-  typedef StructureProjectionCostTerm This;
+  private:
+    typedef StructureProjectionCostTerm This;
 
-public:
-  typedef boost::shared_ptr<This> shared_ptr;
-  typedef shared_ptr Ptr;
+  public:
+    typedef boost::shared_ptr<This> shared_ptr;
+    typedef shared_ptr Ptr;
 
-  StructureProjectionCostTerm(Eigen::MatrixXd normalized_measurements,
-                              ObjectModelBasis model, 
-                              const Eigen::VectorXd& weights,
-                              double lambda = 1.0);
+    StructureProjectionCostTerm(Eigen::MatrixXd normalized_measurements,
+                                ObjectModelBasis model,
+                                const Eigen::VectorXd& weights,
+                                double lambda = 1.0);
 
-  static ceres::CostFunction* Create(Eigen::MatrixXd normalized_measurements,
-                                     ObjectModelBasis model,
-                                     const Eigen::VectorXd& weights, double
-                                     lambda = 1.0);
+    static ceres::CostFunction* Create(Eigen::MatrixXd normalized_measurements,
+                                       ObjectModelBasis model,
+                                       const Eigen::VectorXd& weights,
+                                       double lambda = 1.0);
 
-  void setWeights(const Eigen::VectorXd& weights)
-  {
-    weights_ = weights;
-  }
+    void setWeights(const Eigen::VectorXd& weights) { weights_ = weights; }
 
-  template <typename T>
-  bool unwhitenedError(T const* const* parameters, T* residuals_ptr) const;
+    template<typename T>
+    bool unwhitenedError(T const* const* parameters, T* residuals_ptr) const;
 
-  // computes residuals
-  template <typename T>
-  bool operator()(T const* const* parameters, T* residuals_ptr) const;
+    // computes residuals
+    template<typename T>
+    bool operator()(T const* const* parameters, T* residuals_ptr) const;
 
-  // number of residuals
-  size_t dim() const
-  {
-    return 3 * m_ + k_;
-  }
+    // number of residuals
+    size_t dim() const { return 3 * m_ + k_; }
 
-  size_t m()
-  {
-    return m_;
-  }
+    size_t m() { return m_; }
 
-  size_t k()
-  {
-    return k_;
-  }
+    size_t k() { return k_; }
 
-private:
-  Eigen::MatrixXd measurements_;
-  ObjectModelBasis model_;
+  private:
+    Eigen::MatrixXd measurements_;
+    ObjectModelBasis model_;
 
-  double lambda_;  // regularization factor
+    double lambda_; // regularization factor
 
-  size_t m_, k_;
+    size_t m_, k_;
 
-  // gtsam::noiseModel::Base::shared_ptr noise_model_;
+    // gtsam::noiseModel::Base::shared_ptr noise_model_;
 
-  Eigen::VectorXd weights_;
+    Eigen::VectorXd weights_;
 
-  template <typename T>
-  Eigen::Matrix<T, 3, Eigen::Dynamic> structure(T const* const* parameters)
-const;
+    template<typename T>
+    Eigen::Matrix<T, 3, Eigen::Dynamic> structure(
+      T const* const* parameters) const;
 
-  template <typename T>
-  bool whitenError(T* residuals) const;
+    template<typename T>
+    bool whitenError(T* residuals) const;
 
-public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-ceres::CostFunction* StructureProjectionCostTerm::Create(Eigen::MatrixXd normalized_measurements, 
-                                                         ObjectModelBasis model,
-                                                         const Eigen::VectorXd& weights,
-                                                         double lambda)
+ceres::CostFunction*
+StructureProjectionCostTerm::Create(Eigen::MatrixXd normalized_measurements,
+                                    ObjectModelBasis model,
+                                    const Eigen::VectorXd& weights,
+                                    double lambda)
 {
-    StructureProjectionCostTerm* cost_term = new StructureProjectionCostTerm(normalized_measurements, 
-                                                                             model, 
-                                                                             weights,
-                                                                             lambda);
+    StructureProjectionCostTerm* cost_term = new StructureProjectionCostTerm(
+      normalized_measurements, model, weights, lambda);
 
-    auto cost_function =new ceres::DynamicAutoDiffCostFunction<StructureProjectionCostTerm,4>(cost_term);
+    auto cost_function =
+      new ceres::DynamicAutoDiffCostFunction<StructureProjectionCostTerm, 4>(
+        cost_term);
 
-    cost_function->AddParameterBlock(4); // object orientation
-    cost_function->AddParameterBlock(3); // object position
+    cost_function->AddParameterBlock(7); // object pose
     // cost_function->AddParameterBlock(cost_term->m()); // landmark Z values
-    for (int i = 0; i < cost_term->m(); ++i)
-    {
+    for (int i = 0; i < cost_term->m(); ++i) {
         cost_function->AddParameterBlock(1); // landmark Z
     }
-    if (cost_term->k() > 0)
-    {
+    if (cost_term->k() > 0) {
         cost_function->AddParameterBlock(cost_term->k()); // basis coefficients
     }
 
@@ -118,11 +104,14 @@ ceres::CostFunction* StructureProjectionCostTerm::Create(Eigen::MatrixXd normali
     return cost_function;
 }
 
-StructureProjectionCostTerm::StructureProjectionCostTerm(Eigen::MatrixXd normalized_measurements, 
-                                                         ObjectModelBasis model, 
-                                                         const Eigen::VectorXd& weights, 
-                                                         double lambda)
-    : measurements_(normalized_measurements), model_(model), lambda_(lambda)
+StructureProjectionCostTerm::StructureProjectionCostTerm(
+  Eigen::MatrixXd normalized_measurements,
+  ObjectModelBasis model,
+  const Eigen::VectorXd& weights,
+  double lambda)
+  : measurements_(normalized_measurements)
+  , model_(model)
+  , lambda_(lambda)
 {
     m_ = model_.mu.cols();
     k_ = model_.pc.rows() / 3;
@@ -130,19 +119,21 @@ StructureProjectionCostTerm::StructureProjectionCostTerm(Eigen::MatrixXd normali
     setWeights(weights);
 }
 
-template <typename T>
-Eigen::Matrix<T, 3, Eigen::Dynamic> StructureProjectionCostTerm::structure(T const* const* parameters) const
+template<typename T>
+Eigen::Matrix<T, 3, Eigen::Dynamic>
+StructureProjectionCostTerm::structure(T const* const* parameters) const
 {
-    Eigen::Matrix<T, 3, Eigen::Dynamic> S = Eigen::Matrix<T, 3, Eigen::Dynamic>::Zero(3, m_);
+    Eigen::Matrix<T, 3, Eigen::Dynamic> S =
+      Eigen::Matrix<T, 3, Eigen::Dynamic>::Zero(3, m_);
 
     S += model_.mu;
 
-    if (k_ == 0) return S;
+    if (k_ == 0)
+        return S;
 
-    Eigen::Map<const Eigen::Matrix<T, -1, 1>> c(parameters[2 + m_], k_);
+    Eigen::Map<const Eigen::Matrix<T, -1, 1>> c(parameters[1 + m_], k_);
 
-    for (size_t i = 0; i < k_; ++i)
-    {
+    for (size_t i = 0; i < k_; ++i) {
         S += c[i] * model_.pc.block(3 * i, 0, 3, m_);
     }
 
@@ -153,53 +144,60 @@ Eigen::Matrix<T, 3, Eigen::Dynamic> StructureProjectionCostTerm::structure(T con
 // using std::cout; using std::endl;
 
 // Compute residual vector [P - R*S - t] and jacobians
-template <typename T>
-bool StructureProjectionCostTerm::unwhitenedError(T const* const* parameters, T* residuals_ptr) const
+template<typename T>
+bool
+StructureProjectionCostTerm::unwhitenedError(T const* const* parameters,
+                                             T* residuals_ptr) const
 {
     Eigen::Map<const Eigen::Quaternion<T>> q(parameters[0]);
-    Eigen::Map<const Eigen::Matrix<T, 3, 1>> t(parameters[1]);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> t(parameters[0] + 4);
 
     Eigen::Map<Eigen::Matrix<T, -1, 1>> residuals(residuals_ptr, dim());
 
     Eigen::Matrix<T, 3, Eigen::Dynamic> S = structure(parameters);
 
-    for (size_t i = 0; i < m_; ++i)
-    {
-        T const * Z = parameters[2+i];
+    for (size_t i = 0; i < m_; ++i) {
+        T const* Z = parameters[1 + i];
         Eigen::Matrix<T, 3, 1> p = measurements_.col(i) * Z[0];
 
         residuals.template segment<3>(3 * i) = p - q * S.col(i) - t;
-        // cout << "Index " << i << ", key " << gtsam::DefaultKeyFormatter(landmark_keys_[i]) <<
-        //     ", p = " << p.transpose() << ", err = " << (p - R*S.col(i) -t).transpose() << endl;
+        // cout << "Index " << i << ", key " <<
+        // gtsam::DefaultKeyFormatter(landmark_keys_[i]) <<
+        //     ", p = " << p.transpose() << ", err = " << (p - R*S.col(i)
+        //     -t).transpose() << endl;
     }
 
     if (k_ > 0) {
-        Eigen::Map<const Eigen::Matrix<T, -1, 1>> c(parameters[2 + m_], k_);
+        Eigen::Map<const Eigen::Matrix<T, -1, 1>> c(parameters[1 + m_], k_);
         residuals.template tail(k_) = c;
     }
 
     return true;
 }
 
-template <typename T>
-bool StructureProjectionCostTerm::whitenError(T* residuals_ptr) const
+template<typename T>
+bool
+StructureProjectionCostTerm::whitenError(T* residuals_ptr) const
 {
     Eigen::Map<Eigen::Matrix<T, -1, 1>> residuals(residuals_ptr, dim());
 
-    for (size_t i = 0; i < m_; ++i)
-    {
-        residuals.template segment<3>(3 * i) = residuals.template segment<3>(3 * i) * std::sqrt(weights_(i));
+    for (size_t i = 0; i < m_; ++i) {
+        residuals.template segment<3>(3 * i) =
+          residuals.template segment<3>(3 * i) * std::sqrt(weights_(i));
     }
 
     if (k_ > 0) {
-        residuals.template tail(k_) = residuals.template tail(k_) * std::sqrt(lambda_);
+        residuals.template tail(k_) =
+          residuals.template tail(k_) * std::sqrt(lambda_);
     }
 
     return true;
 }
 
-template <typename T>
-bool StructureProjectionCostTerm::operator()(T const* const* parameters, T* residuals) const
+template<typename T>
+bool
+StructureProjectionCostTerm::operator()(T const* const* parameters,
+                                        T* residuals) const
 {
     // parameters p:
     // p[0] = object orientation (quaternion)
@@ -210,7 +208,6 @@ bool StructureProjectionCostTerm::operator()(T const* const* parameters, T* resi
     whitenError(residuals);
     return true;
 }
-
 
 /** ANALYTIC DERIV VERSION **/
 

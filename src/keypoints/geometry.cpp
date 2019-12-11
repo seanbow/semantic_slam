@@ -10,6 +10,7 @@
 
 #include <ceres/ceres.h>
 
+#include "semantic_slam/ceres_quaternion_parameterization.h"
 #include "semantic_slam/keypoints/ceres_structure_projection.h"
 
 // #include <gtsam/geometry/Point3.h>
@@ -174,16 +175,15 @@ optimizeStructureFromProjection(const Eigen::MatrixXd& normalized_coords,
     Pose3 pose;
 
     // initialize in front of the camera...
-    pose.translation()(2) = 2;
+    pose.translation()(2) = 5;
 
     std::vector<double*> params;
 
-    problem.AddParameterBlock(
-      pose.rotation_data(), 4, new ceres::EigenQuaternionParameterization);
-    params.push_back(pose.rotation_data());
+    ceres::LocalParameterization* local_param = new SE3LocalParameterization;
 
-    problem.AddParameterBlock(pose.translation_data(), 3);
-    params.push_back(pose.translation_data());
+    problem.AddParameterBlock(pose.data(), 7, local_param);
+    problem.SetParameterization(pose.data(), local_param);
+    params.push_back(pose.data());
 
     // depths
     for (int i = 0; i < m; ++i) {
@@ -211,13 +211,11 @@ optimizeStructureFromProjection(const Eigen::MatrixXd& normalized_coords,
     Pose3 prior(Eigen::Quaterniond(cd_result.R), cd_result.t);
 
     Eigen::Matrix<double, 6, 1> prior_noise;
-    prior_noise << 10, 10, 10, 1, 1,
-      1; // ordering is q,p so there's basically no prior on q here
+    prior_noise << 10, 10, 10, 1, 1, 1; // ordering is q,p
 
     ceres::CostFunction* pose_prior =
       PosePriorCostTerm::Create(prior, prior_noise.asDiagonal());
-    problem.AddResidualBlock(
-      pose_prior, NULL, pose.rotation_data(), pose.translation_data());
+    problem.AddResidualBlock(pose_prior, NULL, pose.data());
 
     ceres::Solver::Options options;
     ceres::Solver::Summary summary;
@@ -255,6 +253,7 @@ optimizeStructureFromProjection(const Eigen::MatrixXd& normalized_coords,
             }
         } else {
             // covariance computation failed!!
+            // ROS_WARN_STREAM("Projection covariance failed");
         }
     }
 

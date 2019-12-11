@@ -18,7 +18,10 @@ class CeresSE3PriorFactor : public CeresFactor
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
-    SE3NodePtr node() const { return boost::static_pointer_cast<SE3Node>(nodes_[0]); }
+    SE3NodePtr node() const
+    {
+        return boost::static_pointer_cast<SE3Node>(nodes_[0]);
+    }
 
     // Returns a new factor that is identical to this one except in which node
     // it operates on
@@ -68,10 +71,7 @@ CeresSE3PriorFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     // assume the node has already been added to the problem!!
     // TODO do this more intelligently
     ceres::ResidualBlockId residual_id =
-      problem->AddResidualBlock(cf_,
-                                NULL,
-                                node()->pose().rotation_data(),
-                                node()->pose().translation_data());
+      problem->AddResidualBlock(cf_, NULL, node()->pose().data());
     residual_ids_[problem.get()] = residual_id;
 
     active_ = true;

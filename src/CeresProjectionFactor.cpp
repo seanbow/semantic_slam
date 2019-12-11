@@ -63,12 +63,8 @@ CeresProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 
     active_ = true;
 
-    ceres::ResidualBlockId residual_id =
-      problem->AddResidualBlock(cf_,
-                                lf,
-                                camera_node()->pose().rotation_data(),
-                                camera_node()->pose().translation_data(),
-                                landmark_node()->vector().data());
+    ceres::ResidualBlockId residual_id = problem->AddResidualBlock(
+      cf_, lf, camera_node()->pose().data(), landmark_node()->vector().data());
 
     residual_ids_[problem.get()] = residual_id;
 }

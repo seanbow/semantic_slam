@@ -39,6 +39,11 @@ class SE3Node : public CeresNode
 
     boost::shared_ptr<gtsam::Value> getGtsamValue() const;
 
+    static ceres::LocalParameterization* Parameterization()
+    {
+        return new SE3LocalParameterization;
+    }
+
     using Ptr = boost::shared_ptr<SE3Node>;
 
   private:
@@ -65,12 +70,7 @@ SE3Node::SE3Node(Symbol sym, boost::optional<ros::Time> time)
     // parameter_block_local_sizes_.push_back(3);
     // local_parameterizations_.push_back(nullptr);
 
-    auto local_param =
-      new ceres::ProductParameterization(new QuaternionLocalParameterization,
-                                         new ceres::IdentityTransformation(3));
-
-    addParameterBlock(pose_.rotation_data(), 4, local_param);
-    addParameterBlock(pose_.translation_data(), 3);
+    addParameterBlock(pose_.data(), 7, SE3Node::Parameterization());
 }
 
 boost::shared_ptr<CeresNode>

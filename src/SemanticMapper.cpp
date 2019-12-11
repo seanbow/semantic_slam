@@ -1620,7 +1620,7 @@ SemanticMapper::processObjectDetectionMessage(
               normalized_coords,
               model,
               weights,
-              true /* compute depth covariance */);
+              false /* compute depth covariance? */);
 
             // ROS_WARN_STREAM("Optimized structure.");
             // std::cout << "t = " << result.t.transpose() << std::endl;

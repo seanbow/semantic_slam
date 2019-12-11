@@ -219,10 +219,8 @@ SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
             internalRemoveFromProblem(problem);
     }
 
-    mutable_parameter_block_sizes()->push_back(4); // q
-    parameter_blocks_.push_back(body_pose_node->pose().rotation_data());
-    mutable_parameter_block_sizes()->push_back(3); // p
-    parameter_blocks_.push_back(body_pose_node->pose().translation_data());
+    mutable_parameter_block_sizes()->push_back(7); // q
+    parameter_blocks_.push_back(body_pose_node->pose().data());
 
     set_num_residuals(2 * nMeasurements() - 3);
 
@@ -252,10 +250,9 @@ SmartProjectionFactor::Evaluate(double const* const* parameters,
     // Collect parameters
     aligned_vector<Pose3> body_poses;
     for (int i = 0; i < nMeasurements(); ++i) {
-        Eigen::Map<const Eigen::Quaterniond> q(parameters[2 * i]);
-        Eigen::Map<const Eigen::Vector3d> p(parameters[2 * i + 1]);
+        Eigen::Map<const Eigen::VectorXd> qp(parameters[i], 7);
 
-        body_poses.push_back(Pose3(q, p));
+        body_poses.push_back(Pose3(qp));
     }
 
     Eigen::Map<Eigen::VectorXd> residuals(residuals_ptr, num_residuals());
@@ -273,16 +270,10 @@ SmartProjectionFactor::Evaluate(double const* const* parameters,
         residuals.setZero();
         if (jacobians) {
             for (int i = 0; i < nMeasurements(); ++i) {
-                if (jacobians[2 * i]) {
-                    Eigen::Map<JacobianType> Dr_dq(
-                      jacobians[2 * i], num_residuals(), 4);
-                    Dr_dq.setZero();
-                }
-
-                if (jacobians[2 * i + 1]) {
-                    Eigen::Map<JacobianType> Dr_dp(
-                      jacobians[2 * i + 1], num_residuals(), 3);
-                    Dr_dp.setZero();
+                if (jacobians[i]) {
+                    Eigen::Map<JacobianType> Dr_dx(
+                      jacobians[i], num_residuals(), 7);
+                    Dr_dx.setZero();
                 }
             }
         }
@@ -350,17 +341,23 @@ SmartProjectionFactor::Evaluate(double const* const* parameters,
     // Fill in Ceres jacobian data pointers
     if (jacobians) {
         for (int i = 0; i < nMeasurements(); ++i) {
-            if (jacobians[2 * i]) {
-                Eigen::Map<JacobianType> Dr_dq(
-                  jacobians[2 * i], num_residuals(), 4);
-                Dr_dq = Hpose.block(0, 7 * i, num_residuals(), 4);
-            }
+            if (jacobians[i]) {
+                Eigen::Map<JacobianType> Dr_dx(
+                  jacobians[i], num_residuals(), 7);
 
-            if (jacobians[2 * i + 1]) {
-                Eigen::Map<JacobianType> Dr_dp(
-                  jacobians[2 * i + 1], num_residuals(), 3);
-                Dr_dp = Hpose.block(0, 7 * i + 4, num_residuals(), 3);
+                Dr_dx = Hpose.block(0, 7 * i, num_residuals(), 7);
             }
+            // if (jacobians[2 * i]) {
+            //     Eigen::Map<JacobianType> Dr_dq(
+            //       jacobians[2 * i], num_residuals(), 4);
+            //     Dr_dq = Hpose.block(0, 7 * i, num_residuals(), 4);
+            // }
+
+            // if (jacobians[2 * i + 1]) {
+            //     Eigen::Map<JacobianType> Dr_dp(
+            //       jacobians[2 * i + 1], num_residuals(), 3);
+            //     Dr_dp = Hpose.block(0, 7 * i + 4, num_residuals(), 3);
+            // }
         }
     }
 
