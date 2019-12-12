@@ -133,6 +133,8 @@ class FeatureTracker
 
     void trackFeaturesForward(int idx1);
 
+    void setTrackingFramerate(double frame_rate);
+
   private:
     // void trackFeatures(const std::vector<cv::KeyPoint>& new_kps, const
     // cv::Mat& new_descriptors, boost::optional<Eigen::Matrix3d>
@@ -163,6 +165,9 @@ class FeatureTracker
     Eigen::Vector3d gyro_bias_;
     bool received_bias_;
 
+    double tracking_framerate_;
+    double image_period_;
+
     std::deque<Frame> image_buffer_;
     int last_keyframe_seq_;
 
@@ -174,7 +179,7 @@ class FeatureTracker
     std::mutex buffer_mutex_;
 
     Eigen::Vector3d previous_omega_; //< should be always equal to omega at time
-                                     //t = last_integrated_imu_time_;
+                                     // t = last_integrated_imu_time_;
 
     std::deque<sensor_msgs::ImageConstPtr> img_queue_;
     int64_t last_img_seq_;

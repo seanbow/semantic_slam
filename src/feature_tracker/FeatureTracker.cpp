@@ -26,6 +26,7 @@ FeatureTracker::FeatureTracker(const Params& params)
   , n_keyframes_(0)
   , n_features_extracted_(0)
   , received_bias_(false)
+  , image_period_(0)
   , last_keyframe_seq_(-1)
   , last_img_seq_(-1)
   , last_keyframe_time_(0)
@@ -44,6 +45,13 @@ FeatureTracker::FeatureTracker(const Params& params)
     pub_marked_images_ = it.advertise("marked_image", 1);
 
     // keyframe_dR_ = Eigen::Matrix3d::Identity();
+}
+
+void
+FeatureTracker::setTrackingFramerate(double rate)
+{
+    tracking_framerate_ = rate;
+    image_period_ = 1.0 / rate;
 }
 
 void
@@ -103,8 +111,34 @@ FeatureTracker::addKeyframeTime(
     addNewKeyframeFeatures(image_buffer_[last_kf_index]);
 
     // And track them forward
-    for (int i = last_kf_index; i < this_kf_index; ++i) {
+    int i = last_kf_index;
+    while (i < this_kf_index) {
+        // for (int i = last_kf_index; i < this_kf_index; ++i) {
+        // Drop images to satisfy our desired framerate
+        // TODO do this better
+        bool next_image_far_enough = false;
+
+        while (!next_image_far_enough) {
+            // make sure we don't drop the next keyframe
+            if (i + 1 < this_kf_index) {
+                ros::Time this_time = image_buffer_[i].image->header.stamp;
+                ros::Time next_time = image_buffer_[i + 1].image->header.stamp;
+
+                if (next_time - this_time < ros::Duration(image_period_)) {
+                    image_buffer_.erase(image_buffer_.begin() + i + 1);
+                    this_kf_index--;
+                } else {
+                    next_image_far_enough = true;
+                }
+            } else {
+                next_image_far_enough = true;
+                break;
+            }
+        }
+
         trackFeaturesForward(i);
+
+        i++;
     }
 
     tracks = image_buffer_[this_kf_index].feature_tracks;

@@ -353,10 +353,13 @@ GeometricFeatureHandler::loadParameters()
         return;
     }
 
+    double tracking_framerate;
+
     if (!pnh_.getParam("reprojection_error_threshold",
                        reprojection_error_threshold_) ||
         !pnh_.getParam("use_smart_projection_factors",
                        use_smart_projection_factors_) ||
+        !pnh_.getParam("tracking_framerate", tracking_framerate) ||
         !pnh_.getParam("cam_sigma", cam_sigma_)) {
         ROS_ERROR("Error: unable to get geometric feature handler parameters.");
         return;
@@ -364,6 +367,7 @@ GeometricFeatureHandler::loadParameters()
 
     tracker_ = util::allocate_aligned<FeatureTracker>(tracker_params_);
 
+    tracker_->setTrackingFramerate(tracking_framerate);
     tracker_->setCameraCalibration(fx, fy, s, u0, v0, k1, k2, p1, p2);
 
     calibration_ =
