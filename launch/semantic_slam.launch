@@ -63,6 +63,7 @@
 
     <include file="$(find darknet_ros)/launch/darknet_ros.launch">
         <arg name="image" value="$(arg raw_cam_topic)" />
+        <arg name="image_queue_size" value="1" />
         <arg name="ros_param_file"  value="$(find darknet_ros)/config/zed.yaml"/>
 
         <arg name="network_param_file" value="$(find darknet_ros)/config/yolov3-voc-indoor.yaml" />
