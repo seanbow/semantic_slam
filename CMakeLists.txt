@@ -27,7 +27,7 @@ find_package(catkin REQUIRED
 
 find_package(GTSAM REQUIRED)
 
-find_package(MKL REQUIRED)
+find_package(MKL)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
@@ -69,8 +69,12 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
     ${GTSAM_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
-    ${MKL_INCLUDE_DIR}
+    ${EIGEN3_INCLUDE_DIR}
 )
+
+if (MKL_FOUND)
+  include_directories(${MKL_INCLUDE_DIR})
+endif()
 
 ## Declare a C++ library
 add_library(FactorGraph

@@ -1979,7 +1979,7 @@ SemanticMapper::computePlxExact(Key obj_key, Key x_key)
     // Actually we should ignore x_key and get the latest keyframe in the graph
     x_key = getLastKeyframeInGraph()->key();
 
-    std::vector<Key> keys;
+    gtsam::KeyVector keys;
     for (int i = 0; i < obj->keypoints().size(); ++i) {
         keys.push_back(obj->keypoints()[i]->key());
     }
