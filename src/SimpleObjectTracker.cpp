@@ -29,14 +29,14 @@ SimpleObjectTracker::SimpleObjectTracker()
 
     image_sub_ =
       boost::make_shared<message_filters::Subscriber<sensor_msgs::Image>>(
-        nh_, image_topic, 10);
+        nh_, image_topic, 500);
     det_sub_ = boost::make_shared<
       message_filters::Subscriber<darknet_ros_msgs::BoundingBoxes>>(
-      nh_, det_topic, 10);
+      nh_, det_topic, 500);
     sync_ = boost::make_shared<
       message_filters::TimeSynchronizer<sensor_msgs::Image,
                                         darknet_ros_msgs::BoundingBoxes>>(
-      *image_sub_, *det_sub_, 10);
+      *image_sub_, *det_sub_, 500);
     sync_->registerCallback(
       boost::bind(&SimpleObjectTracker::detectionCallback, this, _1, _2));
 }
