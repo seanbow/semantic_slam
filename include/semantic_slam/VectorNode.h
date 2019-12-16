@@ -57,7 +57,7 @@ VectorNode<Dim>::getGtsamValue() const
     // return util::allocate_aligned<gtsam::Value>(vector_);
 }
 
-template <int Dim>
+template<int Dim>
 boost::shared_ptr<CeresNode>
 VectorNode<Dim>::clone() const
 {
@@ -101,7 +101,8 @@ VectorNode<Dim>::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     // since we don't need to set a local parameterization, just do nothing
     // here... will automatically be added if we're included in a factor and
     // this way we don't have to worry about adding a vector with NaNs or
-    // something problem->AddParameterBlock(vector_.data(), vector_.size());
+    // something
+    problem->AddParameterBlock(vector_.data(), vector_.size());
     active_problems_.push_back(problem.get());
     active_ = true;
 }

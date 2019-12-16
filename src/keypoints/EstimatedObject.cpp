@@ -566,6 +566,22 @@ EstimatedObject::commitGtsamSolution(const gtsam::Values& values)
 }
 
 void
+EstimatedObject::applyTransformation(const Pose3& old_T_new)
+{
+    // pose_ is really G_T_O, {G} global frame, {O} object frame
+    // "old_T_new" represents a transformation of the map, so:
+
+    Pose3 new_pose = pose_ * old_T_new;
+
+    for (auto& kp : keypoints_)
+        // kp->position() += pose_.rotation() * old_T_new.translation();
+        kp->position() =
+          new_pose.transform_from(pose_.transform_to(kp->position()));
+
+    pose_ = new_pose;
+}
+
+void
 EstimatedObject::prepareGraphNode()
 {
     graph_pose_node_->pose() = pose_;

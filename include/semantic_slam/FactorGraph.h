@@ -30,6 +30,8 @@ class FactorGraph
 
     void removeFactor(CeresFactorPtr factor);
 
+    bool containsNode(CeresNodePtr node);
+    bool containsNode(Key key);
     bool containsFactor(CeresFactorPtr factor);
 
     bool solve(bool verbose = false,
@@ -101,6 +103,8 @@ class FactorGraph
     boost::shared_ptr<ceres::Covariance> covariance_;
 
     mutable std::mutex mutex_;
+
+    void addFactorInternal(CeresFactorPtr factor);
 };
 
 template<typename NodeType>

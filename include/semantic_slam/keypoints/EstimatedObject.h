@@ -68,6 +68,8 @@ class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
 
     void commitGtsamSolution(const gtsam::Values& values);
 
+    void applyTransformation(const Pose3& old_T_new);
+
     // void setPose(const Pose3 &pose)
     // {
     //   // pose_ = pose;
@@ -160,7 +162,8 @@ class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
 
     // void addKeypointToGraph(EstimatedKeypoint::Ptr& kp,
     // 						std::vector<FactorInfoPtr>&
-    // new_factors, 						gtsam::Values& values);
+    // new_factors, 						gtsam::Values&
+    // values);
 
     // void sanityCheck(NodeInfoConstPtr node_info);
 

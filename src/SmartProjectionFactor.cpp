@@ -156,6 +156,17 @@ void
 SmartProjectionFactor::internalAddToProblem(
   boost::shared_ptr<ceres::Problem> problem)
 {
+    // Set up parameter block sizes and pointers
+    mutable_parameter_block_sizes()->clear();
+    parameter_blocks_.clear();
+
+    for (int i = 0; i < nodes_.size(); ++i) {
+        mutable_parameter_block_sizes()->push_back(7);
+        parameter_blocks_.push_back(camera_node(i)->pose().data());
+    }
+
+    set_num_residuals(2 * nMeasurements() - 3);
+
     ceres::ResidualBlockId residual_id =
       problem->AddResidualBlock(this, NULL, parameter_blocks_);
     residual_ids_[problem.get()] = residual_id;
@@ -213,24 +224,21 @@ SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
       sqrt_informations_.back());
 
     // Ceres can't handle block sizes changing if we've already been added to
-    // the Problem. So we need to remove and re-add ourself
+    // the Problem. So we need to remove and re-add ourself.
+    // Updating block sizes in the necessary ceres::CostFunction-inherited
+    // values is done in internalAddToProblem.
     if (in_graph_) {
         for (auto& problem : problems_)
             internalRemoveFromProblem(problem);
     }
 
-    mutable_parameter_block_sizes()->push_back(7); // q
-    parameter_blocks_.push_back(body_pose_node->pose().data());
+    // aligned_vector<Pose3> body_poses;
+    // for (int i = 0; i < msmts_.size(); ++i) {
+    //     if (camera_node(i))
+    //         body_poses.push_back(camera_node(i)->pose());
+    // }
 
-    set_num_residuals(2 * nMeasurements() - 3);
-
-    aligned_vector<Pose3> body_poses;
-    for (int i = 0; i < msmts_.size(); ++i) {
-        if (camera_node(i))
-            body_poses.push_back(camera_node(i)->pose());
-    }
-
-    triangulate(body_poses);
+    // triangulate(body_poses);
 
     if (in_graph_) {
         for (auto& problem : problems_)
@@ -264,8 +272,9 @@ SmartProjectionFactor::Evaluate(double const* const* parameters,
         triangulate(body_poses);
     }
 
-    // If the triangulation was good, add the actual factor. But if it wasn't,
-    // zero out the residuals and jacobian.
+    // If the triangulation was good, compute & use the actual costs and
+    // Jacobians. If it wasn't, zero out the residuals and jacobian, which is
+    // equivalent to not including this factor in the estimation
     if (!triangulation_good_) {
         residuals.setZero();
         if (jacobians) {

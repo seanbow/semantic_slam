@@ -26,7 +26,10 @@ class CeresFactor
 
     bool active() const { return active_; }
 
-    void setNodes(std::vector<CeresNodePtr> new_nodes) { nodes_ = new_nodes; }
+    virtual void setNodes(std::vector<CeresNodePtr> new_nodes)
+    {
+        nodes_ = new_nodes;
+    }
 
     std::vector<Key> keys() const;
 

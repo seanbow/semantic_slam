@@ -114,7 +114,7 @@
 
     <!-- 2019-10-23-11-41-52.bag or 2019-10-23-13-16-11.bag -->
     <node pkg="rosbag" type="play" name="rosbag_player" output="log" 
-            args="--clock /mnt/data/turtlebot/2019-10-23-13-16-11.bag
+            args="--clock /mnt/data/turtlebot/2019-10-23-11-41-52.bag
                   --delay 5
                   --queue 10000" />
 

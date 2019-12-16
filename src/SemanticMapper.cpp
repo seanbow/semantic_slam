@@ -2,6 +2,7 @@
 #include "semantic_slam/SemanticMapper.h"
 #include "semantic_slam/ExternalOdometryHandler.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
+#include "semantic_slam/LoopCloser.h"
 #include "semantic_slam/MLDataAssociator.h"
 #include "semantic_slam/MultiProjectionFactor.h"
 #include "semantic_slam/SE3Node.h"
@@ -46,6 +47,8 @@ SemanticMapper::setup()
 
     graph_ = util::allocate_aligned<FactorGraph>();
     essential_graph_ = util::allocate_aligned<FactorGraph>();
+
+    loop_closer_ = util::allocate_aligned<LoopCloser>(this);
 
     received_msgs_ = 0;
     measurements_processed_ = 0;
@@ -295,10 +298,14 @@ SemanticMapper::processPendingKeyframes()
         // if no objects were detected then earliest_object == INT_MAX and the
         // following will never be true
         if (next_keyframe->index() - earliest_object >
-            loop_closure_threshold_) {
+              loop_closure_threshold_ &&
+            !loop_closer_->running()) {
             ROS_WARN("LOOP CLOSURE!!");
 
             operation_mode_ = OperationMode::LOOP_CLOSING;
+
+            loop_closer_->startLoopClosing(essential_graph_,
+                                           next_keyframe->index());
 
             // quit processing keyframes until the loop closure is handled
             break;
@@ -1012,7 +1019,8 @@ SemanticMapper::commitGraphSolution()
         Pose3 old_T_new = old_pose.inverse() * new_pose;
         old_T_new.rotation().normalize();
 
-        // ROS_INFO_STREAM("Pose difference = " << old_T_new);
+        // Pose3 new_map_T_old_map = new_pose * old_pose.inverse();
+        // new_map_T_old_map.rotation().normalize();
 
         for (auto& kf : keyframes_) {
             if (kf->inGraph()) {
@@ -1022,6 +1030,8 @@ SemanticMapper::commitGraphSolution()
                 // Keyframes not yet in the graph will be later so just
                 // propagate the computed transform forward
                 kf->pose() = kf->pose() * old_T_new;
+
+                // kf->pose() = new_map_T_old_map * kf->pose();
             }
         }
 
@@ -1039,13 +1049,13 @@ SemanticMapper::commitGraphSolution()
         // GTSAM
         Pose3 new_pose = gtsam_values_.at<gtsam::Pose3>(last_in_graph->key());
 
-        Pose3 new_T_old = new_pose * old_pose.inverse();
+        Pose3 new_map_T_old_map = new_pose * old_pose.inverse();
 
         for (auto& kf : keyframes_) {
             if (kf->inGraph()) {
                 kf->pose() = gtsam_values_.at<gtsam::Pose3>(kf->key());
             } else {
-                kf->pose() = new_T_old * kf->pose();
+                kf->pose() = new_map_T_old_map * kf->pose();
             }
         }
 
@@ -2158,6 +2168,12 @@ SemanticMapper::msgCallback(
     // cv_.notify_all();
 
     last_msg_seq_ = msg->header.seq;
+}
+
+std::vector<EstimatedObject::Ptr>
+SemanticMapper::estimated_objects()
+{
+    return estimated_objects_;
 }
 
 SemanticKeyframe::Ptr

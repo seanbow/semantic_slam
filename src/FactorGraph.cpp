@@ -62,6 +62,18 @@ FactorGraph::isNodeConstant(CeresNodePtr node) const
     return problem_->IsParameterBlockConstant(node->parameter_blocks()[0]);
 }
 
+bool
+FactorGraph::containsNode(CeresNodePtr node)
+{
+    return containsNode(node->key());
+}
+
+bool
+FactorGraph::containsNode(Key key)
+{
+    return nodes_.find(key) != nodes_.end();
+}
+
 boost::shared_ptr<FactorGraph>
 FactorGraph::clone() const
 {
@@ -162,13 +174,19 @@ FactorGraph::addNode(CeresNodePtr node)
 }
 
 void
-FactorGraph::addFactor(CeresFactorPtr factor)
+FactorGraph::addFactorInternal(CeresFactorPtr factor)
 {
     if (!factor)
         return;
-    std::lock_guard<std::mutex> lock(mutex_);
     factors_.push_back(factor);
     factor->addToProblem(problem_);
+}
+
+void
+FactorGraph::addFactor(CeresFactorPtr factor)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    addFactorInternal(factor);
     modified_ = true;
 }
 
@@ -177,10 +195,7 @@ FactorGraph::addFactors(std::vector<CeresFactorPtr> factors)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     for (auto& factor : factors) {
-        if (!factor)
-            continue;
-        factors_.push_back(factor);
-        factor->addToProblem(problem_);
+        addFactorInternal(factor);
     }
     modified_ = true;
 }

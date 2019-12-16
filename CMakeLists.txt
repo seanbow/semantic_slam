@@ -158,6 +158,12 @@ target_link_libraries(ExternalOdometryHandler
 )
 cotire(ExternalOdometryHandler)
 
+add_library(LoopCloser src/LoopCloser.cpp)
+target_link_libraries(LoopCloser
+  ${CERES_LIBRARIES}
+)
+cotire(LoopCloser)
+
 add_library(MultiProjectionFactor src/MultiProjectionFactor.cpp)
 target_link_libraries(MultiProjectionFactor
   Camera
@@ -223,11 +229,6 @@ add_library(geometry src/keypoints/geometry.cpp)
 #   gtsam
 # )
 
-add_library(LoopCloser src/LoopCloser.cpp)
-target_link_libraries(LoopCloser
-  ${CERES_LIBRARIES}
-)
-
 add_library(SemanticMapper src/SemanticMapper.cpp)
 target_link_libraries(SemanticMapper
   geometry
@@ -237,6 +238,7 @@ target_link_libraries(SemanticMapper
   Utils
   GeometricFeatureHandler
   MLDataAssociator
+  LoopCloser
 #  SemanticKeyframe
   FactorGraph
   ${CERES_FACTORS}

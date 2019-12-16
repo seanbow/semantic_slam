@@ -18,13 +18,12 @@ LoopCloser::startLoopClosing(boost::shared_ptr<FactorGraph> graph,
 
     running_ = true;
     thread_ = std::thread(&LoopCloser::optimizeCurrentGraph, this);
-    thread_.detach();
 }
 
 void
 LoopCloser::optimizeCurrentGraph()
 {
-    current_graph_->solver_options().max_solver_time_in_seconds = 20;
+    current_graph_->solver_options().max_solver_time_in_seconds = 10;
     current_graph_->solver_options().linear_solver_type = ceres::CGNR;
 
     bool solved = current_graph_->solve();
@@ -39,17 +38,21 @@ LoopCloser::running()
 }
 
 bool
-LoopCloser::updateLoopInGraph(boost::shared_ptr<FactorGraph> graph)
+LoopCloser::updateLoopInMapper()
 {
-    // Take our computed solution and update all the nodes in the
-    // graph passed in here
-    if (running_)
+    // Take our computed solution and update all objects and keyframes
+    // in the SemanticMapper
+    if (running())
         return false;
+
+    thread_.join();
 
     // Based on the loop closing index passed in, compute the beginning
     // of the loop as the first keyframe that observed an object
     // also observed in that index.
+    // TODO should we just check which are unfrozen in the graph??
     SemanticKeyframe::Ptr closing_kf = mapper_->getKeyframeByIndex(loop_index_);
+    Pose3 old_map_T_kf = closing_kf->pose();
 
     int earliest_index = std::numeric_limits<int>::max();
     for (auto& obj : closing_kf->visible_objects()) {
@@ -88,6 +91,19 @@ LoopCloser::updateLoopInGraph(boost::shared_ptr<FactorGraph> graph)
     // Finally propagate the loop closure delta through to keyframes and objects
     // that have been added past the point of loop closure
     // TODO
+    Pose3 old_est_T_new_est = old_map_T_kf.inverse() * closing_kf->pose();
+
+    for (int i = loop_index_ + 1; i < mapper_->keyframes().size(); ++i) {
+        auto kf = mapper_->getKeyframeByIndex(i);
+
+        kf->pose() = kf->pose() * old_est_T_new_est;
+    }
+
+    for (auto& obj : mapper_->estimated_objects()) {
+        if (!current_graph_->containsNode(obj->key())) {
+            obj->applyTransformation(old_est_T_new_est);
+        }
+    }
 
     // Check for map merge??
 }

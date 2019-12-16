@@ -30,6 +30,7 @@ class ISAM2;
 
 class ExternalOdometryHandler;
 class GeometricFeatureHandler;
+class LoopCloser;
 
 class SemanticMapper
 {
@@ -121,6 +122,8 @@ class SemanticMapper
     EstimatedObject::Ptr getObjectByKey(Key key);
     EstimatedObject::Ptr getObjectByIndex(int index);
     EstimatedObject::Ptr getObjectByKeypointKey(Key key);
+
+    std::vector<EstimatedObject::Ptr> estimated_objects();
 
     bool solveGraph();
 
@@ -233,6 +236,8 @@ class SemanticMapper
     std::vector<boost::shared_ptr<Presenter>> presenters_;
 
     bool running_;
+
+    boost::shared_ptr<LoopCloser> loop_closer_;
 
     boost::shared_ptr<gtsam::Values> values_in_graph_;
     boost::shared_ptr<gtsam::NonlinearFactorGraph> factors_in_graph_;

@@ -106,7 +106,7 @@ init_q_sigma: [0.02, 0.02, 0.02]
 geometric_point_scale: 0.1
 object_keypoint_scale: 0.1
 show_object_labels: false
-trajectory_width: 0.25
-covisibility_width: 0.1
+trajectory_width: 0.1
+covisibility_width: 0.05
 draw_semantic_covisibility: true
 draw_geometric_covisibility: true
