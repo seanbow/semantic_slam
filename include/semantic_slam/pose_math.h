@@ -134,6 +134,8 @@ Pose3::operator=(Pose3&& other)
 {
     q_ = other.rotation();
     p_ = other.translation();
+
+    return *this;
 }
 
 Pose3::Pose3(const Eigen::VectorXd& data_vec)

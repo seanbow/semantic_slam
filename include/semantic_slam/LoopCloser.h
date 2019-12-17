@@ -29,6 +29,7 @@ class LoopCloser
 
     boost::shared_ptr<FactorGraph> current_graph_;
     int loop_index_;
+    bool solve_succeeded_;
 
     std::atomic<bool> running_;
 

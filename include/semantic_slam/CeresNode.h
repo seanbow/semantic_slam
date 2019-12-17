@@ -87,9 +87,9 @@ class CeresNode
 using CeresNodePtr = CeresNode::Ptr;
 
 CeresNode::CeresNode(Key key, boost::optional<ros::Time> time)
-  : key_(key)
+  : active_(false)
+  , key_(key)
   , time_(time)
-  , active_(false)
 {}
 
 void
@@ -111,7 +111,7 @@ CeresNode::addParameterBlock(double* values,
 void
 CeresNode::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
-    for (int i = 0; i < parameter_blocks_.size(); ++i) {
+    for (size_t i = 0; i < parameter_blocks_.size(); ++i) {
         problem->AddParameterBlock(parameter_blocks_[i],
                                    parameter_block_sizes_[i],
                                    local_parameterizations_[i]);

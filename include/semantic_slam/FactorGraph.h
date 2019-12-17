@@ -44,7 +44,12 @@ class FactorGraph
     size_t num_nodes() { return nodes_.size(); }
     size_t num_factors() { return factors_.size(); }
 
-    bool setModified() { modified_ = true; }
+    const std::unordered_map<Key, CeresNodePtr>& nodes() const
+    {
+        return nodes_;
+    }
+
+    void setModified() { modified_ = true; }
 
     bool modified() { return modified_; }
 

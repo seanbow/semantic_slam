@@ -7,6 +7,7 @@
 
 LoopCloser::LoopCloser(SemanticMapper* mapper)
   : mapper_(mapper)
+  , solve_succeded_(false)
 {}
 
 void
@@ -27,7 +28,7 @@ LoopCloser::optimizeCurrentGraph()
     current_graph_->solver_options().max_solver_time_in_seconds = 10;
     current_graph_->solver_options().linear_solver_type = ceres::CGNR;
 
-    bool solved = current_graph_->solve();
+    solve_succeeded_ = current_graph_->solve(true);
 
     running_ = false;
 }
