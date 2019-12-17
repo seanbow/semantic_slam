@@ -200,7 +200,8 @@ SemanticMapper::addObjectsAndOptimizeGraphThread()
     while (ros::ok() && running_) {
         auto new_frames = addNewOdometryToGraph();
 
-        if (new_frames.size() > 0) {
+        if (graph_->modified() &&
+            operation_mode_ != OperationMode::LOOP_CLOSING) {
 
             if (include_geometric_features_)
                 processGeometricFeatureTracks(new_frames);
@@ -223,9 +224,10 @@ SemanticMapper::addObjectsAndOptimizeGraphThread()
             // and added this loop to the graph for the first time. start the
             // actual loop closing process
             if (loop_closure_added) {
-                loop_closer_->startLoopClosing(graph_, loop_closure_index_);
+                loop_closer_->startLoopClosing(essential_graph_,
+                                               loop_closure_index_);
                 operation_mode_ = OperationMode::LOOP_CLOSING;
-            } else if (operation_mode_ != OperationMode::LOOP_CLOSING) {
+            } else {
                 if (tryOptimize()) {
                     if (needToComputeCovariances())
                         computeLatestCovariance();

@@ -199,9 +199,17 @@ MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
 
     // Ceres can't handle block sizes changing if we've already been added to
     // the Problem. So we need to remove and re-add ourself
+
+    // it's tempting to combine the following loops into one but we CANNOT.
+    // internalAddToProblem modifies the residual/parameter structure exposed to
+    // ceres.
+    // TODO fix this unexpected behavior?
     if (in_graph_) {
         for (auto& problem : problems_) {
             internalRemoveFromProblem(problem);
+        }
+
+        for (auto& problem : problems_) {
             internalAddToProblem(problem);
         }
     }
