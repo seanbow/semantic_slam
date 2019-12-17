@@ -161,7 +161,7 @@ SemanticMapper::processMessagesUpdateObjectsThread()
 {
     while (ros::ok() && running_) {
 
-        bool processed_msg = false;
+        // bool processed_msg = false;
 
         if (operation_mode_ == OperationMode::LOOP_CLOSING) {
             checkLoopClosingDone();
@@ -246,7 +246,7 @@ SemanticMapper::processPendingKeyframes()
     if (pending_keyframes_.empty())
         return;
 
-    ros::Time last_added_kf_time_ = pending_keyframes_.front()->time();
+    // ros::Time last_added_kf_time_ = pending_keyframes_.front()->time();
 
     // Use a heuristic to prevent the tracking part from getting too far
     // ahead...
@@ -593,7 +593,7 @@ SemanticMapper::computeLatestCovariance()
         // propagate this covariance forward to keyframes not yet in the
         // graph...
         std::lock_guard<std::mutex> map_lock(map_mutex_);
-        for (int i = frame->index() + 1; i < keyframes_.size(); ++i) {
+        for (size_t i = frame->index() + 1; i < keyframes_.size(); ++i) {
             keyframes_[i]->covariance() = frame->covariance();
         }
     }
@@ -672,8 +672,6 @@ SemanticMapper::computeCovariancesWithCeres(
     TIME_TIC;
 
     std::unique_lock<std::mutex> lock(graph_mutex_);
-
-    int highest_index = 0;
 
     for (auto frame : frames) {
 
@@ -848,7 +846,7 @@ SemanticMapper::computeCovariancesWithGtsamIsam(
           *incremental_graph, *incremental_values, removed_factors);
 
         // update factor indices
-        for (int i = 0; i < incremental_graph->size(); ++i) {
+        for (size_t i = 0; i < incremental_graph->size(); ++i) {
             isam_factor_indices_[incremental_graph->at(i).get()] =
               isam_result.newFactorsIndices[i];
         }
@@ -1464,6 +1462,8 @@ SemanticMapper::haveNextKeyframe()
             msg_queue_.pop_front();
         }
     }
+
+    return false;
 }
 
 SemanticKeyframe::Ptr
@@ -1789,7 +1789,7 @@ SemanticMapper::getPlx(Key key1, Key key2)
     Eigen::MatrixXd D_GL_DLl_full = Eigen::MatrixXd::Zero(H_size, H_size);
     Eigen::MatrixXd D_Gl_Dx_full = Eigen::MatrixXd::Zero(H_size, 6);
 
-    for (int i = 0; i < obj->keypoints().size(); ++i) {
+    for (size_t i = 0; i < obj->keypoints().size(); ++i) {
         Eigen::MatrixXd D_Gl_DLl; // jacobian of global point w.r.t. local point
         Eigen::MatrixXd
           D_Gl_Dx; // jacobian of global point w.r.t. local robot pose
@@ -1799,7 +1799,8 @@ SemanticMapper::getPlx(Key key1, Key key2)
         Eigen::Vector3d L_l =
           G_T_L.transform_to(obj->keypoints()[i]->position());
 
-        Eigen::Vector3d G_l = G_T_L.transform_from(L_l, D_Gl_Dx, D_Gl_DLl);
+        // Eigen::Vector3d G_l =
+        G_T_L.transform_from(L_l, D_Gl_Dx, D_Gl_DLl);
 
         // Now we have the same dumb thing where D_gl_Dq is in the ambient
         // space but our covariances are in the tangent space
@@ -2015,7 +2016,7 @@ SemanticMapper::computePlxExact(Key obj_key, Key x_key)
     x_key = getLastKeyframeInGraph()->key();
 
     gtsam::KeyVector keys;
-    for (int i = 0; i < obj->keypoints().size(); ++i) {
+    for (size_t i = 0; i < obj->keypoints().size(); ++i) {
         keys.push_back(obj->keypoints()[i]->key());
     }
     keys.push_back(x_key);
@@ -2082,7 +2083,7 @@ SemanticMapper::addMeasurementsToObjects(
 
     for (size_t k = 0; k < measurement_index.size(); ++k) {
         // count the number of observed keypoints
-        size_t n_observed_keypoints = 0;
+        int n_observed_keypoints = 0;
         for (auto& kp_msmt :
              measurements[measurement_index[k]].keypoint_measurements) {
             if (kp_msmt.observed) {

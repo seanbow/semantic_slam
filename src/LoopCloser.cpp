@@ -7,7 +7,7 @@
 
 LoopCloser::LoopCloser(SemanticMapper* mapper)
   : mapper_(mapper)
-  , solve_succeded_(false)
+  , solve_succeeded_(false)
 {}
 
 void
@@ -117,7 +117,7 @@ LoopCloser::updateLoopInMapper()
     // TODO
     Pose3 old_est_T_new_est = old_map_T_kf.inverse() * closing_kf->pose();
 
-    for (int i = loop_index_ + 1; i < mapper_->keyframes().size(); ++i) {
+    for (size_t i = loop_index_ + 1; i < mapper_->keyframes().size(); ++i) {
         auto kf = mapper_->getKeyframeByIndex(i);
 
         kf->pose() = kf->pose() * old_est_T_new_est;
@@ -134,4 +134,6 @@ LoopCloser::updateLoopInMapper()
     }
 
     // Check for map merge??
+
+    return true;
 }

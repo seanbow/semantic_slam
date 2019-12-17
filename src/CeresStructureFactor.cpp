@@ -37,7 +37,7 @@ CeresStructureFactor::createGtsamFactor() const
 {
     if (object_node() && landmark_node(0)) {
         std::vector<Key> landmark_keys;
-        for (int i = 0; i < m_; ++i) {
+        for (size_t i = 0; i < m_; ++i) {
             landmark_keys.push_back(landmark_node(i)->key());
         }
 

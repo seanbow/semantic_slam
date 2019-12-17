@@ -81,7 +81,7 @@ CameraSet::triangulateMeasurementsApproximate(
 
     // Check the quality of the triangulation by checking reprojection errors
     double max_error = 0;
-    for (int i = 0; i < pixel_msmts.size(); ++i) {
+    for (size_t i = 0; i < pixel_msmts.size(); ++i) {
         try {
             Eigen::Vector2d zhat = cameras_[i].project(result.point);
             double error = (zhat - pixel_msmts[i]).norm();
@@ -127,7 +127,7 @@ CameraSet::triangulateMeasurements(
     Eigen::Vector3d p_meas;
     p_meas(2) = 1.0;
 
-    for (int i = 0; i < pixel_msmts.size(); ++i) {
+    for (size_t i = 0; i < pixel_msmts.size(); ++i) {
         p_meas.head<2>() = cameras_[i].calibrate(pixel_msmts[i]);
 
         A.block<3, 3>(3 * i, 0) = Eigen::Matrix3d::Identity();
@@ -167,7 +167,7 @@ CameraSet::triangulateMeasurements(
 
     // Check the quality of the triangulation by checking reprojection errors
     double max_error = 0;
-    for (int i = 0; i < pixel_msmts.size(); ++i) {
+    for (size_t i = 0; i < pixel_msmts.size(); ++i) {
         try {
             Eigen::Vector2d zhat = cameras_[i].project(result.point);
             double error = (zhat - pixel_msmts[i]).norm();
@@ -191,6 +191,7 @@ CameraSet::triangulateIterative(
   const aligned_vector<Eigen::Vector2d>& pixel_msmts)
 {
     TriangulationResult result;
+    result.max_reprojection_error = 0; // suppress uninitialized warnings
 
     if (pixel_msmts.size() < 2) {
         result.status = TriangulationStatus::DEGENERATE;
@@ -216,7 +217,7 @@ CameraSet::triangulateIterative(
     point->vector() = linear_result.point;
     graph.addNode(point);
 
-    for (int i = 0; i < pixel_msmts.size(); ++i) {
+    for (size_t i = 0; i < pixel_msmts.size(); ++i) {
         auto node = util::allocate_aligned<SE3Node>(symbol_shorthand::X(i));
         node->pose() = cameras_[i].pose();
 
@@ -243,7 +244,7 @@ CameraSet::triangulateIterative(
 
     // Check the quality of the triangulation by checking reprojection errors
     double max_error = 0;
-    for (int i = 0; i < pixel_msmts.size(); ++i) {
+    for (size_t i = 0; i < pixel_msmts.size(); ++i) {
         try {
             Eigen::Vector2d zhat = cameras_[i].project(result.point);
             double error = (zhat - pixel_msmts[i]).norm();

@@ -92,7 +92,7 @@ StructureProjectionCostTerm::Create(Eigen::MatrixXd normalized_measurements,
 
     cost_function->AddParameterBlock(7); // object pose
     // cost_function->AddParameterBlock(cost_term->m()); // landmark Z values
-    for (int i = 0; i < cost_term->m(); ++i) {
+    for (size_t i = 0; i < cost_term->m(); ++i) {
         cost_function->AddParameterBlock(1); // landmark Z
     }
     if (cost_term->k() > 0) {

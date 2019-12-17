@@ -81,7 +81,7 @@ FeatureTracker::addKeyframeTime(
     // Lookup image that corresponds to this time, and also to the previous time
     int last_kf_index = -1;
     int this_kf_index = -1;
-    for (int i = 0; i < image_buffer_.size(); ++i) {
+    for (size_t i = 0; i < image_buffer_.size(); ++i) {
         if (image_buffer_[i].image->header.stamp == t) {
             this_kf_index = i;
         }
@@ -179,7 +179,7 @@ FeatureTracker::extractKeypointsDescriptors(Frame& frame)
 }
 
 void
-FeatureTracker::trackFeaturesForward(int idx1)
+FeatureTracker::trackFeaturesForward(size_t idx1)
 {
     // Make sure we have any features to track...
     if (idx1 >= image_buffer_.size() ||
@@ -209,7 +209,7 @@ FeatureTracker::trackFeaturesForward(int idx1)
                          frame1.descriptors.cols,
                          frame1.descriptors.type());
 
-    for (int i = 0; i < frame1.feature_tracks.size(); ++i) {
+    for (size_t i = 0; i < frame1.feature_tracks.size(); ++i) {
         kps1.push_back(frame1.feature_tracks[i].kp);
         frame1.feature_tracks[i].descriptor.copyTo(descriptors1.row(i));
     }
@@ -222,7 +222,7 @@ FeatureTracker::trackFeaturesForward(int idx1)
 
     std::vector<cv::Point2f> pts1, pts2;
     std::vector<int> indices1, indices2;
-    for (int i = 0; i < matches.size(); ++i) {
+    for (size_t i = 0; i < matches.size(); ++i) {
         if (matches[i].size() == 0)
             continue; // no match found for keypoint i
 
@@ -237,12 +237,13 @@ FeatureTracker::trackFeaturesForward(int idx1)
 
     // Remove outliers
     Eigen::Matrix<bool, 1, Eigen::Dynamic> inliers;
-    size_t n_inliers = five_ransac_.computeInliers(pts1, pts2, inliers);
+    // size_t n_inliers =
+    five_ransac_.computeInliers(pts1, pts2, inliers);
 
     // std::cout << "Proportion of inliers = " << n_inliers /
     // (double)indices1.size() << std::endl;
 
-    for (int i = 0; i < indices1.size(); ++i) {
+    for (size_t i = 0; i < indices1.size(); ++i) {
         if (inliers(i)) {
             TrackedFeature tf;
 
@@ -336,10 +337,10 @@ FeatureTracker::addNewKeyframeFeatures(Frame& frame)
     // " << kps.size()
     //     << ", tracked feats size = " << tracked_feats.size());
 
-    for (int i = 0; i < frame.keypoints.size(); ++i) {
+    for (size_t i = 0; i < frame.keypoints.size(); ++i) {
         // Compare against all features that have already been tracked into this
         // frame
-        for (int j = 0; j < frame.feature_tracks.size(); ++j) {
+        for (size_t j = 0; j < frame.feature_tracks.size(); ++j) {
             if (cv::norm(frame.keypoints[idx[i]].pt -
                          frame.feature_tracks[j].pt) <
                 params_.feature_spacing) {
@@ -370,7 +371,8 @@ FeatureTracker::addNewKeyframeFeatures(Frame& frame)
             frame.feature_tracks.push_back(new_feat);
         }
 
-        if (frame.feature_tracks.size() >= params_.max_features_per_im)
+        if (static_cast<int>(frame.feature_tracks.size()) >=
+            params_.max_features_per_im)
             break;
     }
 }

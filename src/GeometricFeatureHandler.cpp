@@ -117,7 +117,7 @@ GeometricFeatureHandler::updateEssentialGraph(
 
         // count how many factors already affect this keyframe
         int n_factors_already = 0;
-        for (int i = 0; i < observed_factors.size(); ++i) {
+        for (size_t i = 0; i < observed_factors.size(); ++i) {
             if (essential_graph_->containsFactor(observed_factors[i])) {
                 n_factors_already++;
             }
@@ -126,7 +126,7 @@ GeometricFeatureHandler::updateEssentialGraph(
         // add the top N factors to the graph...
         int N = 5;
         int n_added = n_factors_already;
-        for (int i = 0; i < observed_factors.size() && n_added < N; ++i) {
+        for (size_t i = 0; i < observed_factors.size() && n_added < N; ++i) {
             if (in_graph_fn(observed_factors[i]) &&
                 !essential_graph_->containsFactor(observed_factors[i])) {
                 essential_graph_->addFactor(observed_factors[i]);
@@ -223,7 +223,7 @@ GeometricFeatureHandler::processPendingFrames()
         // For each feature tracked into this frame, either create or update its
         // projection factor
 
-        for (int i = 0; i < tracks.size(); ++i) {
+        for (size_t i = 0; i < tracks.size(); ++i) {
             const auto& tf = tracks[i];
 
             auto feature_it = features_.find(tf.pt_id);
