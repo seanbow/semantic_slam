@@ -25,13 +25,13 @@ LoopCloser::startLoopClosing(boost::shared_ptr<FactorGraph> graph,
 void
 LoopCloser::optimizeCurrentGraph()
 {
-    current_graph_->solver_options().max_solver_time_in_seconds = 2;
+    current_graph_->solver_options().max_solver_time_in_seconds = 3;
 
-    // current_graph_->solver_options().minimizer_type = ceres::LINE_SEARCH;
-    // current_graph_->solver_options().max_num_iterations = 100000;
+    current_graph_->solver_options().minimizer_type = ceres::LINE_SEARCH;
+    current_graph_->solver_options().max_num_iterations = 100000;
 
-    current_graph_->solver_options().linear_solver_type = ceres::CGNR;
-    current_graph_->solver_options().max_linear_solver_iterations = 25;
+    // current_graph_->solver_options().linear_solver_type = ceres::CGNR;
+    // current_graph_->solver_options().max_linear_solver_iterations = 25;
 
     // current_graph_->solver_options().linear_solver_type =
     //   ceres::SPARSE_NORMAL_CHOLESKY;
