@@ -217,11 +217,11 @@ SemanticMapper::addObjectsAndOptimizeGraphThread()
             } else if (operation_mode_ == OperationMode::LOOP_CLOSING) {
 
                 ROS_INFO_STREAM("Optimizing essential graph...");
-                optimization_succeeded = optimizeEssential();
-                // optimization_succeeded = optimizeFully();
+                // optimization_succeeded = optimizeEssential();
+                optimization_succeeded = optimizeFully();
 
-                ROS_INFO_STREAM("Refining with full graph solve...");
-                optimization_succeeded = tryOptimize();
+                // ROS_INFO_STREAM("Refining with full graph solve...");
+                // optimization_succeeded = tryOptimize();
 
                 // computeLoopCovariances();
                 computeLatestCovariance();
@@ -304,8 +304,8 @@ SemanticMapper::processPendingKeyframes()
 
             operation_mode_ = OperationMode::LOOP_CLOSING;
 
-            loop_closer_->startLoopClosing(essential_graph_,
-                                           next_keyframe->index());
+            // loop_closer_->startLoopClosing(essential_graph_,
+            //                                next_keyframe->index());
 
             // quit processing keyframes until the loop closure is handled
             break;
@@ -1106,13 +1106,13 @@ SemanticMapper::optimizeFully()
 
     prepareGraphNodes();
 
-    // auto full_options = graph_->solver_options();
+    auto old_options = graph_->solver_options();
 
-    // full_options.max_solver_time_in_seconds = 4;
-    // full_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+    graph_->solver_options().max_solver_time_in_seconds = 10;
+    graph_->solver_options().linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
 
-    graph_->solver_options().linear_solver_type = ceres::ITERATIVE_SCHUR;
-    graph_->solver_options().minimizer_type = ceres::LINE_SEARCH;
+    // graph_->solver_options().linear_solver_type = ceres::ITERATIVE_SCHUR;
+    // graph_->solver_options().minimizer_type = ceres::LINE_SEARCH;
 
     // graph_->setSolverOptions(full_options);
 
@@ -1125,10 +1125,7 @@ SemanticMapper::optimizeFully()
     }
 
     // Set the solver back to normal
-    graph_->solver_options().max_solver_time_in_seconds =
-      max_optimization_time_;
-    graph_->solver_options().linear_solver_type = ceres::SPARSE_SCHUR;
-    // graph_->setSolverOptions(solver_options_);
+    graph_->setSolverOptions(old_options);
 
     if (solve_succeeded) {
         commitGraphSolution();

@@ -13,9 +13,7 @@ SmartProjectionFactor::SmartProjectionFactor(
   , calibration_(calibration)
   , reprojection_error_threshold_(reprojection_error_threshold)
   , in_graph_(false)
-  ,
-  //   problem_(nullptr),
-  triangulation_good_(false)
+  , triangulation_good_(false)
 {
     // Parameter block ordering:
     // camera poses (q1 p1), (q2 p2), ...
@@ -54,6 +52,8 @@ SmartProjectionFactor::clone() const
     for (int i = 0; i < msmts_.size(); ++i) {
         fac->addMeasurement(nullptr, msmts_[i], covariances_[i]);
     }
+
+    return fac;
 }
 
 size_t
@@ -228,8 +228,10 @@ SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
     // Updating block sizes in the necessary ceres::CostFunction-inherited
     // values is done in internalAddToProblem.
     if (in_graph_) {
-        for (auto& problem : problems_)
+        for (auto& problem : problems_) {
             internalRemoveFromProblem(problem);
+            internalAddToProblem(problem);
+        }
     }
 
     // aligned_vector<Pose3> body_poses;
@@ -395,11 +397,15 @@ SmartProjectionFactor::createGtsamFactor() const
     projection_params.triangulation.dynamicOutlierRejectionThreshold =
       reprojection_error_threshold_;
 
+    // our calibration == nullptr corresponds to an already calibrated
+    // camera, i.e. cx = cy = 0 and fx = fy = 1, which is what the default gtsam
+    // calibration constructor provides
+    auto gtsam_calib = calibration_
+                         ? util::allocate_aligned<gtsam::Cal3DS2>(*calibration_)
+                         : util::allocate_aligned<gtsam::Cal3DS2>();
+
     gtsam_factor_ = util::allocate_aligned<GtsamFactorType>(
-      gtsam_noise,
-      util::allocate_aligned<gtsam::Cal3DS2>(*calibration_),
-      gtsam::Pose3(I_T_C_),
-      projection_params);
+      gtsam_noise, gtsam_calib, gtsam::Pose3(I_T_C_), projection_params);
 
     for (int i = 0; i < msmts_.size(); ++i) {
         gtsam_factor_->add(msmts_[i], camera_node(i)->key());

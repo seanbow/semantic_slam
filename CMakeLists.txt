@@ -8,7 +8,7 @@ include(cotire)
 ## Compile as C++11, supported in ROS Kinetic and newer
 set(CMAKE_CXX_STANDARD 14)
 
-add_compile_options(-g3 -O3 -march=native)
+add_compile_options(-g -O3 -march=native -ffast-math -Wall)
 # add_compile_options(-g3 -O3)
 
 ## Find catkin macros and libraries
@@ -94,6 +94,9 @@ add_library(Symbol src/Symbol.cpp)
 add_library(CameraCalibration src/CameraCalibration.cpp)
 add_library(Camera src/Camera.cpp)
 add_library(CameraSet src/CameraSet.cpp)
+target_link_libraries(CameraSet
+  CeresProjectionFactor
+)
 
 ## Feature Tracker ##
 add_library(TwoPointRansac src/feature_tracker/TwoPointRansac.cpp)
@@ -399,6 +402,17 @@ target_link_libraries(testCeresBasics
 
 catkin_add_gtest(testProjectionFactors test/testProjectionFactors.cpp)
 target_link_libraries(testProjectionFactors
+    FactorGraph
+    MultiProjectionFactor
+    SmartProjectionFactor
+    CeresProjectionFactor
+    ${CERES_LIBRARIES}
+    ${BASE_LIBS}
+    gtsam
+)
+
+catkin_add_gtest(testFactorGraphClone test/testFactorGraphClone.cpp)
+target_link_libraries(testFactorGraphClone
     FactorGraph
     MultiProjectionFactor
     SmartProjectionFactor

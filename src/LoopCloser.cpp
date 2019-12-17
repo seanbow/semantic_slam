@@ -18,6 +18,7 @@ LoopCloser::startLoopClosing(boost::shared_ptr<FactorGraph> graph,
 
     running_ = true;
     thread_ = std::thread(&LoopCloser::optimizeCurrentGraph, this);
+    thread_.detach();
 }
 
 void
@@ -44,8 +45,6 @@ LoopCloser::updateLoopInMapper()
     // in the SemanticMapper
     if (running())
         return false;
-
-    thread_.join();
 
     // Based on the loop closing index passed in, compute the beginning
     // of the loop as the first keyframe that observed an object
