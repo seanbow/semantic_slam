@@ -1574,7 +1574,8 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
                 // Do this by inflating mahal distances to them
 
                 if (operation_mode_ == OperationMode::NORMAL ||
-                    estimated_objects_[object_index[j]]->last_seen() >
+                    static_cast<int>(
+                      estimated_objects_[object_index[j]]->last_seen()) >
                       frame->index() - loop_closure_threshold_) {
                     mahals(i, j) =
                       estimated_objects_[object_index[j]]
@@ -2062,6 +2063,8 @@ SemanticMapper::createNewObject(const ObjectMeasurement& measurement,
       "Initializing new object {}, weight {}.", measurement.obj_name, weight));
 
     object_track_ids_[measurement.track_id] = estimated_objects_.size() - 1;
+
+    return true;
 }
 
 bool
@@ -2137,7 +2140,8 @@ SemanticMapper::addMeasurementsToObjects(
 
                 // loop closure check
                 if (kf->index() -
-                      estimated_objects_[object_index[j]]->last_seen() >
+                      static_cast<int>(
+                        estimated_objects_[object_index[j]]->last_seen()) >
                     loop_closure_threshold_) {
                     kf->loop_closing() = true;
                 }

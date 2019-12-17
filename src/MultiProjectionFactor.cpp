@@ -34,7 +34,7 @@ MultiProjectionFactor::clone() const
     auto fac = util::allocate_aligned<MultiProjectionFactor>(
       nullptr, I_T_C_, calibration_, reprojection_error_threshold_, tag_);
 
-    for (int i = 0; i < nMeasurements(); ++i) {
+    for (size_t i = 0; i < nMeasurements(); ++i) {
         fac->addMeasurement(nullptr, msmts_[i], covariances_[i]);
     }
 
@@ -56,7 +56,7 @@ MultiProjectionFactor::triangulate(
 
     if (nMeasurements() >= 2) {
         CameraSet cameras;
-        for (int i = 0; i < msmts_.size(); ++i) {
+        for (size_t i = 0; i < msmts_.size(); ++i) {
             triangulation_poses_.push_back(body_poses[i].compose(I_T_C_));
             Camera camera(triangulation_poses_[i], calibration_);
             cameras.addCamera(camera);
@@ -88,7 +88,7 @@ MultiProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     in_graph_ = true;
 
     aligned_vector<Pose3> body_poses;
-    for (int i = 0; i < msmts_.size(); ++i) {
+    for (size_t i = 0; i < msmts_.size(); ++i) {
         body_poses.push_back(camera_node(i)->pose());
     }
 
@@ -118,7 +118,7 @@ MultiProjectionFactor::internalAddToProblem(
     parameter_blocks_.push_back(landmark()->vector().data());
 
     // camera nodes
-    for (int i = 0; i < msmts_.size(); ++i) {
+    for (size_t i = 0; i < msmts_.size(); ++i) {
         mutable_parameter_block_sizes()->push_back(7);
         parameter_blocks_.push_back(camera_node(i)->pose().data());
     }
@@ -222,7 +222,7 @@ MultiProjectionFactor::decideIfTriangulate(
 
     // Compare each camera pose
     bool equal = true;
-    for (int i = 0; i < body_poses.size(); ++i) {
+    for (size_t i = 0; i < body_poses.size(); ++i) {
         Pose3 camera_pose = body_poses[i].compose(I_T_C_);
 
         if (!camera_pose.equals(triangulation_poses_[i], 1e-5)) {
@@ -242,7 +242,7 @@ MultiProjectionFactor::Evaluate(double const* const* parameters,
     // Collect parameters
     Eigen::Map<const Eigen::Vector3d> map_pt(parameters[0]);
     aligned_vector<Pose3> body_poses;
-    for (int i = 0; i < nMeasurements(); ++i) {
+    for (size_t i = 0; i < nMeasurements(); ++i) {
         Eigen::Map<const Eigen::VectorXd> qp(parameters[1 + i], 7);
 
         body_poses.push_back(Pose3(qp));
@@ -269,7 +269,7 @@ MultiProjectionFactor::Evaluate(double const* const* parameters,
                 Dr_dl.setZero();
             }
 
-            for (int i = 0; i < nMeasurements(); ++i) {
+            for (size_t i = 0; i < nMeasurements(); ++i) {
                 if (jacobians[i + 1]) {
                     Eigen::Map<JacobianType> Dr_dx(
                       jacobians[i + 1], num_residuals(), 7);
@@ -285,7 +285,7 @@ MultiProjectionFactor::Evaluate(double const* const* parameters,
     // If we need the Jacobians, compute them as we go...
     // Indices corresponding to this are 0 (pt), 1 + 2*i, and 2 + 2*i...
     if (jacobians) {
-        for (int i = 0; i < nMeasurements(); ++i) {
+        for (size_t i = 0; i < nMeasurements(); ++i) {
             Eigen::MatrixXd Hpose_compose;
             Pose3 G_T_C =
               body_poses[i].compose(I_T_C_, Hpose_compose, boost::none);
@@ -349,7 +349,7 @@ MultiProjectionFactor::Evaluate(double const* const* parameters,
         }
     } else {
         // Just computing the residual
-        for (int i = 0; i < nMeasurements(); ++i) {
+        for (size_t i = 0; i < nMeasurements(); ++i) {
 
             Pose3 G_T_C = body_poses[i].compose(I_T_C_);
 
@@ -375,7 +375,7 @@ MultiProjectionFactor::createGtsamFactors() const
     if (!landmark())
         return;
 
-    for (int i = gtsam_factors_.size(); i < msmts_.size(); ++i) {
+    for (size_t i = gtsam_factors_.size(); i < msmts_.size(); ++i) {
 
         if (!camera_node(i))
             return;
