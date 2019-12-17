@@ -80,7 +80,7 @@ StructureCostTerm::Create(const ObjectModelBasis& model,
       new ceres::DynamicAutoDiffCostFunction<StructureCostTerm, 4>(cost_term);
 
     cost_function->AddParameterBlock(7);
-    for (int i = 0; i < cost_term->m(); ++i) {
+    for (size_t i = 0; i < cost_term->m(); ++i) {
         cost_function->AddParameterBlock(3);
     }
     if (cost_term->k() > 0) {

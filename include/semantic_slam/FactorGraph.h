@@ -49,7 +49,7 @@ class FactorGraph
         return nodes_;
     }
 
-    bool setModified() { modified_ = true; }
+    void setModified() { modified_ = true; }
 
     bool modified() { return modified_; }
 

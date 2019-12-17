@@ -7,6 +7,7 @@
 
 LoopCloser::LoopCloser(SemanticMapper* mapper)
   : mapper_(mapper)
+  , solve_succeded_(false)
 {}
 
 void
@@ -39,7 +40,7 @@ LoopCloser::optimizeCurrentGraph()
     //     }
     // }
 
-    bool solved = current_graph_->solve(true);
+    solve_succeeded_ = current_graph_->solve(true);
 
     running_ = false;
     time_end_ = std::chrono::high_resolution_clock::now();

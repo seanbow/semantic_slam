@@ -40,10 +40,6 @@
 #define TIME_TIC                                                               \
     std::chrono::high_resolution_clock::time_point TIMER_NAME_GEN =            \
       std::chrono::high_resolution_clock::now()
-// #define TIME_TOC(name) do {\
-//     std::chrono::duration<double, std::milli> _semslam_tictoc_duration = std::chrono::high_resolution_clock::now() - TIMER_NAME_REF; \
-//     ROS_INFO_STREAM(name << " took " << _semslam_tictoc_duration.count() << " milliseconds."); \
-//   } while(0)
 
 #define TIME_TOC                                                               \
     ([&] {                                                                     \
