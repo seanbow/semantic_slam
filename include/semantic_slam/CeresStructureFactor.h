@@ -51,7 +51,7 @@ class CeresStructureFactor : public CeresFactor
   private:
     geometry::ObjectModelBasis model_;
 
-    int m_, k_;
+    size_t m_, k_;
 
     Eigen::VectorXd weights_;
     double lambda_;

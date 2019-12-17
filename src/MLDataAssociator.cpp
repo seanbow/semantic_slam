@@ -5,8 +5,8 @@
 Eigen::MatrixXd
 MLDataAssociator::computeConstraintWeights(const Eigen::MatrixXd& mahals)
 {
-    size_t m = mahals.rows();
-    size_t n = mahals.cols();
+    int m = mahals.rows();
+    int n = mahals.cols();
 
     if (m == 0) {
         return Eigen::MatrixXd::Zero(m, n + 1);
@@ -40,8 +40,8 @@ MLDataAssociator::computeConstraintWeights(const Eigen::MatrixXd& mahals)
     // assignment j is such that mahals(i,j) is close to mahals(i,k) for some k
     // != j
 
-    for (int64_t i = 0; i < munkres_result.rows(); ++i) {
-        for (int64_t j = 0; j < munkres_result.cols(); ++j) {
+    for (int i = 0; i < munkres_result.rows(); ++i) {
+        for (int j = 0; j < munkres_result.cols(); ++j) {
             if (munkres_result(i, j) == 0) {
                 // Assignment found
                 // If j < the number of landmarks, it's an assignment to an

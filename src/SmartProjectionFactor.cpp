@@ -49,7 +49,7 @@ SmartProjectionFactor::clone() const
     auto fac = util::allocate_aligned<SmartProjectionFactor>(
       I_T_C_, calibration_, reprojection_error_threshold_, tag_);
 
-    for (int i = 0; i < msmts_.size(); ++i) {
+    for (size_t i = 0; i < msmts_.size(); ++i) {
         fac->addMeasurement(nullptr, msmts_[i], covariances_[i]);
     }
 
@@ -77,7 +77,7 @@ SmartProjectionFactor::decideIfTriangulate(
 
     // Compare each camera pose
     bool equal = true;
-    for (int i = 0; i < body_poses.size(); ++i) {
+    for (size_t i = 0; i < body_poses.size(); ++i) {
         Pose3 camera_pose = body_poses[i].compose(I_T_C_);
 
         if (!camera_pose.equals(triangulation_poses_[i], 1e-5)) {
@@ -97,7 +97,7 @@ SmartProjectionFactor::triangulate(
     triangulation_poses_.clear();
 
     CameraSet cameras;
-    for (int i = 0; i < msmts_.size(); ++i) {
+    for (size_t i = 0; i < msmts_.size(); ++i) {
         triangulation_poses_.push_back(body_poses[i].compose(I_T_C_));
         Camera camera(triangulation_poses_[i], calibration_);
         cameras.addCamera(camera);
@@ -124,7 +124,7 @@ SmartProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
     in_graph_ = true;
 
     aligned_vector<Pose3> body_poses;
-    for (int i = 0; i < msmts_.size(); ++i) {
+    for (size_t i = 0; i < msmts_.size(); ++i) {
         body_poses.push_back(camera_node(i)->pose());
     }
 
@@ -160,7 +160,7 @@ SmartProjectionFactor::internalAddToProblem(
     mutable_parameter_block_sizes()->clear();
     parameter_blocks_.clear();
 
-    for (int i = 0; i < nodes_.size(); ++i) {
+    for (size_t i = 0; i < nodes_.size(); ++i) {
         mutable_parameter_block_sizes()->push_back(7);
         parameter_blocks_.push_back(camera_node(i)->pose().data());
     }
@@ -259,7 +259,7 @@ SmartProjectionFactor::Evaluate(double const* const* parameters,
 {
     // Collect parameters
     aligned_vector<Pose3> body_poses;
-    for (int i = 0; i < nMeasurements(); ++i) {
+    for (size_t i = 0; i < nMeasurements(); ++i) {
         Eigen::Map<const Eigen::VectorXd> qp(parameters[i], 7);
 
         body_poses.push_back(Pose3(qp));
@@ -280,7 +280,7 @@ SmartProjectionFactor::Evaluate(double const* const* parameters,
     if (!triangulation_good_) {
         residuals.setZero();
         if (jacobians) {
-            for (int i = 0; i < nMeasurements(); ++i) {
+            for (size_t i = 0; i < nMeasurements(); ++i) {
                 if (jacobians[i]) {
                     Eigen::Map<JacobianType> Dr_dx(
                       jacobians[i], num_residuals(), 7);
@@ -305,7 +305,7 @@ SmartProjectionFactor::Evaluate(double const* const* parameters,
       Eigen::MatrixXd::Zero(2 * nMeasurements(), 7 * nMeasurements());
     Eigen::VectorXd full_residual = Eigen::VectorXd::Zero(2 * nMeasurements());
 
-    for (int i = 0; i < nMeasurements(); ++i) {
+    for (size_t i = 0; i < nMeasurements(); ++i) {
         Eigen::MatrixXd Hpose_compose;
         Pose3 G_T_C = body_poses[i].compose(I_T_C_, Hpose_compose, boost::none);
 
@@ -351,7 +351,7 @@ SmartProjectionFactor::Evaluate(double const* const* parameters,
 
     // Fill in Ceres jacobian data pointers
     if (jacobians) {
-        for (int i = 0; i < nMeasurements(); ++i) {
+        for (size_t i = 0; i < nMeasurements(); ++i) {
             if (jacobians[i]) {
                 Eigen::Map<JacobianType> Dr_dx(
                   jacobians[i], num_residuals(), 7);
@@ -407,7 +407,7 @@ SmartProjectionFactor::createGtsamFactor() const
     gtsam_factor_ = util::allocate_aligned<GtsamFactorType>(
       gtsam_noise, gtsam_calib, gtsam::Pose3(I_T_C_), projection_params);
 
-    for (int i = 0; i < msmts_.size(); ++i) {
+    for (size_t i = 0; i < msmts_.size(); ++i) {
         gtsam_factor_->add(msmts_[i], camera_node(i)->key());
     }
 }

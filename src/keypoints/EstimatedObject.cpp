@@ -43,17 +43,14 @@ EstimatedObject::EstimatedObject(
   , obj_name_(msmt.obj_name)
   , in_graph_(false)
   , is_bad_(false)
-  // , in_worldmodel_(false)
   , last_seen_(Symbol(msmt.observed_key).index())
-  ,
-  // last_visible_(msmt.pose_id),
-  last_optimized_(Symbol(msmt.observed_key).index())
+  , last_optimized_(Symbol(msmt.observed_key).index())
   , params_(params)
   , I_T_C_(I_T_C)
   , platform_(platform)
   , camera_calibration_(calibration)
-  , model_(object_model)
   , modified_(false)
+  , model_(object_model)
   , mapper_(mapper)
 {
     // NOTE : because we need shared_from_this() to create the child keypoints,
@@ -178,7 +175,7 @@ EstimatedObject::initializeStructure(const ObjectMeasurement& msmt)
         keypoint_nodes.push_back(keypoints_[i]->graph_node());
     }
 
-    Key coeff_key = sym::C(id());
+    // Key coeff_key = sym::C(id());
 
     // Just initializing -- we have no good keypoint estimates yet and hence no
     // good weights
@@ -236,7 +233,7 @@ EstimatedObject::optimizeStructure()
     Eigen::MatrixXd mu = geometry::centralize(model_.mu);
     Eigen::MatrixXd pc = geometry::centralize(model_.pc);
 
-    double lambda = params_.structure_regularization_factor;
+    // double lambda = params_.structure_regularization_factor;
 
     Eigen::VectorXd weights = Eigen::VectorXd::Ones(m);
     Pose3 body_T_camera(I_T_C_.rotation(), I_T_C_.translation());
@@ -826,7 +823,7 @@ EstimatedObject::readyToAddToGraph()
     // Count how many keypoints have enough measurements to be considered well
     // localized
     // TODO use a better metric than #measurements?
-    size_t n_keypoints_localized = 0;
+    int n_keypoints_localized = 0;
     for (const auto& kp : keypoints_) {
         if (kp->nMeasurements() > 2)
             n_keypoints_localized++;

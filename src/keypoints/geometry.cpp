@@ -157,7 +157,7 @@ optimizeStructureFromProjection(const Eigen::MatrixXd& normalized_coords,
     double lambda = 10;
 
     //   // Make sure no weights are < 0
-    for (size_t i = 0; i < weights.size(); ++i) {
+    for (int i = 0; i < weights.size(); ++i) {
         if (weights(i) < 0)
             weights(i) = 0;
     }
@@ -186,7 +186,7 @@ optimizeStructureFromProjection(const Eigen::MatrixXd& normalized_coords,
     params.push_back(pose.data());
 
     // depths
-    for (int i = 0; i < m; ++i) {
+    for (size_t i = 0; i < m; ++i) {
         problem.AddParameterBlock(&Z.data()[i], 1);
         params.push_back(&Z.data()[i]);
     }
@@ -239,7 +239,7 @@ optimizeStructureFromProjection(const Eigen::MatrixXd& normalized_coords,
         // assemble blocks of depth data pointers
         std::vector<std::pair<const double*, const double*>> blocks;
 
-        for (int i = 0; i < m; ++i) {
+        for (size_t i = 0; i < m; ++i) {
             blocks.push_back(std::make_pair(&Z.data()[i], &Z.data()[i]));
         }
 
@@ -247,7 +247,7 @@ optimizeStructureFromProjection(const Eigen::MatrixXd& normalized_coords,
 
             result.Z_covariance = Eigen::VectorXd(m);
 
-            for (int i = 0; i < m; ++i) {
+            for (size_t i = 0; i < m; ++i) {
                 cov.GetCovarianceBlock(
                   &Z.data()[i], &Z.data()[i], &result.Z_covariance.data()[i]);
             }

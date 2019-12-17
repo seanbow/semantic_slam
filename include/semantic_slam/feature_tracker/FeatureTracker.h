@@ -72,18 +72,18 @@ class FeatureTracker
           : pt(pt_in)
           , frame_id(frame)
           , pt_id(pt)
-          , n_images_in(1)
           , size(size)
+          , n_images_in(1)
         {}
 
         cv::KeyPoint kp;
         cv::Mat descriptor;
 
-        float size;
-
         cv::Point2f pt;
         size_t frame_id;
         size_t pt_id;
+
+        float size;
 
         size_t n_images_in;
     };
@@ -131,7 +131,7 @@ class FeatureTracker
 
     void extractKeypointsDescriptors(Frame& frame);
 
-    void trackFeaturesForward(int idx1);
+    void trackFeaturesForward(size_t idx1);
 
     void setTrackingFramerate(double frame_rate);
 

@@ -55,7 +55,7 @@ class GeometricFeatureHandler : public Handler
     Pose3 I_T_C_;
     boost::shared_ptr<CameraCalibration> calibration_;
 
-    int last_img_seq_;
+    size_t last_img_seq_;
     std::deque<sensor_msgs::ImageConstPtr> img_queue_;
     std::mutex queue_mutex_;
     std::condition_variable queue_cv_;

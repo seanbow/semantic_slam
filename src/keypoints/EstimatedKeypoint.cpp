@@ -484,7 +484,7 @@ void
 EstimatedKeypoint::tryAddProjectionFactors()
 {
     // Only add factors whose associated keyframe is in the graph
-    for (int i = 0; i < measurements_.size(); ++i) {
+    for (size_t i = 0; i < measurements_.size(); ++i) {
         const auto& kf =
           mapper_->getKeyframeByKey(measurements_[i].measured_key);
         if (kf->inGraph() && !projection_factors_[i]->active()) {
@@ -612,7 +612,7 @@ EstimatedKeypoint::computeMahalanobisDistance(
     // this is dumb
     // figure out which index we are in Plx...
     int our_index = 0;
-    for (int i = 0; i < parent_->keypoints().size(); ++i) {
+    for (size_t i = 0; i < parent_->keypoints().size(); ++i) {
         if (parent_->keypoints()[i]->id() == id()) {
             our_index = i;
             break;

@@ -112,8 +112,8 @@ StructureOptimizationProblem::getPlx(size_t camera_index)
     using RowMajorMatrixXd =
       Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
-    for (int i = 0; i < parameter_blocks.size(); ++i) {
-        for (int j = i; j < parameter_blocks.size(); ++j) {
+    for (size_t i = 0; i < parameter_blocks.size(); ++i) {
+        for (size_t j = i; j < parameter_blocks.size(); ++j) {
             covariance_->GetCovarianceBlockInTangentSpace(
               parameter_blocks[i], parameter_blocks[j], buf);
             cov.block(index_i, index_j, block_sizes[i], block_sizes[j]) =
