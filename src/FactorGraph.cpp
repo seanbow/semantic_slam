@@ -36,12 +36,26 @@ FactorGraph::setNumThreads(int n_threads)
 }
 
 bool
+FactorGraph::setNodeConstant(Key key)
+{
+    const auto& node = getNode(key);
+    setNodeConstant(node);
+}
+
+bool
 FactorGraph::setNodeConstant(CeresNodePtr node)
 {
     for (auto& block : node->parameter_blocks()) {
         problem_->SetParameterBlockConstant(block);
     }
     return true;
+}
+
+bool
+FactorGraph::setNodeVariable(Key key)
+{
+    const auto& node = getNode(key);
+    setNodeVariable(node);
 }
 
 bool

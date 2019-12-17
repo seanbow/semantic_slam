@@ -40,6 +40,7 @@ class SemanticMapper
     enum class OperationMode
     {
         NORMAL,
+        LOOP_CLOSURE_PENDING,
         LOOP_CLOSING
     };
 
@@ -125,6 +126,8 @@ class SemanticMapper
 
     std::vector<EstimatedObject::Ptr> estimated_objects();
 
+    bool checkLoopClosingDone();
+
     bool solveGraph();
 
     gtsam::FactorIndices computeRemovedFactors(
@@ -163,6 +166,7 @@ class SemanticMapper
     unsigned char node_chr_;
 
     std::atomic<OperationMode> operation_mode_;
+    std::atomic<bool> invalidate_local_optimization_;
 
     // SemanticKeyframe::Ptr next_keyframe_;
 
@@ -231,6 +235,10 @@ class SemanticMapper
 
     void processPendingKeyframes();
 
+    bool createNewObject(const ObjectMeasurement& measurement,
+                         const Pose3& map_T_camera,
+                         double weight);
+
     ros::Publisher vis_pub_;
 
     std::vector<boost::shared_ptr<Presenter>> presenters_;
@@ -238,6 +246,7 @@ class SemanticMapper
     bool running_;
 
     boost::shared_ptr<LoopCloser> loop_closer_;
+    int loop_closure_index_;
 
     boost::shared_ptr<gtsam::Values> values_in_graph_;
     boost::shared_ptr<gtsam::NonlinearFactorGraph> factors_in_graph_;

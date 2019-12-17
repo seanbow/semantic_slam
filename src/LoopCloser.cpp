@@ -23,18 +23,37 @@ LoopCloser::startLoopClosing(boost::shared_ptr<FactorGraph> graph,
 void
 LoopCloser::optimizeCurrentGraph()
 {
-    current_graph_->solver_options().max_solver_time_in_seconds = 10;
-    current_graph_->solver_options().linear_solver_type = ceres::CGNR;
+    current_graph_->solver_options().max_solver_time_in_seconds = 20;
+    // current_graph_->solver_options().linear_solver_type = ceres::CGNR;
+    current_graph_->solver_options().linear_solver_type =
+      ceres::SPARSE_NORMAL_CHOLESKY;
 
-    bool solved = current_graph_->solve();
+    time_start_ = std::chrono::high_resolution_clock::now();
+
+    // TESTING unfreeze it all
+    // Key origin_kf_key = mapper_->getKeyframeByIndex(0)->key();
+    // for (auto key_node : current_graph_->nodes()) {
+    //     if (key_node.first != origin_kf_key) {
+    //         current_graph_->setNodeVariable(key_node.second);
+    //     }
+    // }
+
+    bool solved = current_graph_->solve(true);
 
     running_ = false;
+    time_end_ = std::chrono::high_resolution_clock::now();
 }
 
 bool
 LoopCloser::running()
 {
     return running_;
+}
+
+bool
+LoopCloser::containsNode(Key key)
+{
+    return current_graph_->containsNode(key);
 }
 
 bool
@@ -46,6 +65,11 @@ LoopCloser::updateLoopInMapper()
         return false;
 
     thread_.join();
+
+    std::chrono::duration<double, std::micro> duration =
+      time_end_ - time_start_;
+    ROS_INFO_STREAM(fmt::format("Loop closure optimization completed in {} ms.",
+                                duration.count() / 1000.0));
 
     // Based on the loop closing index passed in, compute the beginning
     // of the loop as the first keyframe that observed an object
@@ -100,6 +124,10 @@ LoopCloser::updateLoopInMapper()
     }
 
     for (auto& obj : mapper_->estimated_objects()) {
+        // Note that if an object was seen before the loop, it will still be
+        // contained in the current graph even if it was held constant in the
+        // optimization. so this is a valid way to check for objects that were
+        // added after loop closure.
         if (!current_graph_->containsNode(obj->key())) {
             obj->applyTransformation(old_est_T_new_est);
         }

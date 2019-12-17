@@ -8,6 +8,7 @@ SemanticKeyframe::SemanticKeyframe(Key key, ros::Time time)
   , in_graph_(false)
   , measurements_processed_(false)
   , covariance_computed_exactly_(false)
+  , loop_closing_(false)
 {
     graph_node_ = util::allocate_aligned<SE3Node>(key, time);
     pose_covariance_ = Eigen::MatrixXd::Zero(6, 6);

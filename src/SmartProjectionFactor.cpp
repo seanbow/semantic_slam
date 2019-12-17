@@ -228,8 +228,10 @@ SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
     // Updating block sizes in the necessary ceres::CostFunction-inherited
     // values is done in internalAddToProblem.
     if (in_graph_) {
-        for (auto& problem : problems_)
+        for (auto& problem : problems_) {
             internalRemoveFromProblem(problem);
+            internalAddToProblem(problem);
+        }
     }
 
     // aligned_vector<Pose3> body_poses;
@@ -240,10 +242,10 @@ SmartProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
 
     // triangulate(body_poses);
 
-    if (in_graph_) {
-        for (auto& problem : problems_)
-            internalAddToProblem(problem);
-    }
+    // if (in_graph_) {
+    //     for (auto& problem : problems_)
+    //         internalAddToProblem(problem);
+    // }
 
     // We need to recreate the factor each time a new measurement is added;
     // cannot simply update our old one.

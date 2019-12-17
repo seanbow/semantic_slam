@@ -43,11 +43,8 @@ EstimatedObject::EstimatedObject(
   , obj_name_(msmt.obj_name)
   , in_graph_(false)
   , is_bad_(false)
-  // , in_worldmodel_(false)
   , last_seen_(Symbol(msmt.observed_key).index())
-  ,
-  // last_visible_(msmt.pose_id),
-  last_optimized_(Symbol(msmt.observed_key).index())
+  , last_optimized_(Symbol(msmt.observed_key).index())
   , params_(params)
   , I_T_C_(I_T_C)
   , platform_(platform)
@@ -545,6 +542,9 @@ EstimatedObject::commitGraphSolution()
 void
 EstimatedObject::commitGraphSolution(boost::shared_ptr<FactorGraph> graph)
 {
+    if (!graph->containsNode(key()))
+        return;
+
     pose_ = graph->getNode<SE3Node>(sym::O(id()))->pose();
     if (k_ > 0)
         basis_coefficients_ =

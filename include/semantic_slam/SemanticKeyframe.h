@@ -48,6 +48,9 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
     SE3NodePtr& graph_node() { return graph_node_; }
     const SE3NodePtr& graph_node() const { return graph_node_; }
 
+    bool& loop_closing() { return loop_closing_; }
+    const bool& loop_closing() const { return loop_closing_; }
+
     bool inGraph() const { return in_graph_; }
 
     void addToGraph(boost::shared_ptr<FactorGraph> graph);
@@ -109,6 +112,9 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
     SE3NodePtr graph_node_;
 
     CeresFactorPtr spine_factor_;
+
+    // true if a loop closure was detected in this keyframe
+    bool loop_closing_;
 
     // aligned_vector<ObjectMeasurement> measurements_;
     std::vector<EstimatedObject::Ptr> visible_objects_;

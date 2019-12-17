@@ -84,7 +84,7 @@ CeresStructureFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 
     ceres::ResidualBlockId residual_id =
       problem->AddResidualBlock(cf_, NULL, blocks);
-    residual_ids_.emplace(problem.get(), residual_id);
+    residual_ids_.[problem.get()] = residual_id;
 
     active_ = true;
 }
