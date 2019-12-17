@@ -25,7 +25,7 @@ LoopCloser::startLoopClosing(boost::shared_ptr<FactorGraph> graph,
 void
 LoopCloser::optimizeCurrentGraph()
 {
-    current_graph_->solver_options().max_solver_time_in_seconds = 5;
+    current_graph_->solver_options().max_solver_time_in_seconds = 2;
 
     // current_graph_->solver_options().minimizer_type = ceres::LINE_SEARCH;
     // current_graph_->solver_options().max_num_iterations = 100000;
@@ -80,39 +80,28 @@ LoopCloser::updateLoopInMapper()
     // Rather than try to determing the beginning of the loop, just update all
     // poses. The poses before the loop will be frozen and it's cheap to do the
     // update
-    auto last_node = current_graph_->findLastNode<SE3Node>(
-      mapper_->getKeyframeByIndex(0)->chr());
 
-    SemanticKeyframe::Ptr closing_kf =
-      mapper_->getKeyframeByIndex(last_node->index());
+    // auto last_node = current_graph_->findLastNode<SE3Node>(
+    //   mapper_->getKeyframeByIndex(0)->chr());
+    // SemanticKeyframe::Ptr closing_kf =
+    //   mapper_->getKeyframeByIndex(last_node->index());
+    // Pose3 map_T_old_kf = closing_kf->pose();
+    // Pose3 map_T_new_kf = last_node->pose();
 
-    Pose3 map_T_old_kf = closing_kf->pose();
-    Pose3 map_T_new_kf = last_node->pose();
+    auto closing_kf = mapper_->getKeyframeByIndex(loop_index_);
+    Pose3 new_pose =
+      current_graph_->getNode<SE3Node>(closing_kf->key())->pose();
+    Pose3 old_pose = closing_kf->pose();
 
-    map_T_old_kf.rotation().normalize();
-    map_T_new_kf.rotation().normalize();
+    new_pose.rotation().normalize();
 
-    Pose3 old_est_T_new_est = map_T_old_kf.inverse() * map_T_new_kf;
-    old_est_T_new_est.rotation().normalize();
+    Pose3 old_T_new = old_pose.inverse() * new_pose;
+    old_T_new.rotation().normalize();
 
-    // int earliest_index = std::numeric_limits<int>::max();
-    // for (auto& obj : closing_kf->visible_objects()) {
-    //     for (auto& kf : obj->keyframe_observations()) {
-    //         earliest_index = std::min(earliest_index, kf->index());
-    //     }
-    // }
+    // map_T_old_kf.rotation().normalize();
+    // map_T_new_kf.rotation().normalize();
 
-    // // Accumulate the list of objects we need to update, i.e. objects that
-    // // were visible in the loop
-    // std::unordered_set<int> objects_to_update;
-    // for (int kf_index = earliest_index; kf_index <= loop_index_; ++kf_index)
-    // {
-    //     auto kf = mapper_->getKeyframeByIndex(kf_index);
-
-    //     for (auto& obj : kf->visible_objects()) {
-    //         objects_to_update.insert(obj->id());
-    //     }
-    // }
+    std::cout << "Loop closure delta pose:\n" << old_T_new << std::endl;
 
     // Perform the update!
     // Begin with keyframe poses
@@ -123,7 +112,7 @@ LoopCloser::updateLoopInMapper()
             kf->pose().rotation().normalize();
         } else {
             auto kf = mapper_->getKeyframeByIndex(i);
-            kf->pose() = kf->pose() * old_est_T_new_est;
+            kf->pose() = kf->pose() * old_T_new;
         }
     }
 
@@ -131,31 +120,11 @@ LoopCloser::updateLoopInMapper()
     for (auto& obj : mapper_->estimated_objects()) {
         if (current_graph_->containsNode(obj->key())) {
             obj->commitGraphSolution(current_graph_);
-        } else {
-            obj->applyTransformation(old_est_T_new_est);
+        } else if (!obj->bad()) {
+            // obj->applyTransformation(old_est_T_new_est);
+            obj->optimizeStructure();
         }
     }
-
-    // Finally propagate the loop closure delta through to keyframes and objects
-    // that have been added past the point of loop closure
-    // TODO
-
-    // for (size_t i = loop_index_ + 1; i < mapper_->keyframes().size(); ++i) {
-    //     auto kf = mapper_->getKeyframeByIndex(i);
-
-    //     kf->pose() = kf->pose() * old_est_T_new_est;
-    // }
-
-    // for (auto& obj : mapper_->estimated_objects()) {
-    //     // Note that if an object was seen before the loop, it will still be
-    //     // contained in the current graph even if it was held constant in the
-    //     // optimization. so this is a valid way to check for objects that
-    //     were
-    //     // added after loop closure.
-    //     if (!current_graph_->containsNode(obj->key())) {
-    //         obj->applyTransformation(old_est_T_new_est);
-    //     }
-    // }
 
     // Check for map merge??
 

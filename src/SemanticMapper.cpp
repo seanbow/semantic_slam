@@ -224,8 +224,8 @@ SemanticMapper::addObjectsAndOptimizeGraphThread()
             // and added this loop to the graph for the first time. start the
             // actual loop closing process
             if (loop_closure_added) {
-                loop_closer_->startLoopClosing(essential_graph_,
-                                               loop_closure_index_);
+                prepareGraphNodes();
+                loop_closer_->startLoopClosing(graph_, loop_closure_index_);
                 operation_mode_ = OperationMode::LOOP_CLOSING;
             } else {
                 if (tryOptimize()) {
@@ -417,86 +417,6 @@ SemanticMapper::freezeNonCovisible(
             obj->setConstantInGraph();
         }
     }
-
-    // std::cout << "Unfrozen frames: \n";
-    // for (int id : unfrozen_kfs_) {
-    //     std::cout << id << " ";
-    // }
-    // std::cout << std::endl;
-
-    // unfrozen_kfs_.clear();
-    // unfrozen_objs_.clear();
-
-    // for (const auto& frame : target_frames) {
-    //     unfrozen_kfs_.insert(frame->index());
-    //     for (auto obj : frame->visible_objects()) {
-    //         unfrozen_objs_.insert(obj->id());
-    //     }
-
-    //     for (const auto& cov_frame : frame->neighbors()) {
-    //         unfrozen_kfs_.insert(cov_frame.first->index());
-    //         for (auto obj : cov_frame.first->visible_objects()) {
-    //             unfrozen_objs_.insert(obj->id());
-    //         }
-    //     }
-    // }
-
-    // // std::cout << "Unfrozen frames: \n";
-    // // for (int id : unfrozen_kfs_) {
-    // //     std::cout << id << " ";
-    // // }
-    // // std::cout << std::endl;
-
-    // // std::cout << "Unfrozen objects: \n";
-    // // for (int id : unfrozen_objs_) {
-    // //     std::cout << id << " ";
-    // // }
-    // // std::cout << std::endl;
-
-    // // In case of a loop closure there may be frames i and j are covisible
-    // but some frame i < k < j is
-    // // not covisible with i or j. So we need to make sure that we unfreeze
-    // these intermediate
-    // // frames as well.
-    // int min_frame = std::numeric_limits<int>::max();
-    // int max_frame = std::numeric_limits<int>::lowest();
-    // for (auto id : unfrozen_kfs_) {
-    //     min_frame = std::min(min_frame, id);
-    //     max_frame = std::max(max_frame, id);
-    // }
-
-    // std::lock_guard<std::mutex> lock(graph_mutex_);
-
-    // for (int i = 0; i < keyframes_.size(); ++i) {
-    //     if (!keyframes_[i]->inGraph()) continue;
-
-    //     if (i >= min_frame && i <= max_frame) {
-    //         graph_->setNodeVariable(keyframes_[i]->graph_node());
-    //     } else {
-    //         graph_->setNodeConstant(keyframes_[i]->graph_node());
-    //     }
-    // }
-
-    // // for (const auto& kf : keyframes_) {
-    // //     if (!kf->inGraph()) continue;
-
-    // //     if (unfrozen_kfs_.count(kf->index())) {
-    // //         graph_->setNodeVariable(kf->graph_node());
-    // //     } else {
-    // //         graph_->setNodeConstant(kf->graph_node());
-    // //     }
-    // // }
-
-    // // now objects
-    // for (const auto& obj : estimated_objects_) {
-    //     if (!obj->inGraph()) continue;
-
-    //     if (unfrozen_objs_.count(obj->id())) {
-    //         obj->setVariableInGraph();
-    //     } else {
-    //         obj->setConstantInGraph();
-    //     }
-    // }
 }
 
 void
@@ -527,12 +447,6 @@ std::vector<SemanticKeyframe::Ptr>
 SemanticMapper::addNewOdometryToGraph()
 {
     std::vector<SemanticKeyframe::Ptr> new_frames;
-
-    // The first keyframe is special, anchored at its odometry origin
-    // if (keyframes_.size() > 0 && !keyframes_[0]->inGraph()) {
-    //     keyframes_[0]->addToGraph(graph_);
-    //     graph_->setNodeConstant(keyframes_[0]->graph_node());
-    // }
 
     std::lock_guard<std::mutex> lock(graph_mutex_);
 

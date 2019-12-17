@@ -574,7 +574,6 @@ EstimatedObject::applyTransformation(const Pose3& old_T_new)
     Pose3 new_pose = pose_ * old_T_new;
 
     for (auto& kp : keypoints_)
-        // kp->position() += pose_.rotation() * old_T_new.translation();
         kp->position() =
           new_pose.transform_from(pose_.transform_to(kp->position()));
 
