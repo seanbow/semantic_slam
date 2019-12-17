@@ -117,7 +117,7 @@
     <node pkg="semantic_slam" type="kitti_data_node" name="kitti_data_node" output="screen">
         <param name="data_dir" value="/mnt/MyBook/ubuntu_home/data/dataset/sequences/05" />
         <param name="delay" value="5" />
-        <param name="rate" value="1.5" />
+        <param name="rate" value="1" />
     </node>
 
     <node pkg="viso_pose" type="viso_node" name="viso_node" output="screen">

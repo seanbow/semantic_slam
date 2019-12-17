@@ -225,7 +225,8 @@ SemanticMapper::addObjectsAndOptimizeGraphThread()
             // actual loop closing process
             if (loop_closure_added) {
                 prepareGraphNodes();
-                loop_closer_->startLoopClosing(graph_, loop_closure_index_);
+                loop_closer_->startLoopClosing(essential_graph_,
+                                               loop_closure_index_);
                 operation_mode_ = OperationMode::LOOP_CLOSING;
             } else {
                 if (tryOptimize()) {
@@ -1401,7 +1402,7 @@ SemanticMapper::tryFetchNextKeyframe()
                   odometry_handler_->createKeyframe(msg.header.stamp);
                 if (next_keyframe) {
                     msg_queue_.pop_front();
-                    next_keyframe->measurements =
+                    next_keyframe->measurements() =
                       processObjectDetectionMessage(msg, next_keyframe->key());
 
                     // Copy the most recent covariance into this frame for now
@@ -1435,7 +1436,7 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
     // TODO fix this bad approximation
     frame->covariance() = last_kf_covariance_;
 
-    if (frame->measurements.size() > 0) {
+    if (frame->measurements().size() > 0) {
 
         // Create the list of measurements we need to associate.
         // Identify which measurements have been tracked from already known
@@ -1443,9 +1444,9 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
         std::vector<size_t> measurement_index;
         std::map<size_t, size_t> known_das;
 
-        for (size_t i = 0; i < frame->measurements.size(); ++i) {
+        for (size_t i = 0; i < frame->measurements().size(); ++i) {
             auto known_id_it =
-              object_track_ids_.find(frame->measurements[i].track_id);
+              object_track_ids_.find(frame->measurements()[i].track_id);
             if (known_id_it == object_track_ids_.end()) {
                 // track not known, perform actual data association
 
@@ -1455,7 +1456,7 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
                 // don't make spurious associations
                 // --> objects not tracked and with too few kps observed are
                 // effectively thrown away
-                if (frame->measurements[i].n_keypoints_observed >= 4) {
+                if (frame->measurements()[i].n_keypoints_observed >= 4) {
                     measurement_index.push_back(i);
                 }
             } else {
@@ -1488,18 +1489,18 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
                 // objects right now. they will be processed afterwards.
                 // instead, we will continue to create a new local map...
                 // Do this by inflating mahal distances to them
+                // ^- wait why this is dumb
 
-                if (operation_mode_ == OperationMode::NORMAL ||
-                    static_cast<int>(
-                      estimated_objects_[object_index[j]]->last_seen()) >
-                      frame->index() - loop_closure_threshold_) {
-                    mahals(i, j) =
-                      estimated_objects_[object_index[j]]
-                        ->computeMahalanobisDistance(
-                          frame->measurements[measurement_index[i]]);
-                } else {
-                    mahals(i, j) = 1e5;
-                }
+                // if (operation_mode_ == OperationMode::NORMAL ||
+                //     static_cast<int>(
+                //   estimated_objects_[object_index[j]]->last_seen()) >
+                //   frame->index() - loop_closure_threshold_) {
+                mahals(i, j) = estimated_objects_[object_index[j]]
+                                 ->computeMahalanobisDistance(
+                                   frame->measurements()[measurement_index[i]]);
+                // } else {
+                //     mahals(i, j) = 1e5;
+                // }
             }
         }
 
@@ -1522,7 +1523,7 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
           MLDataAssociator(params_).computeConstraintWeights(mahals);
 
         addMeasurementsToObjects(frame,
-                                 frame->measurements,
+                                 frame->measurements(),
                                  measurement_index,
                                  known_das,
                                  weights_matrix,

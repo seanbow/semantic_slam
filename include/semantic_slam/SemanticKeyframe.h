@@ -69,7 +69,12 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
 
     bool& covariance_computed_exactly() { return covariance_computed_exactly_; }
 
-    aligned_vector<ObjectMeasurement> measurements;
+    const aligned_vector<ObjectMeasurement>& measurements() const
+    {
+        return measurements_;
+    }
+
+    aligned_vector<ObjectMeasurement>& measurements() { return measurements_; }
 
     const std::map<SemanticKeyframe::Ptr, int> neighbors() const
     {
@@ -100,6 +105,7 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
 
     bool in_graph_;
 
+    aligned_vector<ObjectMeasurement> measurements_;
     bool measurements_processed_;
 
     Pose3 odometry_;
