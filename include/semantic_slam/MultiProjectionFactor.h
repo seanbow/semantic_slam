@@ -36,6 +36,9 @@ class MultiProjectionFactor
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
     void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
+    void internalAddToProblem(boost::shared_ptr<ceres::Problem> problem);
+    void internalRemoveFromProblem(boost::shared_ptr<ceres::Problem> problem);
+
     void addMeasurement(SE3NodePtr body_pose_node,
                         const Eigen::Vector2d& pixel_coords,
                         const Eigen::Matrix2d& msmt_covariance);
@@ -46,9 +49,15 @@ class MultiProjectionFactor
     unsigned char chr() const { return landmark()->chr(); }
     Symbol symbol() const { return landmark()->symbol(); }
 
-    Vector3dNodePtr landmark() const { return boost::static_pointer_cast<Vector3dNode>(nodes_[0]); }
+    Vector3dNodePtr landmark() const
+    {
+        return boost::static_pointer_cast<Vector3dNode>(nodes_[0]);
+    }
 
-    SE3NodePtr camera_node(int i) const { return boost::static_pointer_cast<SE3Node>(nodes_[i + 1]); }
+    SE3NodePtr camera_node(int i) const
+    {
+        return boost::static_pointer_cast<SE3Node>(nodes_[i + 1]);
+    }
 
     size_t nMeasurements() const;
 
@@ -78,7 +87,7 @@ class MultiProjectionFactor
     double reprojection_error_threshold_;
 
     bool in_graph_;
-    boost::shared_ptr<ceres::Problem> problem_;
+    std::vector<boost::shared_ptr<ceres::Problem>> problems_;
 
     mutable bool triangulation_good_;
 

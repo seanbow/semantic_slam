@@ -105,13 +105,13 @@ ObjectMeshPresenter::present(
         double model_scale = 1.0;
 
         if (obj->obj_name() == "chair") {
-            model_scale = 1.5;
+            model_scale = 1.2;
         } else if (obj->obj_name() == "gascan") {
             model_scale = 0.25;
         } else if (obj->obj_name() == "cart") {
             model_scale = 0.12;
         } else if (obj->obj_name() == "tableclosed") {
-            model_scale = 9.0;
+            model_scale = 8.0;
         } else if (obj->obj_name() == "ladder") {
             model_scale = 0.125;
         } else if (obj->obj_name() == "pelican") {

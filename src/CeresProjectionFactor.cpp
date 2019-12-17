@@ -75,8 +75,13 @@ CeresProjectionFactor::createGtsamFactor() const
     if (camera_node() && landmark_node()) {
 
         auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(covariance_);
+
+        // our calibration == nullptr corresponds to an already calibrated
+        // camera, i.e. cx = cy = 0 and fx = fy = 1, which is what the default gtsam calibration
+        // constructor provides
         auto gtsam_calib =
-          util::allocate_aligned<gtsam::Cal3DS2>(*calibration_);
+          calibration_ ? util::allocate_aligned<gtsam::Cal3DS2>(*calibration_)
+                       : util::allocate_aligned<gtsam::Cal3DS2>();
 
         gtsam_factor_ = util::allocate_aligned<
           gtsam::GenericProjectionFactor<gtsam::Pose3,

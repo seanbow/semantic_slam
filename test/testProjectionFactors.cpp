@@ -58,7 +58,7 @@ class MultiProjectionTest : public ::testing::Test
               node, landmark_node, msmt, noise, nullptr, Pose3());
             // graph.addFactor(fac2);
 
-            std::cout << "Msmt = " << msmt.transpose() << std::endl;
+            // std::cout << "Msmt = " << msmt.transpose() << std::endl;
 
             factor->addMeasurement(node, msmt, noise);
 
@@ -81,9 +81,9 @@ class MultiProjectionTest : public ::testing::Test
 TEST_F(MultiProjectionTest, testOneLandmarkBasic)
 {
     landmark_node->vector() << 1, -1, 1;
-    graph.solve(true);
-    std::cout << "Landmark now = " << landmark_node->vector().transpose()
-              << std::endl;
+    graph.solve();
+    // std::cout << "Landmark now = " << landmark_node->vector().transpose()
+    // << std::endl;
     EXPECT_NEAR(landmark_node->vector()(0), 0, 1e-10);
     EXPECT_NEAR(landmark_node->vector()(1), 0, 1e-10);
     EXPECT_NEAR(landmark_node->vector()(2), 10, 1e-10);
@@ -129,7 +129,7 @@ TEST(MultiProjectionFactorTests, testOneLandmarkNonIdentityITC)
 
     landmark_node->vector() << 1, 0, 0;
 
-    graph.solve(true);
+    graph.solve();
 
     EXPECT_NEAR(landmark_node->vector()(0), 10, 1e-10);
     EXPECT_NEAR(landmark_node->vector()(1), 0, 1e-10);
@@ -176,7 +176,7 @@ TEST(MultiProjectionFactorTests, testOneLandmarkVerySimpleWithCalibration)
 
     landmark_node->vector() << 0, 0, 1;
 
-    graph.solve(true);
+    graph.solve();
 
     EXPECT_NEAR(landmark_node->vector()(0), 0, 1e-10);
     EXPECT_NEAR(landmark_node->vector()(1), 0, 1e-10);
@@ -228,7 +228,7 @@ TEST(MultiProjectionFactorTests, testOneLandmarkAddNoise)
 
     landmark_node->vector() << 1, 0, 0;
 
-    graph.solve(true);
+    graph.solve();
 
     EXPECT_NEAR(landmark_node->vector()(0), 10, 1);
     EXPECT_NEAR(landmark_node->vector()(1), 0, 1);
@@ -284,7 +284,7 @@ TEST(MultiProjectionFactorTests, testUnfrozenCameras)
 
     landmark_node->vector() << 1, 0, 0;
 
-    graph.solve(true);
+    graph.solve();
 
     EXPECT_NEAR(landmark_node->vector()(0), 10, 1);
     EXPECT_NEAR(landmark_node->vector()(1), 0, 1);
@@ -302,7 +302,7 @@ TEST(MultiProjectionFactorTests, testUnfrozenCameras)
 
     auto cam1 = graph.getNode<SE3Node>(sym::X(0));
 
-    std::cout << cam1->pose() << std::endl;
+    // std::cout << cam1->pose() << std::endl;
 }
 
 TEST(MultiProjectionFactorTests, testUnfrozenCamerasWithCalibration)
@@ -341,7 +341,7 @@ TEST(MultiProjectionFactorTests, testUnfrozenCamerasWithCalibration)
 
         Eigen::Vector2d msmt = cam.project(pt);
         // msmt += Eigen::Vector2d(dist(generator), dist(generator));
-        std::cout << "msmt = " << msmt.transpose() << std::endl;
+        // std::cout << "msmt = " << msmt.transpose() << std::endl;
 
         Eigen::Matrix2d noise_cov = Eigen::Matrix2d::Identity();
         factor->addMeasurement(node, msmt, noise_cov);
@@ -358,7 +358,7 @@ TEST(MultiProjectionFactorTests, testUnfrozenCamerasWithCalibration)
 
     landmark_node->vector() << 1, 0, 0;
 
-    graph.solve(true);
+    graph.solve();
 
     EXPECT_NEAR(landmark_node->vector()(0), 10, 1);
     EXPECT_NEAR(landmark_node->vector()(1), 0, 1);
@@ -376,7 +376,7 @@ TEST(MultiProjectionFactorTests, testUnfrozenCamerasWithCalibration)
 
     auto cam1 = graph.getNode<SE3Node>(sym::X(0));
 
-    std::cout << cam1->pose() << std::endl;
+    // std::cout << cam1->pose() << std::endl;
 }
 
 TEST(MultiProjectionFactorTests, testMultiFactor_MultiplePoints)
@@ -435,7 +435,7 @@ TEST(MultiProjectionFactorTests, testMultiFactor_MultiplePoints)
             Eigen::Vector2d msmt =
               cam.project(pts[j]) +
               Eigen::Vector2d(dist(generator), dist(generator));
-            std::cout << msmt.transpose() << std::endl;
+            // std::cout << msmt.transpose() << std::endl;
             factors[j]->addMeasurement(node, msmt, noise_cov);
         }
 
@@ -455,7 +455,7 @@ TEST(MultiProjectionFactorTests, testMultiFactor_MultiplePoints)
         graph.addFactor(f);
     }
 
-    graph.solve(true);
+    graph.solve();
 
     for (int i = 0; i < 5; ++i) {
         EXPECT_NEAR(
@@ -469,7 +469,7 @@ TEST(MultiProjectionFactorTests, testMultiFactor_MultiplePoints)
 
     auto cam1 = graph.getNode<SE3Node>(sym::X(4));
 
-    std::cout << cam1->pose() << std::endl;
+    // std::cout << cam1->pose() << std::endl;
 }
 
 TEST(MultiProjectionFactorTests, testSmartFactor_MultiplePoints)
@@ -539,7 +539,7 @@ TEST(MultiProjectionFactorTests, testSmartFactor_MultiplePoints)
         graph.addFactor(f);
     }
 
-    graph.solve(true);
+    graph.solve();
 
     for (int i = 0; i < 5; ++i) {
         EXPECT_NEAR(
@@ -553,7 +553,7 @@ TEST(MultiProjectionFactorTests, testSmartFactor_MultiplePoints)
 
     auto cam1 = graph.getNode<SE3Node>(sym::X(4));
 
-    std::cout << cam1->pose() << std::endl;
+    // std::cout << cam1->pose() << std::endl;
 }
 
 // Run all the tests that were declared with TEST()

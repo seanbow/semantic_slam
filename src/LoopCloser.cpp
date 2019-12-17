@@ -18,6 +18,7 @@ LoopCloser::startLoopClosing(boost::shared_ptr<FactorGraph> graph,
 
     running_ = true;
     thread_ = std::thread(&LoopCloser::optimizeCurrentGraph, this);
+    thread_.detach();
 }
 
 void
@@ -63,8 +64,6 @@ LoopCloser::updateLoopInMapper()
     // in the SemanticMapper
     if (running())
         return false;
-
-    thread_.join();
 
     std::chrono::duration<double, std::micro> duration =
       time_end_ - time_start_;

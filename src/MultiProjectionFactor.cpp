@@ -14,19 +14,18 @@ MultiProjectionFactor::MultiProjectionFactor(
   , calibration_(calibration)
   , reprojection_error_threshold_(reprojection_error_threshold)
   , in_graph_(false)
-  , problem_(nullptr)
   , triangulation_good_(false)
 {
     // Parameter block ordering:
     // Landmark position "pt", camera poses (q1 p1), (q2 p2), ...
     // [pt q1 p1 q2 p2 ... qn pn]
-    mutable_parameter_block_sizes()->push_back(3);
+    // mutable_parameter_block_sizes()->push_back(3);
     nodes_.push_back(landmark_node);
 
     // parameter_blocks_.push_back(nodes[0]->vector().data());
-    parameter_blocks_.insert(parameter_blocks_.end(),
-                             nodes_[0]->parameter_blocks().begin(),
-                             nodes_[0]->parameter_blocks().end());
+    // parameter_blocks_.insert(parameter_blocks_.end(),
+    //                          nodes_[0]->parameter_blocks().begin(),
+    //                          nodes_[0]->parameter_blocks().end());
 }
 
 CeresFactor::Ptr
@@ -68,40 +67,10 @@ MultiProjectionFactor::triangulate(
         // cameras.triangulateMeasurements(msmts_);
 
         TriangulationResult triangulation =
-          cameras.triangulateMeasurementsApproximate(msmts_, 30);
+          cameras.triangulateMeasurementsApproximate(msmts_, 10);
 
         // TriangulationResult triangulation =
         // cameras.triangulateIterative(msmts_);
-
-        // check error
-        // if (triangulation.status == TriangulationStatus::FAILURE) {
-        //     ROS_INFO_STREAM("n frames = " << msmts_.size() << ",
-        //     triangulation failed!!");
-        // } else if (triangulation.status ==
-        // TriangulationStatus::BEHIND_CAMERA) {
-        //     ROS_INFO_STREAM("n frames = " << msmts_.size() << ",
-        //     triangulation behind camera!!");
-        // }
-
-        // if (tri_iter.status != TriangulationStatus::SUCCESS) {
-        //     ROS_INFO_STREAM("n frames = " << msmts_.size() << ", iterative
-        //     failed!!");
-        // }
-
-        // if (triangulation.status == TriangulationStatus::SUCCESS &&
-        // tri_iter.status == TriangulationStatus::SUCCESS) {
-        //     double err = (triangulation.point - tri_iter.point).norm();
-        //     ROS_INFO_STREAM("n frames = " << msmts_.size() << ",
-        //     Approximation error = " << err);
-        // }
-
-        // std::cout << "Normal:  " << triangulation.point.transpose() << ";
-        // iter = " << tri_iter.point.transpose() << std::endl;
-
-        // TODO check that it's ok
-
-        // std::cout << "Triangulation result: " << pt.transpose() << std::endl;
-        // std::cout << "  cond = " << cond << std::endl;
 
         if (triangulation.status == TriangulationStatus::SUCCESS &&
             triangulation.max_reprojection_error <=
@@ -117,29 +86,75 @@ MultiProjectionFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
 {
     // TODO add huber loss
     in_graph_ = true;
-    problem_ = problem;
 
-    if (triangulation_good_) {
-        ceres::ResidualBlockId residual_id =
-          problem->AddResidualBlock(this, NULL, parameter_blocks_);
-        residual_ids_[problem.get()] = residual_id;
-        landmark()->addToProblem(problem);
-        active_ = true;
+    aligned_vector<Pose3> body_poses;
+    for (int i = 0; i < msmts_.size(); ++i) {
+        body_poses.push_back(camera_node(i)->pose());
     }
+
+    triangulate(body_poses);
+
+    landmark()->addToProblem(problem);
+
+    auto problem_it = std::find(problems_.begin(), problems_.end(), problem);
+    if (problem_it == problems_.end()) {
+        problems_.push_back(problem);
+        internalAddToProblem(problem);
+    } else {
+        // ROS_WARN("Tried to add a factor to a problem it's already in.");
+    }
+}
+
+void
+MultiProjectionFactor::internalAddToProblem(
+  boost::shared_ptr<ceres::Problem> problem)
+{
+    // Set up parameter block sizes and pointers
+    mutable_parameter_block_sizes()->clear();
+    parameter_blocks_.clear();
+
+    // landmark node
+    mutable_parameter_block_sizes()->push_back(3);
+    parameter_blocks_.push_back(landmark()->vector().data());
+
+    // camera nodes
+    for (int i = 0; i < msmts_.size(); ++i) {
+        mutable_parameter_block_sizes()->push_back(7);
+        parameter_blocks_.push_back(camera_node(i)->pose().data());
+    }
+
+    set_num_residuals(2 * nMeasurements());
+
+    ceres::ResidualBlockId residual_id =
+      problem->AddResidualBlock(this, NULL, parameter_blocks_);
+    residual_ids_[problem.get()] = residual_id;
+    active_ = true;
 }
 
 void
 MultiProjectionFactor::removeFromProblem(
   boost::shared_ptr<ceres::Problem> problem)
 {
-    auto it = residual_ids_.find(problem.get());
+    auto problem_it = std::find(problems_.begin(), problems_.end(), problem);
+    if (problem_it != problems_.end()) {
+        problems_.erase(problem_it);
+        internalRemoveFromProblem(problem);
+    } else {
+        // ROS_WARN("Tried to remove a factor from a problem it's not in");
+    }
 
+    landmark()->removeFromProblem(problem);
+}
+
+void
+MultiProjectionFactor::internalRemoveFromProblem(
+  boost::shared_ptr<ceres::Problem> problem)
+{
+    auto it = residual_ids_.find(problem.get());
     if (it != residual_ids_.end()) {
         problem->RemoveResidualBlock(it->second);
         residual_ids_.erase(it);
     }
-
-    landmark()->removeFromProblem(problem);
 
     active_ = !residual_ids_.empty();
 }
@@ -184,30 +199,11 @@ MultiProjectionFactor::addMeasurement(SE3NodePtr body_pose_node,
 
     // Ceres can't handle block sizes changing if we've already been added to
     // the Problem. So we need to remove and re-add ourself
-    if (active_) {
-        removeFromProblem(problem_);
-    }
-
-    mutable_parameter_block_sizes()->push_back(4); // q
-    mutable_parameter_block_sizes()->push_back(3); // p
-
-    // Must support construction with body_pose_node == nullptr!!
-    if (body_pose_node) {
-        parameter_blocks_.push_back(body_pose_node->pose().rotation_data());
-        parameter_blocks_.push_back(body_pose_node->pose().translation_data());
-    }
-
-    set_num_residuals(2 * nMeasurements());
-
-    // aligned_vector<Pose3> body_poses;
-    // for (auto& node : body_poses_) {
-    //     body_poses.push_back(node->pose());
-    // }
-
-    // triangulate(body_poses);
-
     if (in_graph_) {
-        addToProblem(problem_);
+        for (auto& problem : problems_) {
+            internalRemoveFromProblem(problem);
+            internalAddToProblem(problem);
+        }
     }
 }
 
@@ -247,22 +243,47 @@ MultiProjectionFactor::Evaluate(double const* const* parameters,
     Eigen::Map<const Eigen::Vector3d> map_pt(parameters[0]);
     aligned_vector<Pose3> body_poses;
     for (int i = 0; i < nMeasurements(); ++i) {
-        Eigen::Map<const Eigen::Quaterniond> q(parameters[1 + 2 * i]);
-        Eigen::Map<const Eigen::Vector3d> p(parameters[2 + 2 * i]);
+        Eigen::Map<const Eigen::VectorXd> qp(parameters[1 + i], 7);
 
-        body_poses.push_back(Pose3(q, p));
+        body_poses.push_back(Pose3(qp));
     }
 
     Eigen::Map<Eigen::VectorXd> residuals(residuals_ptr, num_residuals());
 
-    if (decideIfTriangulate(body_poses))
+    if (decideIfTriangulate(body_poses)) {
         triangulate(body_poses);
+    }
+
+    using JacobianType =
+      Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+    // If the triangulation was good, compute & use the actual costs and
+    // Jacobians. If it wasn't, zero out the residuals and jacobian, which is
+    // equivalent to not including this factor in the estimation
+    if (!triangulation_good_) {
+        residuals.setZero();
+        if (jacobians) {
+            if (jacobians[0]) {
+                Eigen::Map<JacobianType> Dr_dl(
+                  jacobians[0], num_residuals(), 3);
+                Dr_dl.setZero();
+            }
+
+            for (int i = 0; i < nMeasurements(); ++i) {
+                if (jacobians[i + 1]) {
+                    Eigen::Map<JacobianType> Dr_dx(
+                      jacobians[i + 1], num_residuals(), 7);
+                    Dr_dx.setZero();
+                }
+            }
+        }
+
+        return true;
+    }
 
     // Iterate through each measurement computing its residual & jacobian
     // If we need the Jacobians, compute them as we go...
     // Indices corresponding to this are 0 (pt), 1 + 2*i, and 2 + 2*i...
-    using JacobianType =
-      Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
     if (jacobians) {
         for (int i = 0; i < nMeasurements(); ++i) {
             Eigen::MatrixXd Hpose_compose;
@@ -281,6 +302,8 @@ MultiProjectionFactor::Evaluate(double const* const* parameters,
                 Hpose = Hpose_project * Hpose_compose;
             } catch (CheiralityException& e) {
                 // ignore this measurement for now
+                // TODO can this ever even happen if triangulation_good_ ==
+                // true??
                 behind_camera = true;
                 residuals.segment<2>(2 * i).setZero();
             }
@@ -301,27 +324,21 @@ MultiProjectionFactor::Evaluate(double const* const* parameters,
                 }
             }
 
-            if (jacobians[1 + 2 * i]) {
-                Eigen::Map<JacobianType> Dr_dq(
-                  jacobians[1 + 2 * i], num_residuals(), 4);
+            if (jacobians[1 + i]) {
+                Eigen::Map<JacobianType> Dr_dx(
+                  jacobians[1 + i], num_residuals(), 7);
 
-                Dr_dq.setZero();
-
-                if (!behind_camera) {
-                    Dr_dq.block<2, 4>(2 * i, 0) =
-                      -sqrt_informations_[i] * Hpose.block<2, 4>(0, 0);
-                }
-            }
-
-            if (jacobians[2 + 2 * i]) {
-                Eigen::Map<JacobianType> Dr_dp(
-                  jacobians[2 + 2 * i], num_residuals(), 3);
-
-                Dr_dp.setZero();
+                Dr_dx.setZero();
 
                 if (!behind_camera) {
-                    Dr_dp.block<2, 3>(2 * i, 0) =
-                      -sqrt_informations_[i] * Hpose.block<2, 3>(0, 4);
+                    Dr_dx.block<2, 7>(2 * i, 0) =
+                      -sqrt_informations_[i] * Hpose;
+
+                    // Dr_dx.block<2, 4>(2 * i, 0) =
+                    //   -sqrt_informations_[i] * Hpose.block<2, 4>(0, 0);
+
+                    // Dr_dx.block<2, 3>(2 * i, 4) =
+                    //   -sqrt_informations_[i] * Hpose.block<2, 3>(0, 4);
                 }
             }
 
@@ -363,15 +380,22 @@ MultiProjectionFactor::createGtsamFactors() const
         if (!camera_node(i))
             return;
 
+        // our calibration == nullptr corresponds to an already calibrated
+        // camera, i.e. cx = cy = 0 and fx = fy = 1, which is what the default
+        // gtsam calibration constructor provides
+        auto gtsam_calib =
+          calibration_ ? util::allocate_aligned<gtsam::Cal3DS2>(*calibration_)
+                       : util::allocate_aligned<gtsam::Cal3DS2>();
+
         auto gtsam_noise =
           gtsam::noiseModel::Gaussian::Covariance(covariances_[i]);
-        auto gtsam_fac = util::allocate_aligned<GtsamFactorType>(
-          msmts_[i],
-          gtsam_noise,
-          camera_node(i)->key(),
-          landmark()->key(),
-          util::allocate_aligned<gtsam::Cal3DS2>(*calibration_),
-          gtsam::Pose3(I_T_C_));
+        auto gtsam_fac =
+          util::allocate_aligned<GtsamFactorType>(msmts_[i],
+                                                  gtsam_noise,
+                                                  camera_node(i)->key(),
+                                                  landmark()->key(),
+                                                  gtsam_calib,
+                                                  gtsam::Pose3(I_T_C_));
 
         gtsam_factors_.push_back(gtsam_fac);
     }
