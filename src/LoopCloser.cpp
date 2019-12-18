@@ -40,14 +40,6 @@ LoopCloser::optimizeCurrentGraph()
 
     time_start_ = std::chrono::high_resolution_clock::now();
 
-    // TESTING unfreeze it all
-    // Key origin_kf_key = mapper_->getKeyframeByIndex(0)->key();
-    // for (auto key_node : current_graph_->nodes()) {
-    //     if (key_node.first != origin_kf_key) {
-    //         current_graph_->setNodeVariable(key_node.second);
-    //     }
-    // }
-
     solve_succeeded_ = current_graph_->solve(true);
 
     running_ = false;

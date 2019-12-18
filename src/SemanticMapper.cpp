@@ -68,21 +68,12 @@ SemanticMapper::setup()
     loadCalibration();
     loadParameters();
 
-    // graph_->solver_options().trust_region_strategy_type = ceres::DOGLEG;
-    // graph_->solver_options().dogleg_type = ceres::SUBSPACE_DOGLEG;
-
     graph_->solver_options().function_tolerance = 1e-4;
     graph_->solver_options().gradient_tolerance = 1e-8;
     graph_->solver_options().parameter_tolerance = 1e-6;
 
     graph_->solver_options().max_solver_time_in_seconds =
       max_optimization_time_;
-
-    // graph_->solver_options().linear_solver_type = ceres::SPARSE_SCHUR;
-
-    // graph_->solver_options().linear_solver_type = ceres::ITERATIVE_SCHUR;
-    // graph_->solver_options().preconditioner_type = ceres::SCHUR_JACOBI;
-    // graph_->solver_options().use_explicit_schur_complement = true;
 
     graph_->solver_options().linear_solver_type = ceres::CGNR;
     graph_->solver_options().nonlinear_conjugate_gradient_type =
@@ -131,21 +122,6 @@ SemanticMapper::start()
     running_ = true;
 
     anchorOrigin();
-
-    // while (ros::ok() && running_) {
-    //     updateObjects();
-    //     // visualizeObjectMeshes();
-    //     for (auto& p : presenters_) p->present(keyframes_,
-    //     estimated_objects_); addNewOdometryToGraph(); tryAddObjectsToGraph();
-
-    //     bool did_optimize = tryOptimize();
-
-    //     if (did_optimize) {
-    //         computeLandmarkCovariances();
-    //     }
-
-    //     ros::Duration(0.003).sleep();
-    // }
 
     std::thread process_messages_thread(
       &SemanticMapper::processMessagesUpdateObjectsThread, this);
@@ -254,8 +230,6 @@ SemanticMapper::processPendingKeyframes()
         return;
     }
 
-    // ros::Time last_added_kf_time_ = pending_keyframes_.front()->time();
-
     // Use a heuristic to prevent the tracking part from getting too far
     // ahead...
     // TODO think about this more
@@ -279,24 +253,23 @@ SemanticMapper::processPendingKeyframes()
 
         last_added_kf_index = next_keyframe->index();
 
-        // if no objects were detected then earliest_object == INT_MAX and the
-        // following will never be true
         if (operation_mode_ == OperationMode::NORMAL &&
             next_keyframe->loop_closing()) {
             ROS_WARN("LOOP CLOSURE!!");
-
-            operation_mode_ = OperationMode::LOOP_CLOSURE_PENDING;
-            loop_closure_index_ = next_keyframe->index();
 
             // because of the asynchronous nature of how measurements are
             // associated and keyframe created (this thread) and how these
             // factors are actually added to the graph (other thread), we can't
             // start the loop closer quite yet as the graph won't contain the
             // loop closing measurements!! need to wait for other thread to
-            // incorporate this frame into the graph.
+            // incorporate this frame into the graph, so set it to a "pending"
+            // status to notify the other thread of this
 
-            // loop_closer_->startLoopClosing(essential_graph_,
-            //                                next_keyframe->index());
+            // could be an unlikely race condition here between setting/getting
+            // the following two variables TODO should probably use a mutex for
+            // this
+            operation_mode_ = OperationMode::LOOP_CLOSURE_PENDING;
+            loop_closure_index_ = next_keyframe->index();
         }
     }
 }
@@ -491,10 +464,6 @@ SemanticMapper::needToComputeCovariances()
         ros::Duration(covariance_delay_)) {
         return true;
     }
-
-    // if (Plxs_.size() != estimated_objects_.size()) {
-    //     return true;
-    // }
 
     return false;
 
@@ -1082,18 +1051,6 @@ SemanticMapper::optimizeEssential()
 
     essential_graph_->solver_options().max_solver_time_in_seconds = 1;
     essential_graph_->solver_options().max_num_iterations = 100000;
-
-    // essential_graph_->solver_options().linear_solver_type =
-    // ceres::ITERATIVE_SCHUR;
-
-    // essential_graph_->solver_options().minimizer_type = ceres::LINE_SEARCH;
-    // essential_graph_->solver_options().line_search_direction_type =
-    // ceres::NONLINEAR_CONJUGATE_GRADIENT;
-
-    // essential_graph_->solver_options().linear_solver_type =
-    // ceres::SPARSE_SCHUR;
-
-    // essential_graph_->setSolverOptions(essential_options);
 
     bool solve_succeeded;
 
@@ -1689,17 +1646,6 @@ SemanticMapper::getPlx(Key key1, Key key2)
     auto kf_old = getKeyframeByIndex(max_index);
     auto kf = getKeyframeByKey(key2);
 
-    // TODO REMOVE THIS REMOVE THIS
-    // if (kf_old->inGraph() && !kf_old->covariance_computed_exactly())
-    // computeCovariances({kf_old}); if (kf->inGraph()) {
-    //     if (!kf->covariance_computed_exactly()) computeCovariances({kf});
-    // } else {
-    //     auto last_kf = getLastKeyframeInGraph();
-    //     if (!last_kf->covariance_computed_exactly())
-    //     computeCovariances({last_kf}); kf->covariance() =
-    //     last_kf->covariance();
-    // }
-
     // Plx local now is the covariance of the landmarks *expressed in the
     // latest robot frame* What we really want is the covariance of the
     // estimates *in the map/global frame* Need to use the Jacobian of the
@@ -1769,8 +1715,6 @@ SemanticMapper::getPlx(Key key1, Key key2)
     // this H, but we have P1 and P2. Take Cholesky and write them as L1*L1'
     // and L2*L2', so L2*L2' = H*L1*L1'*H'. So we see L2 = H*L1. We further
     // have the constraint that x2 = H*x1.
-
-    // auto kf_old = getKeyframeByIndex(Plxs_index_);
 
     if (kf_old->index() == kf->index()) {
         return global_covs;

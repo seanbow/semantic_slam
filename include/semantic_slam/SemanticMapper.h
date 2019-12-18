@@ -105,12 +105,6 @@ class SemanticMapper
 
     std::mutex& map_mutex() { return map_mutex_; }
 
-    // double computeMahalanobisDistance(const ObjectMeasurement& msmt,
-    //                                   const EstimatedObject::Ptr& obj);
-
-    // double computeMahalanobisDistance(const KeypointMeasurement& msmt,
-    //                                   const EstimatedKeypoint::Ptr& kp);
-
     const std::vector<SemanticKeyframe::Ptr>& keyframes() { return keyframes_; }
 
     bool needToComputeCovariances();
@@ -168,14 +162,9 @@ class SemanticMapper
     std::atomic<OperationMode> operation_mode_;
     std::atomic<bool> invalidate_local_optimization_;
 
-    // SemanticKeyframe::Ptr next_keyframe_;
-
     Eigen::MatrixXd last_kf_covariance_;
     ros::Time last_kf_covariance_time_;
     int last_optimized_kf_index_;
-    // aligned_map<int, Eigen::MatrixXd> Plxs_;
-    // size_t Plxs_index_;
-    // ros::Time Plxs_time_;
 
     std::unordered_set<int> unfrozen_kfs_;
     std::unordered_set<int> unfrozen_objs_;
@@ -193,8 +182,6 @@ class SemanticMapper
     double covariance_delay_;
     double max_optimization_time_;
     int smoothing_length_;
-
-    // ceres::Solver::Options solver_options_;
 
     int loop_closure_threshold_;
 
