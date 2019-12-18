@@ -57,6 +57,8 @@ class SemanticMapper
 
     bool optimizeEssential();
 
+    void computeDataAssociationWeights(SemanticKeyframe::Ptr frame);
+
     void processMessagesUpdateObjectsThread();
     void addObjectsAndOptimizeGraphThread();
 
@@ -202,13 +204,7 @@ class SemanticMapper
 
     std::vector<bool> predictVisibleObjects(SemanticKeyframe::Ptr node);
 
-    bool addMeasurementsToObjects(
-      SemanticKeyframe::Ptr node,
-      const aligned_vector<ObjectMeasurement>& measurements,
-      const std::vector<size_t>& measurement_index,
-      const std::map<size_t, size_t>& known_das,
-      const Eigen::MatrixXd& weights,
-      const std::vector<size_t>& object_index);
+    bool addMeasurementsToObjects(SemanticKeyframe::Ptr frame);
 
     void processGeometricFeatureTracks(
       const std::vector<SemanticKeyframe::Ptr>& new_keyframes);
@@ -222,9 +218,9 @@ class SemanticMapper
 
     void processPendingKeyframes();
 
-    bool createNewObject(const ObjectMeasurement& measurement,
-                         const Pose3& map_T_camera,
-                         double weight);
+    int createNewObject(const ObjectMeasurement& measurement,
+                        const Pose3& map_T_camera,
+                        double weight);
 
     ros::Publisher vis_pub_;
 

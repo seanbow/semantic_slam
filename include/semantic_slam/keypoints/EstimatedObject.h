@@ -89,6 +89,7 @@ class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
 
     size_t numKeypoints() const { return keypoints_.size(); }
 
+    int first_seen() const { return first_seen_; }
     uint64_t last_seen() const { return last_seen_; }
 
     void setIsVisible(boost::shared_ptr<SemanticKeyframe> kf);
@@ -181,6 +182,7 @@ class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
     bool in_graph_;
     bool is_bad_;
 
+    int first_seen_;
     uint64_t last_seen_;
     uint64_t last_visible_;
     uint64_t last_optimized_;

@@ -1387,16 +1387,11 @@ SemanticMapper::tryFetchNextKeyframe()
     return next_keyframe;
 }
 
-bool
-SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
+void
+SemanticMapper::computeDataAssociationWeights(SemanticKeyframe::Ptr frame)
 {
-    if (!frame)
-        return false;
-
-    std::lock_guard<std::mutex> lock(map_mutex_);
-
-    // TODO fix this bad approximation
-    frame->covariance() = last_kf_covariance_;
+    frame->association_weights().clear();
+    frame->association_weights().resize(frame->measurements().size());
 
     if (frame->measurements().size() > 0) {
 
@@ -1407,6 +1402,8 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
         std::map<size_t, size_t> known_das;
 
         for (size_t i = 0; i < frame->measurements().size(); ++i) {
+            frame->association_weights()[i].clear();
+
             auto known_id_it =
               object_track_ids_.find(frame->measurements()[i].track_id);
             if (known_id_it == object_track_ids_.end()) {
@@ -1466,39 +1463,244 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
             }
         }
 
-        // std::cout << "Mahals:\n" << mahals << std::endl;
-
-        // std::cout << "Mahals: ";
-        // for (int i = 0; i < measurement_index.size(); ++i) {
-        //     std::cout << "MSMT " << measurement_index[i] << ": ";
-
-        //     for (int j = 0; j < n_visible; ++j) {
-        //         std::cout << DefaultKeyFormatter(sym::O(
-        //                        estimated_objects_[object_index[j]]->id()))
-        //                   << ": " << mahals(i, j) << " ";
-        //     }
-        //     std::cout << std::endl;
-        // }
-        // std::cout << std::endl;
-
-        Eigen::MatrixXd weights_matrix =
+        Eigen::MatrixXd weights =
           MLDataAssociator(params_).computeConstraintWeights(mahals);
 
-        addMeasurementsToObjects(frame,
-                                 frame->measurements(),
-                                 measurement_index,
-                                 known_das,
-                                 weights_matrix,
-                                 object_index);
+        // Have the weights in a matrix form now, compute vector of weight
+        // mappings for each measurement
 
-        // calling the "update" method on each of our objects allows them to
-        // remove themselves from the estimation if they're poorly localized
-        // and haven't been observed recently. These objects can cause poor
-        // data association and errors down the road otherwise
-        for (auto& obj : estimated_objects_) {
-            if (!obj->bad()) {
-                obj->update(frame);
+        for (size_t k = 0; k < measurement_index.size(); ++k) {
+            // count the number of observed keypoints
+            int n_observed_keypoints = 0;
+            for (auto& kp_msmt : frame->measurements()[measurement_index[k]]
+                                   .keypoint_measurements) {
+                if (kp_msmt.observed) {
+                    n_observed_keypoints++;
+                }
             }
+
+            if (weights(k, weights.cols() - 1) >=
+                  params_.new_landmark_weight_threshold &&
+                n_observed_keypoints >=
+                  params_.min_observed_keypoints_to_initialize) {
+                frame->association_weights()[measurement_index[k]][-1] =
+                  weights(k, weights.cols() - 1);
+            }
+        }
+
+        // existing objects that were tracked
+        for (const auto& known_da : known_das) {
+            ROS_INFO_STREAM(fmt::format(
+              "Measurement {} [{}]: adding factors from {} to object "
+              "{} [{}] (tracked).",
+              known_da.first,
+              frame->measurements()[known_da.first].obj_name,
+              DefaultKeyFormatter(
+                frame->measurements()[known_da.first].observed_key),
+              known_da.second,
+              estimated_objects_[known_da.second]->obj_name()));
+            frame->association_weights()[known_da.first][known_da.second] = 1.0;
+        }
+
+        // existing objects that were associated
+        for (size_t k = 0; k < measurement_index.size(); ++k) {
+            for (int j = 0; j < weights.cols() - 1; ++j) {
+                if (weights(k, j) >= params_.constraint_weight_threshold) {
+                    auto& msmt = frame->measurements()[measurement_index[k]];
+
+                    ROS_INFO_STREAM(fmt::format(
+                      "Measurement {} [{}]: adding factors from {} "
+                      "to object {} [{}] with weight {}.",
+                      measurement_index[k],
+                      msmt.obj_name,
+                      DefaultKeyFormatter(msmt.observed_key),
+                      object_index[j],
+                      estimated_objects_[object_index[j]]->obj_name(),
+                      weights(k, j)));
+
+                    // loop closure check
+                    if (frame->index() -
+                          static_cast<int>(
+                            estimated_objects_[object_index[j]]->last_seen()) >
+                        loop_closure_threshold_) {
+                        frame->loop_closing() = true;
+                    }
+
+                    frame->association_weights()[measurement_index[k]]
+                                                [object_index[j]] =
+                      weights(k, j);
+
+                    // update information about track ids
+                    object_track_ids_[msmt.track_id] = object_index[j];
+                }
+            }
+        }
+    }
+}
+
+int
+SemanticMapper::createNewObject(const ObjectMeasurement& measurement,
+                                const Pose3& map_T_camera,
+                                double weight)
+{
+    EstimatedObject::Ptr new_obj =
+      EstimatedObject::Create(graph_,
+                              essential_graph_,
+                              params_,
+                              object_models_[measurement.obj_name],
+                              estimated_objects_.size(),
+                              n_landmarks_,
+                              measurement,
+                              map_T_camera, /* G_T_C */
+                              I_T_C_,
+                              "zed",
+                              camera_calibration_,
+                              this);
+
+    new_obj->addKeypointMeasurements(measurement, weight);
+    n_landmarks_ += new_obj->numKeypoints();
+    estimated_objects_.push_back(new_obj);
+
+    ROS_INFO_STREAM(fmt::format(
+      "Initializing new object {}, weight {}.", measurement.obj_name, weight));
+
+    object_track_ids_[measurement.track_id] = estimated_objects_.size() - 1;
+
+    return estimated_objects_.size() - 1;
+}
+
+bool
+SemanticMapper::addMeasurementsToObjects(SemanticKeyframe::Ptr frame)
+{
+    if (frame->measurements().size() == 0)
+        return true;
+
+    Pose3 map_T_body = frame->pose();
+    Pose3 map_T_camera = map_T_body * I_T_C_;
+
+    for (size_t msmt_id = 0; msmt_id < frame->measurements().size();
+         ++msmt_id) {
+        auto& msmt = frame->measurements()[msmt_id];
+
+        int new_obj_id = -1; // set to the id >= 0 if a new object is created
+
+        for (auto& da_pair : frame->association_weights()[msmt_id]) {
+            if (da_pair.first == -1) {
+                new_obj_id =
+                  createNewObject(msmt, map_T_camera, da_pair.second);
+            } else {
+                estimated_objects_[da_pair.first]->addKeypointMeasurements(
+                  msmt, da_pair.second);
+            }
+        }
+
+        if (new_obj_id >= 0) {
+            frame->association_weights()[msmt_id][new_obj_id] =
+              frame->association_weights()[msmt_id][-1];
+
+            frame->association_weights()[msmt_id].erase(-1);
+        }
+    }
+
+    /** new objects **/
+
+    // for (size_t k = 0; k < measurement_index.size(); ++k) {
+    //     // count the number of observed keypoints
+    //     int n_observed_keypoints = 0;
+    //     for (auto& kp_msmt :
+    //          measurements[measurement_index[k]].keypoint_measurements) {
+    //         if (kp_msmt.observed) {
+    //             n_observed_keypoints++;
+    //         }
+    //     }
+
+    //     if (weights(k, weights.cols() - 1) >=
+    //           params_.new_landmark_weight_threshold &&
+    //         n_observed_keypoints >=
+    //           params_.min_observed_keypoints_to_initialize) {
+
+    //         createNewObject(measurements[measurement_index[k]],
+    //                         map_T_camera,
+    //                         weights(k, weights.cols() - 1));
+    //     }
+    // }
+    // /** existing objects **/
+
+    // // existing objects that were tracked
+    // for (const auto& known_da : known_das) {
+    //     auto& msmt = measurements[known_da.first];
+
+    //     ROS_INFO_STREAM(
+    //       fmt::format("Measurement {} [{}]: adding factors from {} to object
+    //       "
+    //                   "{} [{}] (tracked).",
+    //                   known_da.first,
+    //                   msmt.obj_name,
+    //                   DefaultKeyFormatter(msmt.observed_key),
+    //                   known_da.second,
+    //                   estimated_objects_[known_da.second]->obj_name()));
+
+    //     estimated_objects_[known_da.second]->addKeypointMeasurements(msmt, 1.0);
+    // }
+
+    // // existing objects that were associated
+    // for (size_t k = 0; k < measurement_index.size(); ++k) {
+    //     for (int j = 0; j < weights.cols() - 1; ++j) {
+    //         if (weights(k, j) >= params_.constraint_weight_threshold) {
+    //             auto& msmt = measurements[measurement_index[k]];
+
+    //             ROS_INFO_STREAM(
+    //               fmt::format("Measurement {} [{}]: adding factors from {} "
+    //                           "to object {} [{}] with weight {}.",
+    //                           measurement_index[k],
+    //                           msmt.obj_name,
+    //                           DefaultKeyFormatter(msmt.observed_key),
+    //                           object_index[j],
+    //                           estimated_objects_[object_index[j]]->obj_name(),
+    //                           weights(k, j)));
+
+    //             // loop closure check
+    //             if (kf->index() -
+    //                   static_cast<int>(
+    //                     estimated_objects_[object_index[j]]->last_seen()) >
+    //                 loop_closure_threshold_) {
+    //                 kf->loop_closing() = true;
+    //             }
+
+    //             estimated_objects_[object_index[j]]->addKeypointMeasurements(
+    //               msmt, weights(k, j));
+
+    //             // update information about track ids
+    //             object_track_ids_[msmt.track_id] = object_index[j];
+    //         }
+    //     }
+    // }
+
+    return true;
+}
+
+bool
+SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
+{
+    if (!frame)
+        return false;
+
+    std::lock_guard<std::mutex> lock(map_mutex_);
+
+    // TODO fix this bad approximation
+    frame->covariance() = last_kf_covariance_;
+
+    computeDataAssociationWeights(frame);
+
+    addMeasurementsToObjects(frame);
+
+    // calling the "update" method on each of our objects allows them to
+    // remove themselves from the estimation if they're poorly localized
+    // and haven't been observed recently. These objects can cause poor
+    // data association and errors down the road otherwise
+    for (auto& obj : estimated_objects_) {
+        if (!obj->bad()) {
+            obj->update(frame);
         }
     }
 
@@ -1900,128 +2102,6 @@ SemanticMapper::computePlxExact(Key obj_key, Key x_key)
 
         return Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
     }
-}
-
-bool
-SemanticMapper::createNewObject(const ObjectMeasurement& measurement,
-                                const Pose3& map_T_camera,
-                                double weight)
-{
-    EstimatedObject::Ptr new_obj =
-      EstimatedObject::Create(graph_,
-                              essential_graph_,
-                              params_,
-                              object_models_[measurement.obj_name],
-                              estimated_objects_.size(),
-                              n_landmarks_,
-                              measurement,
-                              map_T_camera, /* G_T_C */
-                              I_T_C_,
-                              "zed",
-                              camera_calibration_,
-                              this);
-
-    new_obj->addKeypointMeasurements(measurement, weight);
-    n_landmarks_ += new_obj->numKeypoints();
-    estimated_objects_.push_back(new_obj);
-
-    ROS_INFO_STREAM(fmt::format(
-      "Initializing new object {}, weight {}.", measurement.obj_name, weight));
-
-    object_track_ids_[measurement.track_id] = estimated_objects_.size() - 1;
-
-    return true;
-}
-
-bool
-SemanticMapper::addMeasurementsToObjects(
-  SemanticKeyframe::Ptr kf,
-  const aligned_vector<ObjectMeasurement>& measurements,
-  const std::vector<size_t>& measurement_index,
-  const std::map<size_t, size_t>& known_das,
-  const Eigen::MatrixXd& weights,
-  const std::vector<size_t>& object_index)
-{
-    if (measurements.size() == 0)
-        return true;
-
-    Pose3 map_T_body = kf->pose();
-    Pose3 map_T_camera = map_T_body * I_T_C_;
-
-    /** new objects **/
-
-    for (size_t k = 0; k < measurement_index.size(); ++k) {
-        // count the number of observed keypoints
-        int n_observed_keypoints = 0;
-        for (auto& kp_msmt :
-             measurements[measurement_index[k]].keypoint_measurements) {
-            if (kp_msmt.observed) {
-                n_observed_keypoints++;
-            }
-        }
-
-        if (weights(k, weights.cols() - 1) >=
-              params_.new_landmark_weight_threshold &&
-            n_observed_keypoints >=
-              params_.min_observed_keypoints_to_initialize) {
-
-            createNewObject(measurements[measurement_index[k]],
-                            map_T_camera,
-                            weights(k, weights.cols() - 1));
-        }
-    }
-    /** existing objects **/
-
-    // existing objects that were tracked
-    for (const auto& known_da : known_das) {
-        auto& msmt = measurements[known_da.first];
-
-        ROS_INFO_STREAM(
-          fmt::format("Measurement {} [{}]: adding factors from {} to object "
-                      "{} [{}] (tracked).",
-                      known_da.first,
-                      msmt.obj_name,
-                      DefaultKeyFormatter(msmt.observed_key),
-                      known_da.second,
-                      estimated_objects_[known_da.second]->obj_name()));
-
-        estimated_objects_[known_da.second]->addKeypointMeasurements(msmt, 1.0);
-    }
-
-    // existing objects that were associated
-    for (size_t k = 0; k < measurement_index.size(); ++k) {
-        for (int j = 0; j < weights.cols() - 1; ++j) {
-            if (weights(k, j) >= params_.constraint_weight_threshold) {
-                auto& msmt = measurements[measurement_index[k]];
-
-                ROS_INFO_STREAM(
-                  fmt::format("Measurement {} [{}]: adding factors from {} "
-                              "to object {} [{}] with weight {}.",
-                              measurement_index[k],
-                              msmt.obj_name,
-                              DefaultKeyFormatter(msmt.observed_key),
-                              object_index[j],
-                              estimated_objects_[object_index[j]]->obj_name(),
-                              weights(k, j)));
-
-                // loop closure check
-                if (kf->index() -
-                      static_cast<int>(
-                        estimated_objects_[object_index[j]]->last_seen()) >
-                    loop_closure_threshold_) {
-                    kf->loop_closing() = true;
-                }
-
-                estimated_objects_[object_index[j]]->addKeypointMeasurements(
-                  msmt, weights(k, j));
-
-                // update information about track ids
-                object_track_ids_[msmt.track_id] = object_index[j];
-            }
-        }
-    }
-
-    return true;
 }
 
 std::vector<bool>

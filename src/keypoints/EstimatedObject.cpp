@@ -59,14 +59,11 @@ EstimatedObject::EstimatedObject(
     // --> Make this constructor private and require the use of a create()
     // method. initializeFromMeasurement(msmt, G_T_C);
 
-    // std::string
-    // model_path("/home/sean/rcta/src/mapping/semslam/semslam/models/car_basis.dat");
-    // model_ = geometry::readModelFile(model_path);
-
     m_ = model_.mu.cols();
     k_ = model_.pc.rows() / 3;
 
     last_visible_ = Symbol(msmt.observed_key).index();
+    first_seen_ = last_visible_;
 
     graph_pose_node_ = util::allocate_aligned<SE3Node>(sym::O(id_));
 

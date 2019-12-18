@@ -80,6 +80,17 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
     {
         return neighbors_;
     }
+
+    std::vector<std::unordered_map<int, double>>& association_weights()
+    {
+        return association_weights_;
+    }
+    const std::vector<std::unordered_map<int, double>>& association_weights()
+      const
+    {
+        return association_weights_;
+    }
+
     const std::map<SemanticKeyframe::Ptr, int> geometric_neighbors() const
     {
         return geometric_neighbors_;
@@ -107,6 +118,13 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
 
     aligned_vector<ObjectMeasurement> measurements_;
     bool measurements_processed_;
+
+    // association_weights_[i] contains the set of data association weights for
+    // measurements_[i], i.e. association_weights_[i][j] is the weight of the
+    // link between measurements_[i] and map object j. We're using an
+    // unordered_map because some objects may be absent, so j not in
+    // association_weights_[i] is equivalent to a weight of zero.
+    std::vector<std::unordered_map<int, double>> association_weights_;
 
     Pose3 odometry_;
     Eigen::MatrixXd odometry_covariance_;
