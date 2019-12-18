@@ -159,7 +159,7 @@ int
 Munkres::step2()
 {
     const size_t rows = matrix.rows(), columns = matrix.cols();
-    size_t covercount = 0;
+    int covercount = 0;
 
     for (size_t row = 0; row < rows; row++)
         for (size_t col = 0; col < columns; col++)
@@ -209,7 +209,7 @@ Munkres::step3()
         return 5;
     }
 
-    for (size_t ncol = 0; ncol < matrix.cols(); ncol++) {
+    for (int ncol = 0; ncol < matrix.cols(); ncol++) {
         if (mask_matrix(saverow, ncol) == STAR) {
             row_mask[saverow] = true; // cover this row and
             col_mask[ncol] =
@@ -298,8 +298,8 @@ Munkres::step4()
     }
 
     // 4. Erase all primes, uncover all columns and rows,
-    for (size_t row = 0; row < mask_matrix.rows(); row++) {
-        for (size_t col = 0; col < mask_matrix.cols(); col++) {
+    for (int row = 0; row < mask_matrix.rows(); row++) {
+        for (int col = 0; col < mask_matrix.cols(); col++) {
             if (mask_matrix(row, col) == PRIME) {
                 mask_matrix(row, col) = NORMAL;
             }

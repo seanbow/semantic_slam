@@ -15,11 +15,11 @@ CeresProjectionFactor::CeresProjectionFactor(
   bool use_huber,
   int tag)
   : CeresFactor(FactorType::PROJECTION, tag)
-  , robust_loss_(use_huber)
   , image_coords_(image_coords)
   , covariance_(msmt_covariance)
   , calibration_(calibration)
   , body_T_sensor_(body_T_sensor)
+  , robust_loss_(use_huber)
 {
     cf_ = ProjectionCostTerm::Create(image_coords,
                                      msmt_covariance,
@@ -77,8 +77,8 @@ CeresProjectionFactor::createGtsamFactor() const
         auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(covariance_);
 
         // our calibration == nullptr corresponds to an already calibrated
-        // camera, i.e. cx = cy = 0 and fx = fy = 1, which is what the default gtsam calibration
-        // constructor provides
+        // camera, i.e. cx = cy = 0 and fx = fy = 1, which is what the default
+        // gtsam calibration constructor provides
         auto gtsam_calib =
           calibration_ ? util::allocate_aligned<gtsam::Cal3DS2>(*calibration_)
                        : util::allocate_aligned<gtsam::Cal3DS2>();

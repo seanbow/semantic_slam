@@ -56,7 +56,7 @@ SimpleObjectTracker::detectionCallback(
     // unobserved ones
     std::vector<bool> detected_set(tracked_objects_.size(), 0);
 
-    for (int i = 0; i < msg->bounding_boxes.size(); ++i) {
+    for (size_t i = 0; i < msg->bounding_boxes.size(); ++i) {
         auto& det = msg->bounding_boxes[i];
 
         if (det.probability < det_conf_thresh_) {
@@ -73,7 +73,7 @@ SimpleObjectTracker::detectionCallback(
         darknet_ros_msgs::BoundingBox det_msg = det;
         det_msg.header = msg->header;
 
-        if (idx == -1 || idx >= detected_set.size()) {
+        if (idx == -1 || idx >= (int)detected_set.size()) {
             // not found, initialize a new object
             TrackedObject object;
             object.object_name = det.Class;
@@ -101,7 +101,7 @@ SimpleObjectTracker::detectionCallback(
         if (!detected_set[i]) {
             tracked_objects_[i].n_missed_detections++;
 
-            if (tracked_objects_[i].n_missed_detections >
+            if ((int)tracked_objects_[i].n_missed_detections >
                 missed_detection_thresh_) {
                 tracked_objects_.erase(tracked_objects_.begin() + i);
             }
@@ -144,7 +144,7 @@ SimpleObjectTracker::getTrackingIndex(const std::string& name,
     int best_index = -1;
     double best_match = -1;
 
-    for (int i = 0; i < tracked_objects_.size(); ++i) {
+    for (size_t i = 0; i < tracked_objects_.size(); ++i) {
         // Make sure the name matches
         if (tracked_objects_[i].object_name != name)
             continue;

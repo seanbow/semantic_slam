@@ -45,7 +45,7 @@ FivePointRansac::computeInliers(const std::vector<cv::Point2f>& points_A,
     Eigen::MatrixXd eigenA(3, n_points);
     Eigen::MatrixXd eigenB(3, n_points);
 
-    for (int i = 0; i < n_points; ++i) {
+    for (size_t i = 0; i < n_points; ++i) {
         eigenA.col(i) << pointsA_norm[i].x, pointsA_norm[i].y, 1;
         eigenB.col(i) << pointsB_norm[i].x, pointsB_norm[i].y, 1;
     }
@@ -66,13 +66,13 @@ FivePointRansac::computeInliersNormalized(
     int winner_2 = 0;
 
     int winner = -1;
-    int i = 0;
+    // int i = 0;
 
     // double sqrt_samp_threshold = 6.25e-4;
     // double sqrt_samp_threshold = 5e-4;
     // double samp_threshold = 1*pow(sqrt_samp_threshold,2);
 
-    for (int i = 0; i < n_hypotheses_; ++i) {
+    for (size_t i = 0; i < n_hypotheses_; ++i) {
         hypotheses_[i]->inliers.setZero();
 
         selectRandomSet(n_points, i);

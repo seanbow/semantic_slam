@@ -49,7 +49,7 @@ TwoPointRansac::computeInliers(const std::vector<cv::Point2f>& points_A,
     Eigen::MatrixXd eigenA(3, n_points);
     Eigen::MatrixXd eigenB(3, n_points);
 
-    for (int i = 0; i < n_points; ++i) {
+    for (size_t i = 0; i < n_points; ++i) {
         eigenA.col(i) << pointsA_norm[i].x, pointsA_norm[i].y, 1;
         eigenB.col(i) << pointsB_norm[i].x, pointsB_norm[i].y, 1;
     }
@@ -74,7 +74,7 @@ TwoPointRansac::computeInliersNormalized(
     // double sqrt_samp_threshold = 5e-4;
     // double samp_threshold = 1*pow(sqrt_samp_threshold,2);
 
-    for (int i = 0; i < n_hypotheses_; ++i) {
+    for (size_t i = 0; i < n_hypotheses_; ++i) {
         selectRandomSet(n_points, i);
 
         solveTwoPoint(points_A, points_B, R, i);
