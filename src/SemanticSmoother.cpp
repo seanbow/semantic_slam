@@ -1,9 +1,8 @@
 #include "semantic_slam/SemanticSmoother.h"
 
+#include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
 #include "semantic_slam/LoopCloser.h"
-#include "semantic_slam/MultiProjectionFactor.h"
-#include "semantic_slam/SE3Node.h"
 #include "semantic_slam/SemanticMapper.h"
 
 #include <thread>
@@ -12,7 +11,6 @@
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/nonlinear/NonlinearEquality.h>
 #include <gtsam/nonlinear/Values.h>
-#include <gtsam/slam/PriorFactor.h>
 
 SemanticSmoother::SemanticSmoother(ObjectParams params, SemanticMapper* mapper)
   : mapper_(mapper)
@@ -66,6 +64,15 @@ SemanticSmoother::run()
 {
     running_ = true;
 
+    work_thread_ =
+      std::thread(&SemanticSmoother::processingThreadFunction, this);
+
+    work_thread_.join();
+}
+
+void
+SemanticSmoother::processingThreadFunction()
+{
     while (running_) {
         auto new_frames = addNewOdometryToGraph();
 
@@ -113,13 +120,12 @@ SemanticSmoother::run()
             ros::Duration(0.001).sleep();
         }
     }
-
-    running_ = false;
 }
 
 void
 SemanticSmoother::stop()
 {
+    ROS_WARN("Stopping SemanticSmoother");
     running_ = false;
 }
 
@@ -127,8 +133,6 @@ void
 SemanticSmoother::processGeometricFeatureTracks(
   const std::vector<SemanticKeyframe::Ptr>& new_keyframes)
 {
-    // TIME_TIC;
-
     for (auto& kf : new_keyframes) {
         geom_handler_->addKeyframe(kf);
     }
@@ -139,24 +143,6 @@ SemanticSmoother::processGeometricFeatureTracks(
     std::lock(graph_lock, geom_map_lock);
 
     geom_handler_->processPendingFrames();
-
-    // check covisibility graph...
-    // if (new_keyframes.size() > 0) {
-    //     std::cout << "Observed features for kf " <<
-    //     new_keyframes.front()->index() << ": "; for (auto feat :
-    //     new_keyframes.front()->visible_geometric_features()) {
-    //         std::cout << feat->id << " ";
-    //     }
-    //     std::cout << "\nGeom covisibility for kf " <<
-    //     new_keyframes.front()->index() << ": "; for (auto neighbor :
-    //     new_keyframes.front()->geometric_neighbors()) {
-    //         std::cout << neighbor.first->index() << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
-
-    // ROS_INFO_STREAM("Tracking features took " << TIME_TOC << " ms." <<
-    // std::endl);
 }
 
 void
@@ -219,8 +205,6 @@ SemanticSmoother::needToComputeCovariances()
     }
 
     return false;
-
-    // return true;
 }
 
 void
@@ -306,8 +290,6 @@ SemanticSmoother::computeCovariancesWithGtsam(
         gtsam::Marginals marginals(*gtsam_graph, *gtsam_values);
 
         for (auto& frame : frames) {
-            // ROS_INFO_STREAM("Computing covariance for " <<
-            // DefaultKeyFormatter(frame->key()));
             auto cov = marginals.marginalCovariance(frame->key());
 
             std::lock_guard<std::mutex> map_lock(mapper_->map_mutex());
@@ -382,11 +364,6 @@ SemanticSmoother::commitGraphSolution()
     // transformation
     SemanticKeyframe::Ptr last_in_graph = mapper_->getLastKeyframeInGraph();
 
-    // for (auto& kf : keyframes_) {
-    //     std::cout << kf->graph_node()->pose().rotation().coeffs().norm() <<
-    //     std::endl;
-    // }
-
     const Pose3& old_pose = last_in_graph->pose();
 
     // if (params_.optimization_backend == OptimizationBackend::CERES) {
@@ -396,9 +373,6 @@ SemanticSmoother::commitGraphSolution()
     Pose3 old_T_new = old_pose.inverse() * new_pose;
     old_T_new.rotation().normalize();
 
-    // Pose3 new_map_T_old_map = new_pose * old_pose.inverse();
-    // new_map_T_old_map.rotation().normalize();
-
     for (auto& kf : mapper_->keyframes()) {
         if (kf->inGraph()) {
             kf->pose() = kf->graph_node()->pose();
@@ -407,8 +381,6 @@ SemanticSmoother::commitGraphSolution()
             // Keyframes not yet in the graph will be later so just
             // propagate the computed transform forward
             kf->pose() = kf->pose() * old_T_new;
-
-            // kf->pose() = new_map_T_old_map * kf->pose();
         }
     }
 
@@ -417,15 +389,9 @@ SemanticSmoother::commitGraphSolution()
             obj->commitGraphSolution();
         } else if (!obj->bad()) {
             // Update the object based on recomputed camera poses
-            // ROS_ERROR_STREAM("OBJ not in graph");
             obj->optimizeStructure();
         }
     }
-
-    // } else {
-    //     // GTSAM
-    //     throw std::logic_error("unimplemented");
-    // }
 }
 
 std::vector<SemanticKeyframe::Ptr>

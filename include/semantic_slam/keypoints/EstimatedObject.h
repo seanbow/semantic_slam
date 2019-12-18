@@ -1,23 +1,25 @@
 #pragma once
 
-#include "semantic_slam/CeresStructureFactor.h"
 #include "semantic_slam/Common.h"
-#include "semantic_slam/FactorGraph.h"
-#include "semantic_slam/keypoints/EstimatedKeypoint.h"
+#include "semantic_slam/VectorNode.h"
 #include "semantic_slam/keypoints/geometry.h"
 #include "semantic_slam/pose_math.h"
 
 #include <memory>
 #include <mutex>
 
-#include "semantic_slam/keypoints/StructureOptimizationProblem.h"
-
 #include <boost/enable_shared_from_this.hpp>
 
 #include <gtsam/nonlinear/Values.h>
 
+class CameraCalibration;
+class CeresStructureFactor;
+class EstimatedKeypoint;
+class FactorGraph;
+class SE3Node;
 class SemanticKeyframe;
 class SemanticMapper;
+class StructureOptimizationProblem;
 
 class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
 {
@@ -97,8 +99,9 @@ class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
     // uint64_t lastVisible() const { return last_visible_; }
 
     std::vector<int64_t> getKeypointIndices() const;
-    const std::vector<EstimatedKeypoint::Ptr>& getKeypoints() const;
-    const std::vector<EstimatedKeypoint::Ptr>& keypoints() const;
+    const std::vector<boost::shared_ptr<EstimatedKeypoint>>& getKeypoints()
+      const;
+    const std::vector<boost::shared_ptr<EstimatedKeypoint>>& keypoints() const;
 
     const aligned_vector<ObjectMeasurement>& getMeasurements() const
     {
@@ -161,7 +164,7 @@ class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
 
     // void updatePositionFromKeypoints();
 
-    // void addKeypointToGraph(EstimatedKeypoint::Ptr& kp,
+    // void addKeypointToGraph(boost::shared_ptr<EstimatedKeypoint>& kp,
     // 						std::vector<FactorInfoPtr>&
     // new_factors, 						gtsam::Values&
     // values);
@@ -191,7 +194,7 @@ class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
 
     ObjectParams params_;
 
-    SE3NodePtr graph_pose_node_;
+    boost::shared_ptr<SE3Node> graph_pose_node_;
     VectorXdNodePtr graph_coefficient_node_;
 
     Pose3 pose_;
@@ -205,14 +208,14 @@ class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
     // List of keyframes that observed this object
     std::vector<boost::shared_ptr<SemanticKeyframe>> keyframe_observations_;
 
-    std::vector<EstimatedKeypoint::Ptr> keypoints_;
+    std::vector<boost::shared_ptr<EstimatedKeypoint>> keypoints_;
 
     /** Flag on whether the structure factor graph has been modified since the
      * last marginals computation */
     bool modified_;
 
     // FactorInfoPtr structure_factor_;
-    CeresStructureFactorPtr structure_factor_;
+    boost::shared_ptr<CeresStructureFactor> structure_factor_;
 
     geometry::ObjectModelBasis model_;
     size_t m_, k_; // number of model keypoints and number of basis directions,

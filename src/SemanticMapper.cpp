@@ -1,11 +1,13 @@
 
 #include "semantic_slam/SemanticMapper.h"
+
 #include "semantic_slam/ExternalOdometryHandler.h"
+#include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
 #include "semantic_slam/LoopCloser.h"
 #include "semantic_slam/MLDataAssociator.h"
-#include "semantic_slam/MultiProjectionFactor.h"
-#include "semantic_slam/SE3Node.h"
+#include "semantic_slam/Presenter.h"
+#include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/SemanticSmoother.h"
 
 #include <ros/package.h>
@@ -14,12 +16,9 @@
 #include <thread>
 #include <unordered_set>
 
-#include <gtsam/nonlinear/ISAM2.h>
-#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/nonlinear/NonlinearEquality.h>
 #include <gtsam/nonlinear/Values.h>
-#include <gtsam/slam/PriorFactor.h>
 
 using namespace std::string_literals;
 namespace sym = symbol_shorthand;
@@ -107,10 +106,12 @@ SemanticMapper::start()
 
     std::thread process_messages_thread(
       &SemanticMapper::processMessagesUpdateObjectsThread, this);
-    std::thread graph_optimize_thread(&SemanticSmoother::run, smoother_.get());
+    
+    smoother_->run();
 
     process_messages_thread.join();
-    graph_optimize_thread.join();
+
+    smoother_->stop();
 
     running_ = false;
 }
@@ -387,8 +388,6 @@ SemanticMapper::keepFrame(
 {
     if (keyframes_.empty())
         return true;
-
-    // if (msg.detections.size() > 0) return true;
 
     auto last_keyframe = keyframes_.back();
 
@@ -782,9 +781,6 @@ SemanticMapper::processObjectDetectionMessage(
               model,
               weights,
               false /* compute depth covariance? */);
-
-            // ROS_WARN_STREAM("Optimized structure.");
-            // std::cout << "t = " << result.t.transpose() << std::endl;
         } catch (std::exception& e) {
             ROS_WARN_STREAM("Structure optimization failed:\n" << e.what());
             continue;
@@ -959,9 +955,6 @@ SemanticMapper::getPlx(Key key1, Key key2)
     if (kf_old->index() == kf->index()) {
         return global_covs;
     }
-
-    // ROS_INFO_STREAM("Difference between this keyframe and last observed:
-    // " << kf->index() - max_index);
 
     const Eigen::MatrixXd& Px1 = kf_old->covariance();
     const Eigen::MatrixXd& Px2 = kf->covariance();
@@ -1157,8 +1150,6 @@ SemanticMapper::predictVisibleObjects(SemanticKeyframe::Ptr kf)
         if (estimated_objects_[i]->bad())
             continue;
 
-        // Pose3 map_T_obj =
-        // graph_->getNode<SE3Node>(sym::O(estimated_objects_[i]->id()))->pose();
         Pose3 map_T_obj = estimated_objects_[i]->pose();
 
         Pose3 body_T_obj = map_T_body.inverse() * map_T_obj;
@@ -1175,8 +1166,6 @@ void
 SemanticMapper::msgCallback(
   const object_pose_interface_msgs::KeypointDetections::ConstPtr& msg)
 {
-    // ROS_INFO_STREAM("[SemanticMapper] Received keypoint detection
-    // message, t = " << msg->header.stamp);
     received_msgs_++;
 
     if (received_msgs_ > 1 && msg->header.seq != last_msg_seq_ + 1) {
@@ -1184,13 +1173,11 @@ SemanticMapper::msgCallback(
           "[SemanticMapper] Error: dropped keypoint message. Expected "
           << last_msg_seq_ + 1 << ", got " << msg->header.seq);
     }
-    // ROS_INFO_STREAM("Received relpose msg, seq " << msg->header.seq << ",
-    // time " << msg->header.stamp);
+
     {
         std::lock_guard<std::mutex> lock(queue_mutex_);
         msg_queue_.push_back(*msg);
     }
-    // cv_.notify_all();
 
     last_msg_seq_ = msg->header.seq;
 }

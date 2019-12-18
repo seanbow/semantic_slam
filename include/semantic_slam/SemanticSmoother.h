@@ -1,54 +1,49 @@
 #pragma once
 
-#include "semantic_slam/CameraCalibration.h"
 #include "semantic_slam/Common.h"
-#include "semantic_slam/Handler.h"
-#include "semantic_slam/Presenter.h"
-#include "semantic_slam/SE3Node.h"
-#include "semantic_slam/SemanticKeyframe.h"
-#include "semantic_slam/keypoints/EstimatedObject.h"
-#include "semantic_slam/keypoints/geometry.h"
-#include "semantic_slam/pose_math.h"
+// #include "semantic_slam/pose_math.h"
 
-#include <object_pose_interface_msgs/KeypointDetections.h>
-
+#include <boost/shared_ptr.hpp>
+#include <deque>
 #include <memory>
 #include <mutex>
-#include <nav_msgs/Odometry.h>
-// #include <shared_mutex>
-#include <deque>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 
 class GeometricFeatureHandler;
 class LoopCloser;
 class SemanticMapper;
+class SemanticKeyframe;
+class FactorGraph;
 
 class SemanticSmoother
 {
   public:
     SemanticSmoother(ObjectParams params, SemanticMapper* mapper);
 
-    void setOrigin(SemanticKeyframe::Ptr origin_frame);
+    void setOrigin(boost::shared_ptr<SemanticKeyframe> origin_frame);
 
     void tryAddObjectsToGraph();
     bool tryOptimize();
 
     void run();
     void stop();
+    bool running() { return running_; }
 
     bool needToComputeCovariances();
     bool computeLatestCovariance();
 
-    bool computeCovariances(const std::vector<SemanticKeyframe::Ptr>& frames);
+    bool computeCovariances(
+      const std::vector<boost::shared_ptr<SemanticKeyframe>>& frames);
 
     void prepareGraphNodes();
     void commitGraphSolution();
 
-    std::vector<SemanticKeyframe::Ptr> addNewOdometryToGraph();
+    std::vector<boost::shared_ptr<SemanticKeyframe>> addNewOdometryToGraph();
 
     void freezeNonCovisible(
-      const std::vector<SemanticKeyframe::Ptr>& target_frames);
+      const std::vector<boost::shared_ptr<SemanticKeyframe>>& target_frames);
     void unfreezeAll();
 
     bool solveGraph();
@@ -110,13 +105,17 @@ class SemanticSmoother
     double max_optimization_time_;
     int smoothing_length_;
 
+    std::thread work_thread_;
+
+    void processingThreadFunction();
+
     void processGeometricFeatureTracks(
-      const std::vector<SemanticKeyframe::Ptr>& new_keyframes);
+      const std::vector<boost::shared_ptr<SemanticKeyframe>>& new_keyframes);
 
     int loop_closure_threshold_;
 
     bool computeCovariancesWithGtsam(
-      const std::vector<SemanticKeyframe::Ptr>& frames);
+      const std::vector<boost::shared_ptr<SemanticKeyframe>>& frames);
 
     std::atomic<bool> running_;
 };

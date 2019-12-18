@@ -1,13 +1,14 @@
 #pragma once
 
-#include "semantic_slam/CameraCalibration.h"
+// #include "semantic_slam/CameraCalibration.h"
 #include "semantic_slam/Common.h"
-#include "semantic_slam/Handler.h"
-#include "semantic_slam/Presenter.h"
-#include "semantic_slam/SE3Node.h"
-#include "semantic_slam/SemanticKeyframe.h"
-#include "semantic_slam/keypoints/EstimatedObject.h"
 #include "semantic_slam/keypoints/geometry.h"
+// #include "semantic_slam/Handler.h"
+// #include "semantic_slam/Presenter.h"
+// #include "semantic_slam/SE3Node.h"
+// #include "semantic_slam/SemanticKeyframe.h"
+// #include "semantic_slam/keypoints/EstimatedObject.h"
+// #include "semantic_slam/keypoints/geometry.h"
 #include "semantic_slam/pose_math.h"
 
 #include <object_pose_interface_msgs/KeypointDetections.h>
@@ -15,7 +16,6 @@
 #include <deque>
 #include <memory>
 #include <mutex>
-#include <nav_msgs/Odometry.h>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -23,6 +23,10 @@ class ExternalOdometryHandler;
 class GeometricFeatureHandler;
 class LoopCloser;
 class SemanticSmoother;
+class EstimatedObject;
+class SemanticKeyframe;
+class Presenter;
+class CameraCalibration;
 
 class SemanticMapper
 {
@@ -41,13 +45,14 @@ class SemanticMapper
     void anchorOrigin();
 
     bool haveNextKeyframe();
-    SemanticKeyframe::Ptr tryFetchNextKeyframe();
-    bool updateKeyframeObjects(SemanticKeyframe::Ptr frame);
+    boost::shared_ptr<SemanticKeyframe> tryFetchNextKeyframe();
+    bool updateKeyframeObjects(boost::shared_ptr<SemanticKeyframe> frame);
 
     OperationMode operation_mode() { return operation_mode_; }
     void setOperationMode(OperationMode mode) { operation_mode_ = mode; }
 
-    void computeDataAssociationWeights(SemanticKeyframe::Ptr frame);
+    void computeDataAssociationWeights(
+      boost::shared_ptr<SemanticKeyframe> frame);
 
     void processMessagesUpdateObjectsThread();
 
@@ -81,18 +86,21 @@ class SemanticMapper
     std::mutex& map_mutex() { return map_mutex_; }
     std::mutex& geometric_map_mutex() { return present_mutex_; }
 
-    const std::vector<SemanticKeyframe::Ptr>& keyframes() { return keyframes_; }
+    const std::vector<boost::shared_ptr<SemanticKeyframe>>& keyframes()
+    {
+        return keyframes_;
+    }
 
-    SemanticKeyframe::Ptr getKeyframeByIndex(int index);
-    SemanticKeyframe::Ptr getKeyframeByKey(Key key);
+    boost::shared_ptr<SemanticKeyframe> getKeyframeByIndex(int index);
+    boost::shared_ptr<SemanticKeyframe> getKeyframeByKey(Key key);
 
-    SemanticKeyframe::Ptr getLastKeyframeInGraph();
+    boost::shared_ptr<SemanticKeyframe> getLastKeyframeInGraph();
 
-    EstimatedObject::Ptr getObjectByKey(Key key);
-    EstimatedObject::Ptr getObjectByIndex(int index);
-    EstimatedObject::Ptr getObjectByKeypointKey(Key key);
+    boost::shared_ptr<EstimatedObject> getObjectByKey(Key key);
+    boost::shared_ptr<EstimatedObject> getObjectByIndex(int index);
+    boost::shared_ptr<EstimatedObject> getObjectByKeypointKey(Key key);
 
-    std::vector<EstimatedObject::Ptr> estimated_objects();
+    std::vector<boost::shared_ptr<EstimatedObject>> estimated_objects();
 
     bool checkLoopClosingDone();
 
@@ -122,7 +130,7 @@ class SemanticMapper
 
     aligned_map<std::string, geometry::ObjectModelBasis> object_models_;
 
-    std::vector<EstimatedObject::Ptr> estimated_objects_;
+    std::vector<boost::shared_ptr<EstimatedObject>> estimated_objects_;
 
     boost::shared_ptr<ExternalOdometryHandler> odometry_handler_;
 
@@ -147,13 +155,14 @@ class SemanticMapper
 
     ObjectParams params_;
 
-    std::vector<SemanticKeyframe::Ptr> keyframes_;
+    std::vector<boost::shared_ptr<SemanticKeyframe>> keyframes_;
 
-    std::deque<SemanticKeyframe::Ptr> pending_keyframes_;
+    std::deque<boost::shared_ptr<SemanticKeyframe>> pending_keyframes_;
 
-    std::vector<bool> predictVisibleObjects(SemanticKeyframe::Ptr node);
+    std::vector<bool> predictVisibleObjects(
+      boost::shared_ptr<SemanticKeyframe> node);
 
-    bool addMeasurementsToObjects(SemanticKeyframe::Ptr frame);
+    bool addMeasurementsToObjects(boost::shared_ptr<SemanticKeyframe> frame);
 
     void processPendingKeyframes();
 

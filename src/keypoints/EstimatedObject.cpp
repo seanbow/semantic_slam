@@ -1,11 +1,15 @@
 
 #include "semantic_slam/keypoints/EstimatedObject.h"
-// #include "omnigraph/keypoints/StructureFactor.h"
+
 #include "semantic_slam/Camera.h"
+#include "semantic_slam/CameraCalibration.h"
+#include "semantic_slam/CeresStructureFactor.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/SemanticMapper.h"
 #include "semantic_slam/VectorNode.h"
+#include "semantic_slam/keypoints/EstimatedKeypoint.h"
+#include "semantic_slam/keypoints/StructureOptimizationProblem.h"
 #include "semantic_slam/keypoints/geometry.h"
 
 #include <unordered_set>

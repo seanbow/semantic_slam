@@ -1,5 +1,7 @@
 #include "semantic_slam/SemanticKeyframe.h"
 
+#include "semantic_slam/FactorGraph.h"
+
 #include <unordered_map>
 
 SemanticKeyframe::SemanticKeyframe(Key key, ros::Time time)

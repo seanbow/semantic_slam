@@ -1,6 +1,7 @@
 
 #include "semantic_slam/presenters/ObjectKeypointPresenter.h"
 #include "semantic_slam/SemanticKeyframe.h"
+#include "semantic_slam/keypoints/EstimatedKeypoint.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
 
 #include <visualization_msgs/MarkerArray.h>

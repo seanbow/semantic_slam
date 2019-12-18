@@ -1,16 +1,19 @@
 #pragma once
 
-#include "semantic_slam/CameraCalibration.h"
-#include "semantic_slam/CeresProjectionFactor.h"
 #include "semantic_slam/Common.h"
-#include "semantic_slam/FactorGraph.h"
-#include "semantic_slam/VectorNode.h"
+
+#include "semantic_slam/CameraCalibration.h"
 #include "semantic_slam/pose_math.h"
 
 #include <gtsam/nonlinear/Values.h>
 
 class EstimatedObject;
 class SemanticMapper;
+class CeresFactor;
+class FactorGraph;
+
+template<int Dim>
+class VectorNode;
 
 class EstimatedKeypoint
 {
@@ -35,8 +38,6 @@ class EstimatedKeypoint
 
     size_t classid() const { return classid_; }
 
-    // size_t lastSeen() const { return last_seen_; }
-
     bool bad() const { return is_bad_; }
 
     void commitGraphSolution();
@@ -49,7 +50,7 @@ class EstimatedKeypoint
 
     bool initialized() const { return initialized_; }
 
-    Vector3dNodePtr graph_node() { return graph_node_; }
+    boost::shared_ptr<VectorNode<3>> graph_node() { return graph_node_; }
 
     uint64_t local_id;
 
@@ -74,10 +75,6 @@ class EstimatedKeypoint
 
     double measurementWeightSum() const;
     double detectionScoreSum() const { return detection_score_sum_; }
-
-    // Calculates the joint marginal covariance between this keypoint and
-    // another key in the graph JointMarginal jointMarginalCovariance(gtsam::Key
-    // other_key) const;
 
     bool checkSafeToAdd();
 
@@ -108,7 +105,7 @@ class EstimatedKeypoint
 
     boost::shared_ptr<EstimatedObject> parent_object() { return parent_; }
 
-    Key key() const { return symbol_shorthand::L(id()); }
+    Key key() const;
 
   private:
     void initializePosition(const KeypointMeasurement& msmt);
@@ -123,7 +120,7 @@ class EstimatedKeypoint
     std::string platform_;
     boost::shared_ptr<CameraCalibration> camera_calibration_;
 
-    Vector3dNodePtr graph_node_;
+    boost::shared_ptr<VectorNode<3>> graph_node_;
 
     Eigen::Vector3d global_position_;
     Eigen::Matrix3d global_covariance_;
@@ -138,7 +135,7 @@ class EstimatedKeypoint
 
     // uint64_t last_seen_;
 
-    std::vector<CeresFactorPtr> projection_factors_;
+    std::vector<boost::shared_ptr<CeresFactor>> projection_factors_;
     std::vector<double> measurement_weights_;
 
     Eigen::Vector3d local_position_; // within containing object

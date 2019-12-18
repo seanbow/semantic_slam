@@ -1,10 +1,14 @@
-#include "semantic_slam/keypoints/EstimatedKeypoint.h"
-// #include "semslam/JSON.h"
-#include "semantic_slam/Utils.h"
-#include "semantic_slam/keypoints/EstimatedObject.h"
 
-#include "semantic_slam/SE3Node.h"
+#include "semantic_slam/keypoints/EstimatedKeypoint.h"
+
+#include "semantic_slam/Camera.h"
+#include "semantic_slam/CeresProjectionFactor.h"
+#include "semantic_slam/FactorGraph.h"
+#include "semantic_slam/SemanticKeyframe.h"
+#include "semantic_slam/SemanticMapper.h"
+#include "semantic_slam/Utils.h"
 #include "semantic_slam/VectorNode.h"
+#include "semantic_slam/keypoints/EstimatedObject.h"
 
 // #include <gtsam/nonlinear/Values.h>
 // #include <gtsam/slam/PriorFactor.h>
@@ -14,9 +18,6 @@
 #include <fmt/format.h>
 #include <fstream>
 #include <iostream>
-
-#include "semantic_slam/Camera.h"
-#include "semantic_slam/SemanticMapper.h"
 
 namespace sym = symbol_shorthand;
 
@@ -52,6 +53,12 @@ EstimatedKeypoint::EstimatedKeypoint(
 {
     // initializeFromMeasurement(msmt);
     graph_node_ = util::allocate_aligned<Vector3dNode>(sym::L(id));
+}
+
+Key
+EstimatedKeypoint::key() const
+{
+    return symbol_shorthand::L(id());
 }
 
 void
