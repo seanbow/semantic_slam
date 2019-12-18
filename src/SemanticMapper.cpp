@@ -85,6 +85,8 @@ SemanticMapper::setup()
     // graph_->solver_options().use_explicit_schur_complement = true;
 
     graph_->solver_options().linear_solver_type = ceres::CGNR;
+    graph_->solver_options().nonlinear_conjugate_gradient_type =
+      ceres::POLAK_RIBIERE;
     graph_->solver_options().max_linear_solver_iterations = 50;
 
     graph_->solver_options().num_threads = 4;
