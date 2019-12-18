@@ -68,13 +68,12 @@ SemanticMapper::setup()
     loadCalibration();
     loadParameters();
 
-    // solver_options_.trust_region_strategy_type = ceres::DOGLEG;
-    // solver_options_.dogleg_type = ceres::SUBSPACE_DOGLEG;
+    // graph_->solver_options().trust_region_strategy_type = ceres::DOGLEG;
+    // graph_->solver_options().dogleg_type = ceres::SUBSPACE_DOGLEG;
 
-    // solver_options_.function_tolerance = 1e-4;
-    // solver_options_.gradient_tolerance = 1e-8;
-
-    // solver_options_.max_num_iterations = 10;
+    graph_->solver_options().function_tolerance = 1e-4;
+    graph_->solver_options().gradient_tolerance = 1e-8;
+    graph_->solver_options().parameter_tolerance = 1e-6;
 
     graph_->solver_options().max_solver_time_in_seconds =
       max_optimization_time_;
@@ -86,6 +85,8 @@ SemanticMapper::setup()
     // graph_->solver_options().use_explicit_schur_complement = true;
 
     graph_->solver_options().linear_solver_type = ceres::CGNR;
+    graph_->solver_options().max_linear_solver_iterations = 50;
+
     graph_->solver_options().num_threads = 4;
 
     if (params_.use_manual_elimination_ordering) {
@@ -93,7 +94,6 @@ SemanticMapper::setup()
           std::make_shared<ceres::ParameterBlockOrdering>();
     }
 
-    // graph_->setSolverOptions(solver_options_);
     essential_graph_->setSolverOptions(graph_->solver_options());
 
     operation_mode_ = OperationMode::NORMAL;
@@ -246,8 +246,11 @@ SemanticMapper::addObjectsAndOptimizeGraphThread()
 void
 SemanticMapper::processPendingKeyframes()
 {
-    if (pending_keyframes_.empty())
+    if (pending_keyframes_.empty() ||
+        operation_mode_ == OperationMode::LOOP_CLOSING) {
+        // TODO figure out a better way to handle this when LOOP_CLOSING
         return;
+    }
 
     // ros::Time last_added_kf_time_ = pending_keyframes_.front()->time();
 

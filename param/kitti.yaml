@@ -25,8 +25,8 @@ I_q_C: [-0.5, 0.5, -0.5, 0.5] # IMU x forward, y left, z up <-> camera x right, 
 # covariance_delay: 5.0
 covariance_delay: 0.1
 max_optimization_time: 0.5
-loop_closure_threshold: 25 # in number of keyframes
-smoothing_length: 50 
+loop_closure_threshold: 50 # in number of keyframes
+smoothing_length: 100 
 
 optimization_backend: "CERES"
 # optimization_backend: "GTSAM"
@@ -55,7 +55,7 @@ reprojection_error_threshold: 4
 use_smart_projection_factors: true
 
 ### Semantic measurement parameters
-keypoint_msmt_sigma: 15                 # keypoint measurement sigma (pixels)
+keypoint_msmt_sigma: 10                 # keypoint measurement sigma (pixels)
 keypoint_initialization_depth_sigma: 2  # meters
 
 min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph
@@ -110,4 +110,4 @@ show_object_labels: true
 trajectory_width: 0.25
 covisibility_width: 0.01
 draw_semantic_covisibility: true
-draw_geometric_covisibility: true
+draw_geometric_covisibility: false
