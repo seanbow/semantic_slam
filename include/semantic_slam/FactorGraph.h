@@ -16,6 +16,8 @@ class NonlinearFactorGraph;
 class Values;
 }
 
+class IterationCallbackWrapper;
+
 class FactorGraph
 {
   public:
@@ -72,6 +74,12 @@ class FactorGraph
 
     void setNumThreads(int n_threads);
 
+    // Adds a callback function that is called at each iteration
+    // of the optimization once solve() is called
+    using IterationCallbackType =
+      std::function<ceres::CallbackReturnType(ceres::IterationSummary)>;
+    void addIterationCallback(IterationCallbackType callback);
+
     Eigen::MatrixXd getMarginalCovariance(const Key& key) const;
     Eigen::MatrixXd getMarginalCovariance(const Key& key1,
                                           const Key& key2) const;
@@ -110,6 +118,9 @@ class FactorGraph
     boost::shared_ptr<ceres::Covariance> covariance_;
 
     mutable std::mutex mutex_;
+
+    std::vector<boost::shared_ptr<IterationCallbackWrapper>>
+      iteration_callbacks_;
 
     void addFactorInternal(CeresFactorPtr factor);
 };
@@ -154,4 +165,31 @@ FactorGraph::findLastNode(unsigned char symbol_chr)
     }
 
     return boost::dynamic_pointer_cast<NodeType>(result);
+}
+
+// Helper class to support passing in simple lambda functions etc
+// for iteration callbacks. Ceres needs them to be derived from a specific class
+// rather than being a generic functor
+class IterationCallbackWrapper : public ceres::IterationCallback
+{
+  public:
+    IterationCallbackWrapper(
+      const FactorGraph::IterationCallbackType& callback_function);
+
+    ceres::CallbackReturnType operator()(
+      const ceres::IterationSummary& summary);
+
+  private:
+    FactorGraph::IterationCallbackType callback_fn_;
+};
+
+IterationCallbackWrapper::IterationCallbackWrapper(
+  const FactorGraph::IterationCallbackType& callback_function)
+  : callback_fn_(callback_function)
+{}
+
+ceres::CallbackReturnType
+IterationCallbackWrapper::operator()(const ceres::IterationSummary& summary)
+{
+    return callback_fn_(summary);
 }

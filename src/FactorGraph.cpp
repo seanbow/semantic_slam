@@ -39,7 +39,7 @@ bool
 FactorGraph::setNodeConstant(Key key)
 {
     const auto& node = getNode(key);
-    setNodeConstant(node);
+    return setNodeConstant(node);
 }
 
 bool
@@ -55,7 +55,7 @@ bool
 FactorGraph::setNodeVariable(Key key)
 {
     const auto& node = getNode(key);
-    setNodeVariable(node);
+    return setNodeVariable(node);
 }
 
 bool
@@ -375,7 +375,7 @@ FactorGraph::getMarginalCovariance(const std::vector<CeresNodePtr>& nodes) const
     size_t max_block_size = 0;
 
     for (auto& node : nodes) {
-        for (int i = 0; i < node->parameter_blocks().size(); ++i) {
+        for (size_t i = 0; i < node->parameter_blocks().size(); ++i) {
             parameter_blocks.push_back(node->parameter_blocks()[i]);
             parameter_block_sizes.push_back(
               node->parameter_block_local_sizes()[i]);
@@ -400,8 +400,8 @@ FactorGraph::getMarginalCovariance(const std::vector<CeresNodePtr>& nodes) const
     // Begin filling in the covariance matrix
     size_t index_i = 0;
     size_t index_j = 0;
-    for (int i = 0; i < parameter_blocks.size(); ++i) {
-        for (int j = i; j < parameter_blocks.size(); ++j) {
+    for (size_t i = 0; i < parameter_blocks.size(); ++i) {
+        for (size_t j = i; j < parameter_blocks.size(); ++j) {
             covariance_->GetCovarianceBlockInTangentSpace(
               parameter_blocks[i], parameter_blocks[j], buf);
 
@@ -422,102 +422,15 @@ FactorGraph::getMarginalCovariance(const std::vector<CeresNodePtr>& nodes) const
     return C.selfadjointView<Eigen::Upper>();
 }
 
-// Eigen::MatrixXd FactorGraph::getMarginalCovariance(CeresNodePtr node1,
-// CeresNodePtr node2) const
-// {
-//     // Determine the size of the final matrix
-//     // node2 is allowed to be null here!
-//     size_t dim = node1->local_dim();
-//     if (node2) dim += node2->local_dim();
+void
+FactorGraph::addIterationCallback(IterationCallbackType callback)
+{
+    auto callback_wrapper =
+      boost::make_shared<IterationCallbackWrapper>(callback);
 
-//     using RowMajorMatrixXd = Eigen::Matrix<double, Eigen::Dynamic,
-//     Eigen::Dynamic, Eigen::RowMajor>;
-
-//     // RowMajor to interface with ceres
-//     RowMajorMatrixXd C(dim, dim);
-
-//     // Big data buffer for ceres to write into
-//     // TODO do this better
-//     // std::vector memory is guaranteed to be contiguous. use it for RAII
-//     purposes std::vector<double> data_buffer_vec(dim*dim, 0.0); double* buf =
-//     &data_buffer_vec[0];
-
-//     // need to streamline / standardize how data is stored in these CeresNode
-//     objects...
-
-//     // Iterate over all parameter blocks
-//     // Start with node1 <-> node1 pairs, then node1 <-> node2, then node2 <->
-//     node2.
-//     // no need for node2 <-> node1 (symmetry)
-//     size_t block_index_i = 0;
-//     size_t block_index_j = 0;
-//     for (size_t i = 0; i < node1->parameter_blocks().size(); ++i) {
-//         size_t i_dim = node1->parameter_block_local_sizes()[i];
-
-//         // node1 <-> node1
-//         block_index_j = 0;
-//         for (size_t j = 0; j < node1->parameter_blocks().size(); ++j) {
-//             size_t j_dim = node1->parameter_block_local_sizes()[j];
-
-//             // j < i is below the matrix diagonal, don't need to compute it
-//             if (j >= i) {
-//                 covariance_->GetCovarianceBlockInTangentSpace(node1->parameter_blocks()[i],
-//                                                               node1->parameter_blocks()[j],
-//                                                               buf);
-
-//                 C.block(block_index_i, block_index_j, i_dim, j_dim) =
-//                 Eigen::Map<RowMajorMatrixXd>(buf, i_dim, j_dim);
-//             }
-
-//             block_index_j += j_dim;
-//         }
-
-//         // node1 <-> node2
-//         if (node2) {
-//             for (size_t j = 0; j < node2->parameter_blocks().size(); ++j) {
-//                 size_t j_dim = node2->parameter_block_local_sizes()[j];
-
-//                 covariance_->GetCovarianceBlockInTangentSpace(node1->parameter_blocks()[i],
-//                                                               node2->parameter_blocks()[j],
-//                                                               buf);
-//                 C.block(block_index_i, block_index_j, i_dim, j_dim) =
-//                 Eigen::Map<RowMajorMatrixXd>(buf, i_dim, j_dim);
-
-//                 block_index_j += j_dim;
-//             }
-//         }
-
-//         block_index_i += i_dim;
-//     }
-
-//     // Finally, node2 <-> node2
-//     if (node2) {
-//         for (size_t i = 0; i < node2->parameter_blocks().size(); ++i) {
-//             size_t i_dim = node2->parameter_block_local_sizes()[i];
-
-//             // Start "j" index here will be the total dimension of the node1
-//             blocks block_index_j = node1->local_dim(); for (size_t j = 0; j <
-//             node2->parameter_blocks().size(); ++j) {
-//                 size_t j_dim = node2->parameter_block_local_sizes()[j];
-
-//                 covariance_->GetCovarianceBlockInTangentSpace(node2->parameter_blocks()[i],
-//                                                               node2->parameter_blocks()[j],
-//                                                               buf);
-//                 C.block(block_index_i, block_index_j, i_dim, j_dim) =
-//                 Eigen::Map<RowMajorMatrixXd>(buf, i_dim, j_dim);
-
-//                 block_index_j += j_dim;
-//             }
-
-//             block_index_i += i_dim;
-//         }
-//     }
-
-//     // ROS_INFO_STREAM("Covariance = \n" << C );
-
-//     // Have only filled in the block-upper-triangular portion, let Eigen fill
-//     in the rest return C.selfadjointView<Eigen::Upper>();
-// }
+    iteration_callbacks_.push_back(callback_wrapper);
+    solver_options_.callbacks.push_back(callback_wrapper.get());
+}
 
 CeresNodePtr
 FactorGraph::findLastNodeBeforeTime(unsigned char symbol_chr, ros::Time time)
