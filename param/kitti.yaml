@@ -28,13 +28,6 @@ max_optimization_time: 0.5
 loop_closure_threshold: 50 # in number of keyframes
 smoothing_length: 100 
 
-optimization_backend: "CERES"
-# optimization_backend: "GTSAM"
-
-# covariance_backend: "CERES"
-covariance_backend: "GTSAM"
-# covariance_backend: "GTSAM_ISAM"
-
 verbose_optimization: true
 use_manual_elimination_ordering: false
 

@@ -12,25 +12,17 @@
 
 #include <object_pose_interface_msgs/KeypointDetections.h>
 
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <nav_msgs/Odometry.h>
-// #include <shared_mutex>
-#include <deque>
 #include <unordered_map>
 #include <unordered_set>
-// #include <gtsam/geometry/Pose3.h>
-
-#include <gtsam/inference/Factor.h>
-#include <gtsam/nonlinear/Values.h>
-
-namespace gtsam {
-class ISAM2;
-}
 
 class ExternalOdometryHandler;
 class GeometricFeatureHandler;
 class LoopCloser;
+class SemanticSmoother;
 
 class SemanticMapper
 {
@@ -51,20 +43,13 @@ class SemanticMapper
     bool haveNextKeyframe();
     SemanticKeyframe::Ptr tryFetchNextKeyframe();
     bool updateKeyframeObjects(SemanticKeyframe::Ptr frame);
-    void tryAddObjectsToGraph();
-    bool tryOptimize();
-    bool optimizeFully();
 
-    bool optimizeEssential();
+    OperationMode operation_mode() { return operation_mode_; }
+    void setOperationMode(OperationMode mode) { operation_mode_ = mode; }
 
     void computeDataAssociationWeights(SemanticKeyframe::Ptr frame);
 
     void processMessagesUpdateObjectsThread();
-    void addObjectsAndOptimizeGraphThread();
-
-    bool computeLatestCovariance();
-    bool computeCovariances(const std::vector<SemanticKeyframe::Ptr>& frames);
-    bool computeLoopCovariances();
 
     Eigen::MatrixXd getPlx(Key key1, Key key2);
 
@@ -85,9 +70,6 @@ class SemanticMapper
 
     bool loadParameters();
 
-    void visualizeObjectMeshes() const;
-    void visualizeObjects() const;
-
     bool keepFrame(const object_pose_interface_msgs::KeypointDetections& msg);
 
     void setOdometryHandler(boost::shared_ptr<ExternalOdometryHandler> odom);
@@ -96,20 +78,10 @@ class SemanticMapper
 
     void addPresenter(boost::shared_ptr<Presenter> presenter);
 
-    void prepareGraphNodes();
-    void commitGraphSolution();
-
-    std::vector<SemanticKeyframe::Ptr> addNewOdometryToGraph();
-
-    void freezeNonCovisible(
-      const std::vector<SemanticKeyframe::Ptr>& target_frames);
-    void unfreezeAll();
-
     std::mutex& map_mutex() { return map_mutex_; }
+    std::mutex& geometric_map_mutex() { return present_mutex_; }
 
     const std::vector<SemanticKeyframe::Ptr>& keyframes() { return keyframes_; }
-
-    bool needToComputeCovariances();
 
     SemanticKeyframe::Ptr getKeyframeByIndex(int index);
     SemanticKeyframe::Ptr getKeyframeByKey(Key key);
@@ -124,25 +96,9 @@ class SemanticMapper
 
     bool checkLoopClosingDone();
 
-    bool solveGraph();
-
-    gtsam::FactorIndices computeRemovedFactors(
-      boost::shared_ptr<gtsam::NonlinearFactorGraph> graph);
-
-    boost::shared_ptr<gtsam::Values> computeIncrementalValues(
-      boost::shared_ptr<gtsam::Values> values);
-
-    boost::shared_ptr<gtsam::NonlinearFactorGraph> computeIncrementalGraph(
-      boost::shared_ptr<gtsam::NonlinearFactorGraph> graph);
-
   private:
-    boost::shared_ptr<FactorGraph> graph_;
-    std::mutex graph_mutex_; // wish this could be a shared_mutex
     std::mutex map_mutex_;
     std::mutex present_mutex_;
-
-    boost::shared_ptr<FactorGraph> essential_graph_;
-    // essential graph will share the use of graph_mutex_
 
     ros::NodeHandle nh_;
     ros::NodeHandle pnh_;
@@ -163,13 +119,6 @@ class SemanticMapper
 
     std::atomic<OperationMode> operation_mode_;
     std::atomic<bool> invalidate_local_optimization_;
-
-    Eigen::MatrixXd last_kf_covariance_;
-    ros::Time last_kf_covariance_time_;
-    int last_optimized_kf_index_;
-
-    std::unordered_set<int> unfrozen_kfs_;
-    std::unordered_set<int> unfrozen_objs_;
 
     aligned_map<std::string, geometry::ObjectModelBasis> object_models_;
 
@@ -206,16 +155,6 @@ class SemanticMapper
 
     bool addMeasurementsToObjects(SemanticKeyframe::Ptr frame);
 
-    void processGeometricFeatureTracks(
-      const std::vector<SemanticKeyframe::Ptr>& new_keyframes);
-
-    bool computeCovariancesWithCeres(
-      const std::vector<SemanticKeyframe::Ptr>& frames);
-    bool computeCovariancesWithGtsam(
-      const std::vector<SemanticKeyframe::Ptr>& frames);
-    bool computeCovariancesWithGtsamIsam(
-      const std::vector<SemanticKeyframe::Ptr>& frames);
-
     void processPendingKeyframes();
 
     int createNewObject(const ObjectMeasurement& measurement,
@@ -229,18 +168,7 @@ class SemanticMapper
     bool running_;
 
     boost::shared_ptr<LoopCloser> loop_closer_;
-    int loop_closure_index_;
-
-    boost::shared_ptr<gtsam::Values> values_in_graph_;
-    boost::shared_ptr<gtsam::NonlinearFactorGraph> factors_in_graph_;
-
-    gtsam::Values gtsam_values_;
-    boost::shared_ptr<gtsam::ISAM2> isam_;
-
-    boost::shared_ptr<gtsam::NonlinearFactor> isam_origin_factor_;
-
-    // Map from factor *memory locations* to their indices in isam
-    std::unordered_map<gtsam::NonlinearFactor*, uint64_t> isam_factor_indices_;
+    boost::shared_ptr<SemanticSmoother> smoother_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

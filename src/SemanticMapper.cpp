@@ -6,14 +6,13 @@
 #include "semantic_slam/MLDataAssociator.h"
 #include "semantic_slam/MultiProjectionFactor.h"
 #include "semantic_slam/SE3Node.h"
+#include "semantic_slam/SemanticSmoother.h"
 
 #include <ros/package.h>
 
 #include <boost/filesystem.hpp>
 #include <thread>
 #include <unordered_set>
-
-#include <visualization_msgs/MarkerArray.h>
 
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
@@ -45,17 +44,11 @@ SemanticMapper::setup()
     subscriber_ =
       nh_.subscribe(object_topic, 1000, &SemanticMapper::msgCallback, this);
 
-    graph_ = util::allocate_aligned<FactorGraph>();
-    essential_graph_ = util::allocate_aligned<FactorGraph>();
-
     loop_closer_ = util::allocate_aligned<LoopCloser>(this);
 
     received_msgs_ = 0;
     measurements_processed_ = 0;
     n_landmarks_ = 0;
-
-    last_kf_covariance_ = Eigen::MatrixXd::Zero(6, 6);
-    last_optimized_kf_index_ = 0;
 
     running_ = false;
 
@@ -68,29 +61,16 @@ SemanticMapper::setup()
     loadCalibration();
     loadParameters();
 
-    graph_->solver_options().function_tolerance = 1e-4;
-    graph_->solver_options().gradient_tolerance = 1e-8;
-    graph_->solver_options().parameter_tolerance = 1e-6;
-
-    graph_->solver_options().max_solver_time_in_seconds =
-      max_optimization_time_;
-
-    graph_->solver_options().linear_solver_type = ceres::CGNR;
-    graph_->solver_options().nonlinear_conjugate_gradient_type =
-      ceres::POLAK_RIBIERE;
-    graph_->solver_options().max_linear_solver_iterations = 50;
-
-    graph_->solver_options().num_threads = 4;
-
-    if (params_.use_manual_elimination_ordering) {
-        graph_->solver_options().linear_solver_ordering =
-          std::make_shared<ceres::ParameterBlockOrdering>();
-    }
-
-    essential_graph_->setSolverOptions(graph_->solver_options());
+    smoother_ = util::allocate_aligned<SemanticSmoother>(params_, this);
+    smoother_->setLoopCloser(loop_closer_);
 
     operation_mode_ = OperationMode::NORMAL;
-    invalidate_local_optimization_ = false;
+
+    smoother_->setVerbose(verbose_optimization_);
+    smoother_->setCovarianceDelay(covariance_delay_);
+    smoother_->setMaxOptimizationTime(max_optimization_time_);
+    smoother_->setSmoothingLength(smoothing_length_);
+    smoother_->setLoopClosureThreshold(loop_closure_threshold_);
 }
 
 void
@@ -98,9 +78,9 @@ SemanticMapper::setOdometryHandler(
   boost::shared_ptr<ExternalOdometryHandler> odom)
 {
     odometry_handler_ = odom;
-    odom->setGraph(graph_);
+    odom->setGraph(smoother_->graph());
     odom->setMapper(this);
-    odom->setEssentialGraph(essential_graph_);
+    odom->setEssentialGraph(smoother_->essential_graph());
     odom->setup();
 }
 
@@ -109,11 +89,13 @@ SemanticMapper::setGeometricFeatureHandler(
   boost::shared_ptr<GeometricFeatureHandler> geom)
 {
     geom_handler_ = geom;
-    geom->setGraph(graph_);
+    geom->setGraph(smoother_->graph());
     geom->setMapper(this);
-    geom->setEssentialGraph(essential_graph_);
+    geom->setEssentialGraph(smoother_->essential_graph());
     geom->setExtrinsicCalibration(I_T_C_);
     geom->setup();
+
+    smoother_->setGeometricFeatureHandler(geom);
 }
 
 void
@@ -125,8 +107,7 @@ SemanticMapper::start()
 
     std::thread process_messages_thread(
       &SemanticMapper::processMessagesUpdateObjectsThread, this);
-    std::thread graph_optimize_thread(
-      &SemanticMapper::addObjectsAndOptimizeGraphThread, this);
+    std::thread graph_optimize_thread(&SemanticSmoother::run, smoother_.get());
 
     process_messages_thread.join();
     graph_optimize_thread.join();
@@ -173,55 +154,6 @@ SemanticMapper::processMessagesUpdateObjectsThread()
 }
 
 void
-SemanticMapper::addObjectsAndOptimizeGraphThread()
-{
-    while (ros::ok() && running_) {
-        auto new_frames = addNewOdometryToGraph();
-
-        if (graph_->modified() &&
-            operation_mode_ != OperationMode::LOOP_CLOSING) {
-
-            if (include_geometric_features_)
-                processGeometricFeatureTracks(new_frames);
-
-            tryAddObjectsToGraph();
-            freezeNonCovisible(new_frames);
-
-            // Check if a loop closing frame was added to the graph this time...
-            bool loop_closure_added = false;
-            if (operation_mode_ == OperationMode::LOOP_CLOSURE_PENDING) {
-                for (auto& frame : new_frames) {
-                    if (frame->loop_closing()) {
-                        loop_closure_added = true;
-                        break;
-                    }
-                }
-            }
-
-            // if loop_closure_added is true now, we've detected a loop closure
-            // and added this loop to the graph for the first time. start the
-            // actual loop closing process
-            if (loop_closure_added) {
-                prepareGraphNodes();
-                loop_closer_->startLoopClosing(essential_graph_,
-                                               loop_closure_index_);
-                operation_mode_ = OperationMode::LOOP_CLOSING;
-            } else {
-                if (tryOptimize()) {
-                    if (needToComputeCovariances())
-                        computeLatestCovariance();
-                }
-            }
-
-        } else {
-            ros::Duration(0.001).sleep();
-        }
-    }
-
-    running_ = false;
-}
-
-void
 SemanticMapper::processPendingKeyframes()
 {
     if (pending_keyframes_.empty() ||
@@ -237,9 +169,10 @@ SemanticMapper::processPendingKeyframes()
     // optimized keyframe
     int last_added_kf_index = pending_keyframes_.front()->index();
 
-    while (!pending_keyframes_.empty() &&
-           (last_added_kf_index - last_optimized_kf_index_) <
-             smoothing_length_ / 2) {
+    while (
+      !pending_keyframes_.empty() &&
+      (last_added_kf_index - smoother_->mostRecentOptimizedKeyframeIndex()) <
+        smoothing_length_ / 2) {
         auto next_keyframe = pending_keyframes_.front();
         pending_keyframes_.pop_front();
 
@@ -264,12 +197,7 @@ SemanticMapper::processPendingKeyframes()
             // loop closing measurements!! need to wait for other thread to
             // incorporate this frame into the graph, so set it to a "pending"
             // status to notify the other thread of this
-
-            // could be an unlikely race condition here between setting/getting
-            // the following two variables TODO should probably use a mutex for
-            // this
             operation_mode_ = OperationMode::LOOP_CLOSURE_PENDING;
-            loop_closure_index_ = next_keyframe->index();
         }
     }
 }
@@ -284,393 +212,13 @@ SemanticMapper::checkLoopClosingDone()
     // If we're currently in the middle of a local optimization, it will likely
     // finish after we perform this update, and try to update the graph with
     // stale values. Set an invalidation flag to prevent that from happening
-    invalidate_local_optimization_ = true;
+    smoother_->informLoopClosure();
 
     std::lock_guard<std::mutex> map_lock(map_mutex_);
 
     loop_closer_->updateLoopInMapper();
 
     operation_mode_ = OperationMode::NORMAL;
-
-    return true;
-}
-
-void
-SemanticMapper::processGeometricFeatureTracks(
-  const std::vector<SemanticKeyframe::Ptr>& new_keyframes)
-{
-    // TIME_TIC;
-
-    for (auto& kf : new_keyframes) {
-        geom_handler_->addKeyframe(kf);
-    }
-
-    std::unique_lock<std::mutex> graph_lock(graph_mutex_, std::defer_lock);
-    std::unique_lock<std::mutex> present_lock(present_mutex_, std::defer_lock);
-    std::lock(graph_lock, present_lock);
-
-    geom_handler_->processPendingFrames();
-
-    // check covisibility graph...
-    // if (new_keyframes.size() > 0) {
-    //     std::cout << "Observed features for kf " <<
-    //     new_keyframes.front()->index() << ": "; for (auto feat :
-    //     new_keyframes.front()->visible_geometric_features()) {
-    //         std::cout << feat->id << " ";
-    //     }
-    //     std::cout << "\nGeom covisibility for kf " <<
-    //     new_keyframes.front()->index() << ": "; for (auto neighbor :
-    //     new_keyframes.front()->geometric_neighbors()) {
-    //         std::cout << neighbor.first->index() << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
-
-    // ROS_INFO_STREAM("Tracking features took " << TIME_TOC << " ms." <<
-    // std::endl);
-}
-
-void
-SemanticMapper::freezeNonCovisible(
-  const std::vector<SemanticKeyframe::Ptr>& target_frames)
-{
-    // Iterate over the target frames and their covisible frames, collecting the
-    // frames and objects that will remain unfrozen in the graph
-
-    // In case of a loop closure there may be frames i and j are covisible but
-    // some frame i < k < j is not covisible with i or j. So we need to make
-    // sure that we unfreeze these intermediate frames as well.
-
-    int min_frame = std::numeric_limits<int>::max();
-    int max_frame = std::numeric_limits<int>::lowest();
-    int min_frame_in_targets = min_frame;
-
-    for (const auto& frame : target_frames) {
-        min_frame = std::min(min_frame, frame->index());
-        max_frame = std::max(max_frame, frame->index());
-        min_frame_in_targets = std::min(min_frame_in_targets, frame->index());
-
-        for (const auto& cov_frame : frame->neighbors()) {
-            min_frame = std::min(min_frame, cov_frame.first->index());
-            max_frame = std::max(max_frame, cov_frame.first->index());
-        }
-    }
-
-    // Give ourself a smoothing lag...
-    // TODO compute this based on geometric features?
-    min_frame = std::min(min_frame, min_frame_in_targets - smoothing_length_);
-    min_frame = std::max(min_frame, 0);
-
-    unfrozen_kfs_.clear();
-    unfrozen_objs_.clear();
-
-    for (int i = min_frame; i <= max_frame; ++i) {
-        unfrozen_kfs_.insert(i);
-
-        for (auto& obj : keyframes_[i]->visible_objects()) {
-            unfrozen_objs_.insert(obj->id());
-        }
-    }
-
-    for (const auto& kf : keyframes_) {
-        if (!kf->inGraph())
-            continue;
-
-        if (unfrozen_kfs_.count(kf->index())) {
-            graph_->setNodeVariable(kf->graph_node());
-            essential_graph_->setNodeVariable(kf->graph_node());
-        } else {
-            graph_->setNodeConstant(kf->graph_node());
-            essential_graph_->setNodeConstant(kf->graph_node());
-        }
-    }
-
-    // now objects
-    for (const auto& obj : estimated_objects_) {
-        if (!obj->inGraph())
-            continue;
-
-        if (unfrozen_objs_.count(obj->id())) {
-            obj->setVariableInGraph();
-        } else {
-            obj->setConstantInGraph();
-        }
-    }
-}
-
-void
-SemanticMapper::unfreezeAll()
-{
-    std::lock_guard<std::mutex> lock(graph_mutex_);
-
-    for (const auto& kf : keyframes_) {
-        if (!kf->inGraph())
-            continue;
-
-        // do NOT unfreeze the first (gauge freedom)
-        if (kf->index() > 0) {
-            graph_->setNodeVariable(kf->graph_node());
-            essential_graph_->setNodeVariable(kf->graph_node());
-        }
-    }
-
-    for (const auto& obj : estimated_objects_) {
-        if (!obj->inGraph())
-            continue;
-
-        obj->setVariableInGraph();
-    }
-}
-
-std::vector<SemanticKeyframe::Ptr>
-SemanticMapper::addNewOdometryToGraph()
-{
-    std::vector<SemanticKeyframe::Ptr> new_frames;
-
-    std::lock_guard<std::mutex> lock(graph_mutex_);
-
-    for (auto& kf : keyframes_) {
-        if (!kf->inGraph() && kf->measurements_processed()) {
-            kf->addToGraph(graph_);
-            kf->addToGraph(essential_graph_);
-            new_frames.push_back(kf);
-        }
-    }
-
-    return new_frames;
-}
-
-void
-SemanticMapper::tryAddObjectsToGraph()
-{
-    if (!params_.include_objects_in_graph)
-        return;
-
-    std::lock_guard<std::mutex> lock(graph_mutex_);
-
-    for (auto& obj : estimated_objects_) {
-        if (obj->inGraph()) {
-            obj->updateGraphFactors();
-        } else if (obj->readyToAddToGraph()) {
-            obj->addToGraph();
-        }
-    }
-}
-
-bool
-SemanticMapper::needToComputeCovariances()
-{
-    if (getLastKeyframeInGraph()->time() - last_kf_covariance_time_ >
-        ros::Duration(covariance_delay_)) {
-        return true;
-    }
-
-    return false;
-
-    // return true;
-}
-
-bool
-SemanticMapper::computeLatestCovariance()
-{
-    SemanticKeyframe::Ptr frame = getLastKeyframeInGraph();
-
-    bool succeeded = computeCovariances({ frame });
-
-    if (succeeded) {
-        last_kf_covariance_ = frame->covariance();
-        last_kf_covariance_time_ = frame->time();
-
-        // propagate this covariance forward to keyframes not yet in the
-        // graph...
-        std::lock_guard<std::mutex> map_lock(map_mutex_);
-        for (size_t i = frame->index() + 1; i < keyframes_.size(); ++i) {
-            keyframes_[i]->covariance() = frame->covariance();
-        }
-    }
-
-    return succeeded;
-}
-
-bool
-SemanticMapper::computeCovariances(
-  const std::vector<SemanticKeyframe::Ptr>& frames)
-{
-    // Need to ensure the graph is unfrozen to get accurate covariance
-    // information, otherwise e.g. the first unfrozen frame will have a
-    // near-zero covariance
-    unfreezeAll();
-
-    bool success;
-
-    if (params_.covariance_backend == OptimizationBackend::CERES) {
-        success = computeCovariancesWithCeres(frames);
-    } else if (params_.covariance_backend == OptimizationBackend::GTSAM) {
-        success = computeCovariancesWithGtsam(frames);
-    } else if (params_.covariance_backend == OptimizationBackend::GTSAM_ISAM) {
-        success = computeCovariancesWithGtsamIsam(frames);
-    } else {
-        throw std::runtime_error("Error: unsupported covariance backend.");
-    }
-
-    for (auto& frame : frames) {
-        frame->covariance_computed_exactly() = true;
-    }
-
-    return success;
-}
-
-bool
-SemanticMapper::computeLoopCovariances()
-{
-    // We're going to rely on the unfreezing of the loop via unfrozen_kfs_ to
-    // determine which frames are in the loop We're only going to use a subset
-    // of these frame covariances. Specifically we only need the covariance
-    // information for frames which were the last frame in this loop to observe
-    // an object...
-    std::unordered_set<int> needed_covariance_frames;
-
-    for (auto& kf : keyframes_) {
-        if (unfrozen_kfs_.count(kf->index())) {
-
-            for (auto& obj : kf->visible_objects()) {
-                // Determine which was the last frame to observe it
-                int max_frame = 0;
-                for (auto& observing_frame : obj->keyframe_observations()) {
-                    if (observing_frame->inGraph()) {
-                        max_frame =
-                          std::max(observing_frame->index(), max_frame);
-                    }
-                }
-                needed_covariance_frames.insert(max_frame);
-            }
-        }
-    }
-
-    // assemble vector of actual frames
-    std::vector<SemanticKeyframe::Ptr> frames;
-    for (auto& idx : needed_covariance_frames) {
-        frames.push_back(getKeyframeByIndex(idx));
-    }
-
-    return computeCovariances(frames);
-}
-
-bool
-SemanticMapper::computeCovariancesWithCeres(
-  const std::vector<SemanticKeyframe::Ptr>& frames)
-{
-    TIME_TIC;
-
-    std::unique_lock<std::mutex> lock(graph_mutex_);
-
-    for (auto frame : frames) {
-
-        bool cov_succeeded =
-          graph_->computeMarginalCovariance({ frame->graph_node() });
-
-        if (!cov_succeeded) {
-            ROS_WARN("Covariance computation failed!");
-            return false;
-        }
-
-        // TODO how  best to handle this
-        lock.unlock();
-        std::unique_lock<std::mutex> map_lock(map_mutex_, std::defer_lock);
-        std::lock(lock, map_lock);
-
-        frame->covariance() =
-          graph_->getMarginalCovariance({ frame->graph_node() });
-    }
-
-    ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
-    return true;
-}
-
-bool
-SemanticMapper::computeCovariancesWithGtsam(
-  const std::vector<SemanticKeyframe::Ptr>& frames)
-{
-    TIME_TIC;
-
-    boost::shared_ptr<gtsam::NonlinearFactorGraph> gtsam_graph;
-    boost::shared_ptr<gtsam::Values> gtsam_values;
-
-    {
-        std::lock_guard<std::mutex> lock(graph_mutex_);
-
-        gtsam_graph = graph_->getGtsamGraph();
-        gtsam_values = graph_->getGtsamValues();
-    }
-
-    // Anchor the origin
-    auto origin_factor =
-      util::allocate_aligned<gtsam::NonlinearEquality<gtsam::Pose3>>(
-        getKeyframeByIndex(0)->key(),
-        // getKeyframeByIndex(0)->pose()
-        gtsam_values->at<gtsam::Pose3>(symbol_shorthand::X(0)));
-
-    // Eigen::VectorXd prior_noise(6);
-    // prior_noise << 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4;
-    // auto gtsam_prior_noise =
-    // gtsam::noiseModel::Diagonal::Sigmas(prior_noise); auto origin_factor =
-    // util::allocate_aligned<gtsam::PriorFactor<gtsam::Pose3>>(
-    //     getKeyframeByIndex(0)->key(),
-    //     getKeyframeByIndex(0)->pose(),
-    //     gtsam_prior_noise
-    // );
-
-    gtsam_graph->push_back(origin_factor);
-
-    try {
-        gtsam::Marginals marginals(*gtsam_graph, *gtsam_values);
-
-        for (auto& frame : frames) {
-            // ROS_INFO_STREAM("Computing covariance for " <<
-            // DefaultKeyFormatter(frame->key()));
-            auto cov = marginals.marginalCovariance(frame->key());
-
-            std::lock_guard<std::mutex> map_lock(map_mutex_);
-
-            frame->covariance() = cov;
-        }
-
-        ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
-    } catch (gtsam::IndeterminantLinearSystemException& e) {
-        ROS_WARN_STREAM("Covariance computation failed! Error: " << e.what());
-
-        // If this was detected near a semantic object, remove it from the
-        // estimation
-        Symbol bad_variable(e.nearbyVariable());
-
-        std::lock_guard<std::mutex> lock(map_mutex_);
-
-        if (bad_variable.chr() == 'c') {
-            auto obj = getObjectByIndex(bad_variable.index());
-            if (obj)
-                obj->removeFromEstimation();
-        } else if (bad_variable.chr() == 'l') {
-            auto obj = getObjectByKeypointKey(bad_variable.key());
-            if (obj)
-                obj->removeFromEstimation();
-        } else if (bad_variable.chr() == 'o') {
-            auto obj = getObjectByKey(bad_variable.key());
-            if (obj)
-                obj->removeFromEstimation();
-        }
-
-        // and same for geometric landmarks
-        if (bad_variable.chr() == 'g') {
-            geom_handler_->removeLandmark(bad_variable.index());
-        }
-
-        return false;
-    }
-    // catch (std::out_of_range& e) {
-    //     // ?? why does this happen??
-    //     ROS_WARN_STREAM("Covariance computation failed! Error: " <<
-    //     e.what()); return false;
-    // }
 
     return true;
 }
@@ -696,69 +244,6 @@ SemanticMapper::getObjectByKeypointKey(Key key)
     return nullptr;
 }
 
-bool
-SemanticMapper::computeCovariancesWithGtsamIsam(
-  const std::vector<SemanticKeyframe::Ptr>& frames)
-{
-    bool created_isam_now = false;
-
-    if (!isam_) {
-        gtsam::ISAM2Params isam_params;
-        isam_params.relinearizeThreshold = 0.5;
-
-        isam_ = util::allocate_aligned<gtsam::ISAM2>(isam_params);
-        created_isam_now = true;
-    }
-
-    TIME_TIC;
-
-    std::lock_guard<std::mutex> lock(graph_mutex_);
-
-    boost::shared_ptr<gtsam::NonlinearFactorGraph> gtsam_graph =
-      graph_->getGtsamGraph();
-    boost::shared_ptr<gtsam::Values> gtsam_values = graph_->getGtsamValues();
-
-    gtsam::FactorIndices removed_factors = computeRemovedFactors(gtsam_graph);
-
-    auto incremental_graph = computeIncrementalGraph(gtsam_graph);
-    auto incremental_values = computeIncrementalValues(gtsam_values);
-
-    // Anchor the origin
-    if (created_isam_now) {
-        isam_origin_factor_ =
-          util::allocate_aligned<gtsam::NonlinearEquality<gtsam::Pose3>>(
-            getKeyframeByIndex(0)->key(), getKeyframeByIndex(0)->pose());
-
-        incremental_graph->push_back(isam_origin_factor_);
-    }
-
-    try {
-        gtsam::ISAM2Result isam_result = isam_->update(
-          *incremental_graph, *incremental_values, removed_factors);
-
-        // update factor indices
-        for (size_t i = 0; i < incremental_graph->size(); ++i) {
-            isam_factor_indices_[incremental_graph->at(i).get()] =
-              isam_result.newFactorsIndices[i];
-        }
-
-        for (auto& frame : frames) {
-            auto cov = isam_->marginalCovariance(frame->key());
-
-            std::lock_guard<std::mutex> map_lock(map_mutex_);
-
-            frame->covariance() = cov;
-        }
-
-        ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
-    } catch (gtsam::IndeterminantLinearSystemException& e) {
-        ROS_WARN("Covariance computation failed!");
-        return false;
-    }
-
-    return true;
-}
-
 SemanticKeyframe::Ptr
 SemanticMapper::getLastKeyframeInGraph()
 {
@@ -772,353 +257,6 @@ SemanticMapper::getLastKeyframeInGraph()
     }
 
     return frame;
-}
-
-gtsam::FactorIndices
-SemanticMapper::computeRemovedFactors(
-  boost::shared_ptr<gtsam::NonlinearFactorGraph> graph)
-{
-    gtsam::FactorIndices removed;
-
-    if (!factors_in_graph_)
-        return removed;
-
-    // Iterate over our factors and see aren't which in graph
-    for (auto our_fac : *factors_in_graph_) {
-
-        if (our_fac == isam_origin_factor_)
-            continue;
-
-        bool exists = false;
-        for (auto fac : *graph) {
-            if (our_fac == fac) {
-                exists = true;
-                break;
-            }
-        }
-
-        if (!exists) {
-            removed.push_back(isam_factor_indices_[our_fac.get()]);
-
-            // should probably remove the pair from isam_factor_indices_ too but
-            // whatever
-        }
-    }
-
-    return removed;
-}
-
-boost::shared_ptr<gtsam::Values>
-SemanticMapper::computeIncrementalValues(
-  boost::shared_ptr<gtsam::Values> values)
-{
-    // Compute a new values containing all *new* values
-    if (!values_in_graph_) {
-        values_in_graph_ = values;
-        return values;
-    }
-
-    auto new_values = util::allocate_aligned<gtsam::Values>();
-
-    for (auto key_value : *values) {
-        if (values_in_graph_->find(key_value.key) == values_in_graph_->end()) {
-            new_values->insert(key_value.key, key_value.value);
-        }
-    }
-
-    values_in_graph_ = values;
-
-    return new_values;
-}
-
-boost::shared_ptr<gtsam::NonlinearFactorGraph>
-SemanticMapper::computeIncrementalGraph(
-  boost::shared_ptr<gtsam::NonlinearFactorGraph> graph)
-{
-    if (!factors_in_graph_) {
-        factors_in_graph_ = graph;
-        return graph;
-    }
-
-    // this will be slow...
-    auto new_graph = util::allocate_aligned<gtsam::NonlinearFactorGraph>();
-
-    for (auto fac : *graph) {
-
-        // compare to every existing factor
-        bool exists = false;
-        for (auto existing_fac : *factors_in_graph_) {
-            if (fac == existing_fac) {
-                exists = true;
-                break;
-            }
-        }
-
-        if (!exists) {
-            new_graph->push_back(fac);
-        }
-    }
-
-    factors_in_graph_ = graph;
-
-    return new_graph;
-}
-
-void
-SemanticMapper::prepareGraphNodes()
-{
-    std::unique_lock<std::mutex> map_lock(map_mutex_, std::defer_lock);
-    std::unique_lock<std::mutex> graph_lock(graph_mutex_, std::defer_lock);
-    std::lock(map_lock, graph_lock);
-
-    for (auto& kf : keyframes_) {
-        if (kf->inGraph()) {
-            kf->graph_node()->pose() = kf->pose();
-        }
-    }
-
-    for (auto& obj : estimated_objects_) {
-        if (obj->inGraph()) {
-            obj->prepareGraphNode();
-        }
-    }
-}
-
-void
-SemanticMapper::commitGraphSolution()
-{
-    std::unique_lock<std::mutex> map_lock(map_mutex_, std::defer_lock);
-    std::unique_lock<std::mutex> graph_lock(graph_mutex_, std::defer_lock);
-    std::lock(map_lock, graph_lock);
-
-    // Find the latest keyframe in the graph optimization to check the computed
-    // transformation
-    SemanticKeyframe::Ptr last_in_graph = getLastKeyframeInGraph();
-
-    // for (auto& kf : keyframes_) {
-    //     std::cout << kf->graph_node()->pose().rotation().coeffs().norm() <<
-    //     std::endl;
-    // }
-
-    const Pose3& old_pose = last_in_graph->pose();
-
-    if (params_.optimization_backend == OptimizationBackend::CERES) {
-        Pose3 new_pose = last_in_graph->graph_node()->pose();
-        new_pose.rotation().normalize();
-
-        Pose3 old_T_new = old_pose.inverse() * new_pose;
-        old_T_new.rotation().normalize();
-
-        // Pose3 new_map_T_old_map = new_pose * old_pose.inverse();
-        // new_map_T_old_map.rotation().normalize();
-
-        for (auto& kf : keyframes_) {
-            if (kf->inGraph()) {
-                kf->pose() = kf->graph_node()->pose();
-                kf->pose().rotation().normalize();
-            } else {
-                // Keyframes not yet in the graph will be later so just
-                // propagate the computed transform forward
-                kf->pose() = kf->pose() * old_T_new;
-
-                // kf->pose() = new_map_T_old_map * kf->pose();
-            }
-        }
-
-        for (auto& obj : estimated_objects_) {
-            if (obj->inGraph()) {
-                obj->commitGraphSolution();
-            } else if (!obj->bad()) {
-                // Update the object based on recomputed camera poses
-                // ROS_ERROR_STREAM("OBJ not in graph");
-                obj->optimizeStructure();
-            }
-        }
-
-    } else {
-        // GTSAM
-        Pose3 new_pose = gtsam_values_.at<gtsam::Pose3>(last_in_graph->key());
-
-        Pose3 new_map_T_old_map = new_pose * old_pose.inverse();
-
-        for (auto& kf : keyframes_) {
-            if (kf->inGraph()) {
-                kf->pose() = gtsam_values_.at<gtsam::Pose3>(kf->key());
-            } else {
-                kf->pose() = new_map_T_old_map * kf->pose();
-            }
-        }
-
-        for (auto& obj : estimated_objects_) {
-            if (obj->inGraph()) {
-                obj->commitGtsamSolution(gtsam_values_);
-            } else if (!obj->bad()) {
-                obj->optimizeStructure();
-            }
-        }
-    }
-}
-
-bool
-SemanticMapper::tryOptimize()
-{
-    if (!graph_->modified())
-        return false;
-
-    TIME_TIC;
-
-    invalidate_local_optimization_ = false;
-
-    prepareGraphNodes();
-
-    bool solve_succeeded = solveGraph();
-
-    if (solve_succeeded && !invalidate_local_optimization_) {
-        commitGraphSolution();
-        ROS_INFO_STREAM(
-          fmt::format("Solved {} nodes and {} edges in {:.2f} ms.",
-                      graph_->num_nodes(),
-                      graph_->num_factors(),
-                      TIME_TOC));
-        last_optimized_kf_index_ = getLastKeyframeInGraph()->index();
-        return true;
-    } else if (!solve_succeeded) {
-        ROS_INFO_STREAM("Graph solve failed");
-    }
-
-    // No matter what we want this invalidation to be false here. It is only
-    // meant to check for loop closures that happen between calls to
-    // solveGraph() and commitGraphSolution().
-    invalidate_local_optimization_ = false;
-    return false;
-}
-
-bool
-SemanticMapper::optimizeFully()
-{
-    TIME_TIC;
-
-    // The only difference between this function and tryOptimize is that
-    // we're not going to limit the amount of time the solver takes (too much??)
-
-    prepareGraphNodes();
-
-    auto old_options = graph_->solver_options();
-
-    graph_->solver_options().max_solver_time_in_seconds = 10;
-    graph_->solver_options().linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-
-    // graph_->solver_options().linear_solver_type = ceres::ITERATIVE_SCHUR;
-    // graph_->solver_options().minimizer_type = ceres::LINE_SEARCH;
-
-    // graph_->setSolverOptions(full_options);
-
-    // bool solve_succeeded = solveGraph();
-
-    bool solve_succeeded;
-    {
-        std::lock_guard<std::mutex> lock(graph_mutex_);
-        solve_succeeded = graph_->solve(true);
-    }
-
-    // Set the solver back to normal
-    graph_->setSolverOptions(old_options);
-
-    if (solve_succeeded) {
-        commitGraphSolution();
-        ROS_INFO_STREAM(
-          fmt::format("Solved {} nodes and {} edges in {:.2f} ms.",
-                      graph_->num_nodes(),
-                      graph_->num_factors(),
-                      TIME_TOC));
-        last_optimized_kf_index_ = getLastKeyframeInGraph()->index();
-        return true;
-    } else {
-        ROS_INFO_STREAM("Graph solve failed");
-        return false;
-    }
-}
-
-bool
-SemanticMapper::optimizeEssential()
-{
-    TIME_TIC;
-
-    prepareGraphNodes();
-
-    // auto essential_options = solver_options_;
-    essential_graph_->solver_options() = graph_->solver_options();
-
-    essential_graph_->solver_options().max_solver_time_in_seconds = 1;
-    essential_graph_->solver_options().max_num_iterations = 100000;
-
-    bool solve_succeeded;
-
-    {
-        std::lock_guard<std::mutex> lock(graph_mutex_);
-        solve_succeeded = essential_graph_->solve(true);
-    }
-
-    if (solve_succeeded) {
-        commitGraphSolution();
-        ROS_INFO_STREAM(fmt::format(
-          "Solved ESSENTIAL graph with {} nodes and {} edges in {:.2f} ms.",
-          essential_graph_->num_nodes(),
-          essential_graph_->num_factors(),
-          TIME_TOC));
-    } else {
-        ROS_INFO_STREAM("ESSENTIAL Graph solve failed");
-    }
-
-    return solve_succeeded;
-}
-
-bool
-SemanticMapper::solveGraph()
-{
-    std::lock_guard<std::mutex> lock(graph_mutex_);
-
-    if (params_.optimization_backend == OptimizationBackend::CERES) {
-        return graph_->solve(false);
-    } else {
-        auto gtsam_graph = graph_->getGtsamGraph();
-        auto gtsam_values = graph_->getGtsamValues();
-
-        // Have to anchor the origin here ourselves
-        Eigen::VectorXd prior_noise(6);
-        prior_noise << 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4;
-        auto gtsam_prior_noise =
-          gtsam::noiseModel::Diagonal::Sigmas(prior_noise);
-        auto origin_factor =
-          util::allocate_aligned<gtsam::PriorFactor<gtsam::Pose3>>(
-            getKeyframeByIndex(0)->key(),
-            getKeyframeByIndex(0)->pose(),
-            gtsam_prior_noise);
-
-        gtsam_graph->push_back(origin_factor);
-
-        gtsam::LevenbergMarquardtParams lm_params;
-        lm_params.orderingType = gtsam::Ordering::OrderingType::METIS;
-        lm_params.setVerbosityLM("SUMMARY");
-        // lm_params.setVerbosity("ERROR");
-        // lm_params.print("LM PARAMS");
-        gtsam::LevenbergMarquardtOptimizer optimizer(
-          *gtsam_graph, *gtsam_values, lm_params);
-
-        // optimizer.params().ordering->print("ordering");
-
-        // gtsam_graph->print("graph:");
-
-        // gtsam::LevenbergMarquardtOptimizer optimizer(*gtsam_graph,
-        // *gtsam_values);
-
-        try {
-            gtsam_values_ = optimizer.optimize();
-            return true;
-        } catch (gtsam::IndeterminantLinearSystemException& e) {
-            return false;
-        }
-    }
 }
 
 void
@@ -1187,9 +325,6 @@ SemanticMapper::loadCalibration()
 bool
 SemanticMapper::loadParameters()
 {
-    std::string optimization_backend;
-    std::string covariance_backend;
-
     if (!pnh_.getParam("keypoint_activation_threshold",
                        params_.keypoint_activation_threshold) ||
 
@@ -1229,8 +364,6 @@ SemanticMapper::loadParameters()
         !pnh_.getParam(
           "keyframe_rotation_without_measurement_threshold",
           params_.keyframe_rotation_without_measurement_threshold) ||
-        !pnh_.getParam("optimization_backend", optimization_backend) ||
-        !pnh_.getParam("covariance_backend", covariance_backend) ||
         !pnh_.getParam("include_geometric_features",
                        include_geometric_features_) ||
         !pnh_.getParam("verbose_optimization", verbose_optimization_) ||
@@ -1243,24 +376,6 @@ SemanticMapper::loadParameters()
 
         ROS_ERROR("Unable to load object handler parameters");
         return false;
-    }
-
-    if (covariance_backend == "GTSAM") {
-        params_.covariance_backend = OptimizationBackend::GTSAM;
-    } else if (covariance_backend == "CERES") {
-        params_.covariance_backend = OptimizationBackend::CERES;
-    } else if (covariance_backend == "GTSAM_ISAM") {
-        params_.covariance_backend = OptimizationBackend::GTSAM_ISAM;
-    } else {
-        throw std::runtime_error("Unsupported covariance backend");
-    }
-
-    if (optimization_backend == "GTSAM") {
-        params_.optimization_backend = OptimizationBackend::GTSAM;
-    } else if (optimization_backend == "CERES") {
-        params_.optimization_backend = OptimizationBackend::CERES;
-    } else {
-        throw std::runtime_error("Unsupported optimization backend");
     }
 
     return true;
@@ -1314,13 +429,9 @@ SemanticMapper::anchorOrigin()
     SemanticKeyframe::Ptr origin_kf =
       odometry_handler_->originKeyframe(ros::Time(0));
 
-    origin_kf->addToGraph(graph_);
-    graph_->setNodeConstant(origin_kf->graph_node());
-
-    origin_kf->addToGraph(essential_graph_);
-    essential_graph_->setNodeConstant(origin_kf->graph_node());
-
     keyframes_.push_back(origin_kf);
+
+    smoother_->setOrigin(origin_kf);
 }
 
 bool
@@ -1370,7 +481,8 @@ SemanticMapper::tryFetchNextKeyframe()
                     // Copy the most recent covariance into this frame for now
                     // as an OK approximation, it will be updated later if we
                     // have the processing bandwidth.
-                    next_keyframe->covariance() = last_kf_covariance_;
+                    next_keyframe->covariance() =
+                      smoother_->mostRecentKeyframeCovariance();
                     keyframes_.push_back(next_keyframe);
                     break;
                 } else {
@@ -1544,8 +656,8 @@ SemanticMapper::createNewObject(const ObjectMeasurement& measurement,
                                 double weight)
 {
     EstimatedObject::Ptr new_obj =
-      EstimatedObject::Create(graph_,
-                              essential_graph_,
+      EstimatedObject::Create(smoother_->graph(),
+                              smoother_->essential_graph(),
                               params_,
                               object_models_[measurement.obj_name],
                               estimated_objects_.size(),
@@ -1614,7 +726,7 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
     std::lock_guard<std::mutex> lock(map_mutex_);
 
     // TODO fix this bad approximation
-    frame->covariance() = last_kf_covariance_;
+    frame->covariance() = smoother_->mostRecentKeyframeCovariance();
 
     computeDataAssociationWeights(frame);
 
@@ -1976,59 +1088,60 @@ SemanticMapper::getPlx(Key key1, Key key2)
     return updated_covs;
 }
 
-Eigen::MatrixXd
-SemanticMapper::computePlxExact(Key obj_key, Key x_key)
-{
-    boost::shared_ptr<gtsam::NonlinearFactorGraph> gtsam_graph;
-    boost::shared_ptr<gtsam::Values> gtsam_values;
+// Eigen::MatrixXd
+// SemanticMapper::computePlxExact(Key obj_key, Key x_key)
+// {
+//     boost::shared_ptr<gtsam::NonlinearFactorGraph> gtsam_graph;
+//     boost::shared_ptr<gtsam::Values> gtsam_values;
 
-    {
-        std::lock_guard<std::mutex> lock(graph_mutex_);
+//     {
+//         std::lock_guard<std::mutex> lock(graph_mutex_);
 
-        gtsam_graph = graph_->getGtsamGraph();
-        gtsam_values = graph_->getGtsamValues();
-    }
+//         gtsam_graph = graph_->getGtsamGraph();
+//         gtsam_values = graph_->getGtsamValues();
+//     }
 
-    auto origin_factor =
-      util::allocate_aligned<gtsam::NonlinearEquality<gtsam::Pose3>>(
-        getKeyframeByIndex(0)->key(),
-        gtsam_values->at<gtsam::Pose3>(symbol_shorthand::X(0)));
+//     auto origin_factor =
+//       util::allocate_aligned<gtsam::NonlinearEquality<gtsam::Pose3>>(
+//         getKeyframeByIndex(0)->key(),
+//         gtsam_values->at<gtsam::Pose3>(symbol_shorthand::X(0)));
 
-    gtsam_graph->push_back(origin_factor);
+//     gtsam_graph->push_back(origin_factor);
 
-    auto obj = getObjectByKey(obj_key);
-    auto kf = getKeyframeByKey(x_key);
+//     auto obj = getObjectByKey(obj_key);
+//     auto kf = getKeyframeByKey(x_key);
 
-    int Plx_dim = 3 * obj->keypoints().size() + 6;
+//     int Plx_dim = 3 * obj->keypoints().size() + 6;
 
-    // If the obejct isn't in the graph we can't do this...
-    if (!obj->inGraph()) {
-        return Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
-    }
+//     // If the obejct isn't in the graph we can't do this...
+//     if (!obj->inGraph()) {
+//         return Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
+//     }
 
-    // Actually we should ignore x_key and get the latest keyframe in the
-    // graph
-    x_key = getLastKeyframeInGraph()->key();
+//     // Actually we should ignore x_key and get the latest keyframe in the
+//     // graph
+//     x_key = getLastKeyframeInGraph()->key();
 
-    gtsam::KeyVector keys;
-    for (size_t i = 0; i < obj->keypoints().size(); ++i) {
-        keys.push_back(obj->keypoints()[i]->key());
-    }
-    keys.push_back(x_key);
+//     gtsam::KeyVector keys;
+//     for (size_t i = 0; i < obj->keypoints().size(); ++i) {
+//         keys.push_back(obj->keypoints()[i]->key());
+//     }
+//     keys.push_back(x_key);
 
-    try {
-        gtsam::Marginals marginals(*gtsam_graph, *gtsam_values);
+//     try {
+//         gtsam::Marginals marginals(*gtsam_graph, *gtsam_values);
 
-        auto joint_cov = marginals.jointMarginalCovariance(keys);
+//         auto joint_cov = marginals.jointMarginalCovariance(keys);
 
-        return joint_cov.fullMatrix();
+//         return joint_cov.fullMatrix();
 
-    } catch (gtsam::IndeterminantLinearSystemException& e) {
-        ROS_WARN_STREAM("Covariance computation failed! Error: " << e.what());
+//     } catch (gtsam::IndeterminantLinearSystemException& e) {
+//         ROS_WARN_STREAM("Covariance computation failed! Error: " <<
+//         e.what());
 
-        return Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
-    }
-}
+//         return Eigen::MatrixXd::Zero(Plx_dim, Plx_dim);
+//     }
+// }
 
 std::vector<bool>
 SemanticMapper::predictVisibleObjects(SemanticKeyframe::Ptr kf)
@@ -2103,7 +1216,7 @@ SemanticMapper::getKeyframeByKey(Key key)
 void
 SemanticMapper::addPresenter(boost::shared_ptr<Presenter> presenter)
 {
-    presenter->setGraph(graph_);
+    presenter->setGraph(smoother_->graph());
     presenter->setup();
     presenters_.push_back(presenter);
 }

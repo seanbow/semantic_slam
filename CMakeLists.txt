@@ -232,9 +232,28 @@ add_library(geometry src/keypoints/geometry.cpp)
 #   gtsam
 # )
 
+add_library(SemanticSmoother src/SemanticSmoother.cpp)
+target_link_libraries(SemanticSmoother
+  geometry
+  EstimatedObject
+  EstimatedKeypoint
+  StructureOptimizationProblem
+  Utils
+  GeometricFeatureHandler
+  MLDataAssociator
+  LoopCloser
+#  SemanticKeyframe
+  FactorGraph
+  ${CERES_FACTORS}
+#  ${CERES_LIBRARIES}
+#  ${BASE_LIBS}
+)
+cotire(SemanticSmoother)
+
 add_library(SemanticMapper src/SemanticMapper.cpp)
 target_link_libraries(SemanticMapper
   geometry
+  SemanticSmoother
   EstimatedObject
   EstimatedKeypoint
   StructureOptimizationProblem
@@ -291,6 +310,7 @@ target_link_libraries(semantic_slam_node
     GeometricFeatureHandler
     FeatureTracker
     SemanticMapper
+    SemanticSmoother
     PosePresenter
     TrajectoryPresenter
     ObjectMeshPresenter
