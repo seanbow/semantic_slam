@@ -65,7 +65,7 @@ FivePointRansac::computeInliersNormalized(
     int winner_1 = 0; // TODO ADD AN EXCEPTION FOR NO INLIERS
     int winner_2 = 0;
 
-    int winner = 0;
+    int winner = -1;
     int i = 0;
 
     // double sqrt_samp_threshold = 6.25e-4;
@@ -103,6 +103,12 @@ FivePointRansac::computeInliersNormalized(
                 winner = hypotheses_[i]->inliers(j, 0);
             }
         }
+    }
+
+    if (winner == -1) {
+        // no valid solutions found for any hypothesis
+        inliers = Eigen::Matrix<bool, 1, Eigen::Dynamic>::Zero(1, n_points);
+        return 0;
     }
 
     inliers = Eigen::Matrix<bool, 1, Eigen::Dynamic>::Ones(1, n_points);

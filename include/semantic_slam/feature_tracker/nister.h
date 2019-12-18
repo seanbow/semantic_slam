@@ -128,6 +128,12 @@ fivePoint(const Eigen::Matrix<double, 3, Eigen::Dynamic>& p1,
 
     // Compute solutions from action matrix's eigenvectors.
     Eigen::EigenSolver<Eigen::Matrix<double, 10, 10>> es(At);
+
+    if (es.info() != Eigen::Success) {
+        // num of sols is set to zero, just return with failure
+        return;
+    }
+
     Eigen::Matrix<std::complex<double>, 10, 10> V = es.eigenvectors();
     Eigen::Matrix<std::complex<double>, 4, 10> SOLS;
     SOLS.row(0) = V.row(6).array() / V.row(9).array();
