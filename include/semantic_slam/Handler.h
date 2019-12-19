@@ -2,12 +2,10 @@
 
 #include "semantic_slam/Common.h"
 
-#include "semantic_slam/CeresNode.h"
-#include "semantic_slam/FactorGraph.h"
-
 #include <condition_variable>
 
 class SemanticMapper;
+class FactorGraph;
 
 class Handler
 {
@@ -18,8 +16,6 @@ class Handler
 
     virtual void setup() = 0;
     virtual void update() {}
-
-    // virtual CeresNodePtr getSpineNode(ros::Time time) { return nullptr; }
 
     void setGraph(boost::shared_ptr<FactorGraph> graph) { graph_ = graph; }
     void setEssentialGraph(boost::shared_ptr<FactorGraph> graph)

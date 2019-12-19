@@ -1,14 +1,7 @@
 #pragma once
 
-// #include "semantic_slam/CameraCalibration.h"
 #include "semantic_slam/Common.h"
 #include "semantic_slam/keypoints/geometry.h"
-// #include "semantic_slam/Handler.h"
-// #include "semantic_slam/Presenter.h"
-// #include "semantic_slam/SE3Node.h"
-// #include "semantic_slam/SemanticKeyframe.h"
-// #include "semantic_slam/keypoints/EstimatedObject.h"
-// #include "semantic_slam/keypoints/geometry.h"
 #include "semantic_slam/pose_math.h"
 
 #include <object_pose_interface_msgs/KeypointDetections.h>

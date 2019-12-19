@@ -1,18 +1,20 @@
 #pragma once
 
-#include "semantic_slam/CameraCalibration.h"
-#include "semantic_slam/CameraSet.h"
 #include "semantic_slam/CeresFactor.h"
-#include "semantic_slam/CeresProjectionFactor.h"
 #include "semantic_slam/Common.h"
-#include "semantic_slam/SE3Node.h"
 #include "semantic_slam/VectorNode.h"
 #include "semantic_slam/pose_math.h"
 
 #include <ceres/ceres.h>
 #include <eigen3/Eigen/Core>
 
+class CameraCalibration;
+class CeresFactor;
+class SE3Node;
+
 namespace gtsam {
+class Cal3DS2;
+
 template<typename Pose, typename Landmark, typename Calibration>
 class GenericProjectionFactor;
 }
@@ -31,7 +33,7 @@ class MultiProjectionFactor
                           double reprojection_error_threshold,
                           int tag = 0);
 
-    CeresFactor::Ptr clone() const;
+    boost::shared_ptr<CeresFactor> clone() const;
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
     void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
@@ -39,7 +41,7 @@ class MultiProjectionFactor
     void internalAddToProblem(boost::shared_ptr<ceres::Problem> problem);
     void internalRemoveFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
-    void addMeasurement(SE3NodePtr body_pose_node,
+    void addMeasurement(boost::shared_ptr<SE3Node> body_pose_node,
                         const Eigen::Vector2d& pixel_coords,
                         const Eigen::Matrix2d& msmt_covariance);
 
@@ -54,7 +56,7 @@ class MultiProjectionFactor
         return boost::static_pointer_cast<Vector3dNode>(nodes_[0]);
     }
 
-    SE3NodePtr camera_node(int i) const
+    boost::shared_ptr<SE3Node> camera_node(int i) const
     {
         return boost::static_pointer_cast<SE3Node>(nodes_[i + 1]);
     }

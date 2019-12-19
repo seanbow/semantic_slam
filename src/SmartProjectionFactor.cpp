@@ -1,5 +1,9 @@
 #include "semantic_slam/SmartProjectionFactor.h"
 
+#include "semantic_slam/CameraCalibration.h"
+#include "semantic_slam/CameraSet.h"
+#include "semantic_slam/CeresProjectionFactor.h"
+
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/slam/SmartProjectionPoseFactor.h>
 

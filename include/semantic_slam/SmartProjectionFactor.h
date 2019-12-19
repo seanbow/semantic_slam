@@ -1,9 +1,6 @@
 #pragma once
 
-#include "semantic_slam/CameraCalibration.h"
-#include "semantic_slam/CameraSet.h"
 #include "semantic_slam/CeresFactor.h"
-#include "semantic_slam/CeresProjectionFactor.h"
 #include "semantic_slam/Common.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/VectorNode.h"
@@ -11,6 +8,8 @@
 
 #include <ceres/ceres.h>
 #include <eigen3/Eigen/Core>
+
+class CameraCalibration;
 
 namespace gtsam {
 
@@ -35,7 +34,10 @@ class SmartProjectionFactor
 
     CeresFactor::Ptr clone() const;
 
-    SE3NodePtr camera_node(int i) const { return boost::static_pointer_cast<SE3Node>(nodes_[i]); }
+    SE3NodePtr camera_node(int i) const
+    {
+        return boost::static_pointer_cast<SE3Node>(nodes_[i]);
+    }
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
     void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);

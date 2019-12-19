@@ -4,11 +4,14 @@
 #include "semantic_slam/ExternalOdometryHandler.h"
 #include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
+#include "semantic_slam/LocalParameterizations.h"
 #include "semantic_slam/LoopCloser.h"
 #include "semantic_slam/MLDataAssociator.h"
 #include "semantic_slam/Presenter.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/SemanticSmoother.h"
+#include "semantic_slam/keypoints/EstimatedKeypoint.h"
+#include "semantic_slam/keypoints/EstimatedObject.h"
 
 #include <ros/package.h>
 
@@ -106,7 +109,7 @@ SemanticMapper::start()
 
     std::thread process_messages_thread(
       &SemanticMapper::processMessagesUpdateObjectsThread, this);
-    
+
     smoother_->run();
 
     process_messages_thread.join();

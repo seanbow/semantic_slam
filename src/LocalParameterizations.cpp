@@ -1,36 +1,7 @@
-#include <ceres/ceres.h>
-#include <ceres/local_parameterization.h>
-#include <eigen3/Eigen/Core>
+
+#include "semantic_slam/LocalParameterizations.h"
+
 #include <semantic_slam/quaternion_math.h>
-
-class QuaternionLocalParameterization : public ceres::LocalParameterization
-{
-  public:
-    using Jacobian = Eigen::Matrix<double, 4, 3, Eigen::RowMajor>;
-    using LiftJacobian = Eigen::Matrix<double, 3, 4, Eigen::RowMajor>;
-
-    bool Plus(const double* x, const double* delta, double* x_plus_delta) const;
-    bool ComputeJacobian(const double* x, double* jacobian) const;
-
-    int GlobalSize() const { return 4; }
-    int LocalSize() const { return 3; }
-};
-
-class SE3LocalParameterization : public ceres::LocalParameterization
-{
-  public:
-    SE3LocalParameterization();
-    ~SE3LocalParameterization();
-
-    bool Plus(const double* x, const double* delta, double* x_plus_delta) const;
-    bool ComputeJacobian(const double* x, double* jacobian) const;
-
-    int GlobalSize() const { return 7; }
-    int LocalSize() const { return 6; }
-
-  private:
-    ceres::LocalParameterization* quaternion_parameterization_;
-};
 
 SE3LocalParameterization::SE3LocalParameterization()
 {

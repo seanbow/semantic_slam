@@ -2,7 +2,6 @@
 
 #include "semantic_slam/Common.h"
 #include "semantic_slam/OdometryHandler.h"
-#include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/pose_math.h"
 
 #include <deque>
@@ -18,11 +17,11 @@ class ExternalOdometryHandler : public OdometryHandler
 
     void msgCallback(const nav_msgs::Odometry::ConstPtr& msg);
 
-    SemanticKeyframe::Ptr originKeyframe(ros::Time time);
+    boost::shared_ptr<SemanticKeyframe> originKeyframe(ros::Time time);
 
-    SemanticKeyframe::Ptr createKeyframe(ros::Time time);
+    boost::shared_ptr<SemanticKeyframe> createKeyframe(ros::Time time);
 
-    SemanticKeyframe::Ptr findNearestKeyframe(ros::Time time);
+    boost::shared_ptr<SemanticKeyframe> findNearestKeyframe(ros::Time time);
 
     bool getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3& T12);
 
@@ -37,7 +36,7 @@ class ExternalOdometryHandler : public OdometryHandler
 
     std::deque<nav_msgs::Odometry> msg_queue_;
 
-    std::vector<SemanticKeyframe::Ptr> keyframes_;
+    std::vector<boost::shared_ptr<SemanticKeyframe>> keyframes_;
 
     std::mutex mutex_;
 

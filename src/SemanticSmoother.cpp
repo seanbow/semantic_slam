@@ -3,7 +3,11 @@
 #include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
 #include "semantic_slam/LoopCloser.h"
+#include "semantic_slam/SE3Node.h"
+#include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/SemanticMapper.h"
+#include "semantic_slam/keypoints/EstimatedKeypoint.h"
+#include "semantic_slam/keypoints/EstimatedObject.h"
 
 #include <thread>
 #include <unordered_set>

@@ -1,6 +1,9 @@
 #include "semantic_slam/SemanticKeyframe.h"
 
+#include "semantic_slam/CeresFactor.h"
 #include "semantic_slam/FactorGraph.h"
+#include "semantic_slam/SE3Node.h"
+#include "semantic_slam/keypoints/EstimatedObject.h"
 
 #include <unordered_map>
 

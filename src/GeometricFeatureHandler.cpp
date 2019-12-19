@@ -1,8 +1,12 @@
 #include "semantic_slam/GeometricFeatureHandler.h"
 
+#include "semantic_slam/CameraCalibration.h"
+#include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/MultiProjectionFactor.h"
+#include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/SemanticMapper.h"
 #include "semantic_slam/SmartProjectionFactor.h"
+#include "semantic_slam/VectorNode.h"
 
 void
 GeometricFeatureHandler::setup()

@@ -1,4 +1,5 @@
 #include "semantic_slam/CeresBetweenFactor.h"
+#include "semantic_slam/SE3Node.h"
 #include "semantic_slam/ceres_cost_terms/ceres_between.h"
 
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>

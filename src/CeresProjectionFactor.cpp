@@ -1,4 +1,7 @@
 #include "semantic_slam/CeresProjectionFactor.h"
+#include "semantic_slam/CameraCalibration.h"
+#include "semantic_slam/SE3Node.h"
+#include "semantic_slam/VectorNode.h"
 #include "semantic_slam/ceres_cost_terms/ceres_projection.h"
 
 #include <gtsam/geometry/Cal3DS2.h>

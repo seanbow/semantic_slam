@@ -1,10 +1,8 @@
 #pragma once
 
-#include "semantic_slam/CeresFactor.h"
 #include "semantic_slam/Common.h"
-#include "semantic_slam/FactorGraph.h"
-#include "semantic_slam/SE3Node.h"
-#include "semantic_slam/keypoints/EstimatedObject.h"
+
+#include "semantic_slam/Symbol.h"
 
 #include <eigen3/Eigen/Core>
 #include <map>
@@ -12,6 +10,11 @@
 #include <vector>
 
 #include <boost/enable_shared_from_this.hpp>
+
+class FactorGraph;
+class EstimatedObject;
+class CeresFactor;
+class SE3Node;
 
 class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
 {
@@ -42,11 +45,14 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
         return odometry_covariance_;
     }
 
-    CeresFactorPtr& spine_factor() { return spine_factor_; }
-    const CeresFactorPtr& spine_factor() const { return spine_factor_; }
+    boost::shared_ptr<CeresFactor>& spine_factor() { return spine_factor_; }
+    const boost::shared_ptr<CeresFactor>& spine_factor() const
+    {
+        return spine_factor_;
+    }
 
-    SE3NodePtr& graph_node() { return graph_node_; }
-    const SE3NodePtr& graph_node() const { return graph_node_; }
+    boost::shared_ptr<SE3Node>& graph_node() { return graph_node_; }
+    const boost::shared_ptr<SE3Node>& graph_node() const { return graph_node_; }
 
     bool& loop_closing() { return loop_closing_; }
     const bool& loop_closing() const { return loop_closing_; }
@@ -97,7 +103,7 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
     }
 
     // std::vector<ObjectMeasurement>& measurements() { return measurements_; }
-    std::vector<EstimatedObject::Ptr>& visible_objects()
+    std::vector<boost::shared_ptr<EstimatedObject>>& visible_objects()
     {
         return visible_objects_;
     }
@@ -133,15 +139,15 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
 
     bool covariance_computed_exactly_;
 
-    SE3NodePtr graph_node_;
+    boost::shared_ptr<SE3Node> graph_node_;
 
-    CeresFactorPtr spine_factor_;
+    boost::shared_ptr<CeresFactor> spine_factor_;
 
     // true if a loop closure was detected in this keyframe
     bool loop_closing_;
 
     // aligned_vector<ObjectMeasurement> measurements_;
-    std::vector<EstimatedObject::Ptr> visible_objects_;
+    std::vector<boost::shared_ptr<EstimatedObject>> visible_objects_;
 
     std::vector<GeometricFeature::Ptr> visible_geometric_features_;
 

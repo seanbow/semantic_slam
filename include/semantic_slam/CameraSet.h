@@ -2,7 +2,6 @@
 
 #include "semantic_slam/Camera.h"
 #include "semantic_slam/Common.h"
-#include "semantic_slam/pose_math.h"
 
 enum class TriangulationStatus
 {

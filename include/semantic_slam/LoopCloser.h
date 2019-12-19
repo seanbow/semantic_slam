@@ -1,6 +1,7 @@
 #pragma once
 
-#include "semantic_slam/FactorGraph.h"
+#include "semantic_slam/Key.h"
+
 #include <boost/shared_ptr.hpp>
 #include <ceres/ceres.h>
 #include <chrono>
@@ -8,6 +9,7 @@
 #include <mutex>
 #include <thread>
 
+class FactorGraph;
 class SemanticMapper;
 
 class LoopCloser

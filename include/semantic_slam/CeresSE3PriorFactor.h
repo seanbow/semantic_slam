@@ -10,7 +10,7 @@
 class CeresSE3PriorFactor : public CeresFactor
 {
   public:
-    CeresSE3PriorFactor(SE3NodePtr node,
+    CeresSE3PriorFactor(boost::shared_ptr<SE3Node> node,
                         const Pose3& prior,
                         const Eigen::MatrixXd& covariance,
                         int tag = 0);
@@ -18,7 +18,7 @@ class CeresSE3PriorFactor : public CeresFactor
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
-    SE3NodePtr node() const
+    boost::shared_ptr<SE3Node> node() const
     {
         return boost::static_pointer_cast<SE3Node>(nodes_[0]);
     }
@@ -39,7 +39,7 @@ class CeresSE3PriorFactor : public CeresFactor
 
 using CeresSE3PriorFactorPtr = CeresSE3PriorFactor::Ptr;
 
-CeresSE3PriorFactor::CeresSE3PriorFactor(SE3NodePtr node,
+CeresSE3PriorFactor::CeresSE3PriorFactor(boost::shared_ptr<SE3Node> node,
                                          const Pose3& prior,
                                          const Eigen::MatrixXd& covariance,
                                          int tag)

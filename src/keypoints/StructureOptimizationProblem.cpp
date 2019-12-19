@@ -3,17 +3,13 @@
 #include "semantic_slam/Symbol.h"
 #include <algorithm>
 
+#include "semantic_slam/SE3Node.h"
+#include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/ceres_cost_terms/ceres_pose_prior.h"
 #include "semantic_slam/ceres_cost_terms/ceres_projection.h"
-// #include "omnigraph/keypoints/ceres_quaternion_parameterization.h"
-// #include "semantic_slam/ceres_range.h"
 #include "semantic_slam/ceres_cost_terms/ceres_structure.h"
-
 #include "semantic_slam/keypoints/ceres_camera_constraint.h"
-
 #include "semantic_slam/keypoints/geometry.h"
-
-#include "semantic_slam/SemanticKeyframe.h"
 
 void
 StructureOptimizationProblem::setBasisCoefficients(

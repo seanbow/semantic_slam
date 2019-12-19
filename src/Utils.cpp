@@ -1,18 +1,17 @@
 // math utilities
 
 #include <ceres/ceres.h>
-#include <ros/ros.h>
-// #include <gtsam/geometry/Pose3.h>
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
+#include <ros/ros.h>
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/Imu.h>
 
 #include <boost/optional.hpp>
 
+#include "semantic_slam/LocalParameterizations.h"
 #include "semantic_slam/Utils.h"
-#include "semantic_slam/ceres_quaternion_parameterization.h"
 
 double
 clamp_angle(double angle)

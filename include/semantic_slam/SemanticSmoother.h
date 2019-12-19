@@ -1,7 +1,6 @@
 #pragma once
 
 #include "semantic_slam/Common.h"
-// #include "semantic_slam/pose_math.h"
 
 #include <boost/shared_ptr.hpp>
 #include <deque>

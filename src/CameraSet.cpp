@@ -5,6 +5,7 @@
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/Symbol.h"
 #include "semantic_slam/VectorNode.h"
+#include "semantic_slam/pose_math.h"
 
 TriangulationResult
 CameraSet::triangulateMeasurementsApproximate(

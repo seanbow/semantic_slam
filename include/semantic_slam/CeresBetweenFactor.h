@@ -1,7 +1,6 @@
 #pragma once
 
 #include "semantic_slam/CeresFactor.h"
-#include "semantic_slam/SE3Node.h"
 #include "semantic_slam/pose_math.h"
 #include <ceres/ceres.h>
 #include <eigen3/Eigen/Core>
@@ -10,18 +9,26 @@ namespace gtsam {
 class NonlinearFactor;
 }
 
+class SE3Node;
+
 class CeresBetweenFactor : public CeresFactor
 {
   public:
-    CeresBetweenFactor(SE3NodePtr node0,
-                       SE3NodePtr node1,
+    CeresBetweenFactor(boost::shared_ptr<SE3Node> node0,
+                       boost::shared_ptr<SE3Node> node1,
                        Pose3 between,
                        Eigen::MatrixXd covariance,
                        int tag = 0);
     ~CeresBetweenFactor();
 
-    SE3NodePtr node0() const { return boost::static_pointer_cast<SE3Node>(nodes_[0]); }
-    SE3NodePtr node1() const { return boost::static_pointer_cast<SE3Node>(nodes_[1]); }
+    boost::shared_ptr<SE3Node> node0() const
+    {
+        return boost::static_pointer_cast<SE3Node>(nodes_[0]);
+    }
+    boost::shared_ptr<SE3Node> node1() const
+    {
+        return boost::static_pointer_cast<SE3Node>(nodes_[1]);
+    }
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 

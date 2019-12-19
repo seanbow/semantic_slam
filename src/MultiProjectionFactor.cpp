@@ -1,5 +1,10 @@
 #include "semantic_slam/MultiProjectionFactor.h"
 
+#include "semantic_slam/CameraCalibration.h"
+#include "semantic_slam/CameraSet.h"
+#include "semantic_slam/CeresProjectionFactor.h"
+#include "semantic_slam/SE3Node.h"
+
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/slam/ProjectionFactor.h>
 

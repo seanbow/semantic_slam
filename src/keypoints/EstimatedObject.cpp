@@ -4,6 +4,7 @@
 #include "semantic_slam/Camera.h"
 #include "semantic_slam/CameraCalibration.h"
 #include "semantic_slam/CeresStructureFactor.h"
+#include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/SemanticMapper.h"

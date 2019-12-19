@@ -200,6 +200,8 @@ add_library(ObjectKeypointPresenter src/presenters/ObjectKeypointPresenter.cpp)
 add_library(SemanticCovisibilityPresenter src/presenters/SemanticCovisibilityPresenter.cpp)
 add_library(GeometricCovisibilityPresenter src/presenters/GeometricCovisibilityPresenter.cpp)
 
+add_library(LocalParameterizations src/LocalParameterizations.cpp)
+
 add_library(EstimatedObject src/keypoints/EstimatedObject.cpp)
 target_link_libraries(EstimatedObject
   Camera
@@ -241,6 +243,7 @@ target_link_libraries(SemanticSmoother
   Utils
   GeometricFeatureHandler
   MLDataAssociator
+  LocalParameterizations
   LoopCloser
 #  SemanticKeyframe
   FactorGraph
@@ -258,6 +261,7 @@ target_link_libraries(SemanticMapper
   EstimatedKeypoint
   StructureOptimizationProblem
   Utils
+  LocalParameterizations
   GeometricFeatureHandler
   MLDataAssociator
   LoopCloser
@@ -308,6 +312,7 @@ target_link_libraries(semantic_slam_node
     FactorGraph
     ExternalOdometryHandler
     GeometricFeatureHandler
+    LocalParameterizations
     FeatureTracker
     SemanticMapper
     SemanticSmoother

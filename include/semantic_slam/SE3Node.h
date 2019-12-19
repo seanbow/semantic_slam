@@ -1,13 +1,13 @@
 #pragma once
 
-#include "semantic_slam/CeresNode.h"
 #include "semantic_slam/Common.h"
+
+#include "semantic_slam/CeresNode.h"
+#include "semantic_slam/LocalParameterizations.h"
+#include "semantic_slam/pose_math.h"
 
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
-
-#include "semantic_slam/ceres_quaternion_parameterization.h"
-#include "semantic_slam/pose_math.h"
 
 #include <gtsam/base/GenericValue.h>
 #include <gtsam/geometry/Pose3.h>

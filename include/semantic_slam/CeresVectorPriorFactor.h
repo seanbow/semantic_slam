@@ -4,7 +4,7 @@
 
 #include "semantic_slam/CeresFactor.h"
 #include "semantic_slam/VectorNode.h"
-#include "semantic_slam/ceres_vector_prior.h"
+#include "semantic_slam/ceres_cost_terms/ceres_vector_prior.h"
 
 template<int Dim>
 class CeresVectorPriorFactor : public CeresFactor
@@ -19,7 +19,10 @@ class CeresVectorPriorFactor : public CeresFactor
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
 
-    VectorNodePtr<Dim> node() const { return boost::static_pointer_cast<VectorNode<Dim>>(nodes_[0]); }
+    VectorNodePtr<Dim> node() const
+    {
+        return boost::static_pointer_cast<VectorNode<Dim>>(nodes_[0]);
+    }
 
     using This = CeresVectorPriorFactor<Dim>;
     using Ptr = boost::shared_ptr<This>;
@@ -52,7 +55,7 @@ CeresVectorPriorFactor<Dim>::CeresVectorPriorFactor(
     nodes_.push_back(node);
 }
 
-template <int Dim>
+template<int Dim>
 CeresFactor::Ptr
 CeresVectorPriorFactor<Dim>::clone() const
 {
@@ -66,7 +69,7 @@ CeresVectorPriorFactor<Dim>::addToProblem(
 {
     ceres::ResidualBlockId residual_id =
       problem->AddResidualBlock(cf_, NULL, node()->vector().data());
-      
+
     residual_ids_.emplace(problem.get(), residual_id);
 
     active_ = true;

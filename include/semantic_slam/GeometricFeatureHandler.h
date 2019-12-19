@@ -1,9 +1,7 @@
 #pragma once
 
-#include "semantic_slam/CameraCalibration.h"
 #include "semantic_slam/Common.h"
 #include "semantic_slam/Handler.h"
-#include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/feature_tracker/FeatureTracker.h"
 
 #include <condition_variable>
@@ -17,6 +15,11 @@
 
 class SmartProjectionFactor;
 class MultiProjectionFactor;
+class CameraCalibration;
+class CeresFactor;
+
+template<int Dim>
+class VectorNode;
 
 class GeometricFeatureHandler : public Handler
 {
@@ -24,7 +27,7 @@ class GeometricFeatureHandler : public Handler
     void setup();
     void update();
 
-    void addKeyframe(const SemanticKeyframe::Ptr& keyframe);
+    void addKeyframe(const boost::shared_ptr<SemanticKeyframe>& keyframe);
 
     void loadParameters();
 
@@ -37,9 +40,10 @@ class GeometricFeatureHandler : public Handler
     void removeLandmark(int index);
 
     void updateEssentialGraph(
-      const std::vector<SemanticKeyframe::Ptr>& keyframes_processed);
+      const std::vector<boost::shared_ptr<SemanticKeyframe>>&
+        keyframes_processed);
 
-    std::unordered_map<int, boost::shared_ptr<Vector3dNode>> landmark_nodes()
+    std::unordered_map<int, boost::shared_ptr<VectorNode<3>>> landmark_nodes()
     {
         return landmark_nodes_;
     }
@@ -73,13 +77,13 @@ class GeometricFeatureHandler : public Handler
     FeatureTracker::Params tracker_params_;
 
     std::unordered_map<int, boost::shared_ptr<GeometricFeature>> features_;
-    std::unordered_map<int, boost::shared_ptr<Vector3dNode>> landmark_nodes_;
+    std::unordered_map<int, boost::shared_ptr<VectorNode<3>>> landmark_nodes_;
 
     std::unordered_map<int, boost::shared_ptr<CeresFactor>> factors_;
     std::unordered_map<int, boost::shared_ptr<CeresFactor>> essential_factors_;
 
-    std::deque<SemanticKeyframe::Ptr> kfs_to_process_;
-    SemanticKeyframe::Ptr last_kf_processed_;
+    std::deque<boost::shared_ptr<SemanticKeyframe>> kfs_to_process_;
+    boost::shared_ptr<SemanticKeyframe> last_kf_processed_;
 
     bool running_;
     std::thread work_thread_;

@@ -4,6 +4,7 @@
 // #include <gtsam/slam/BetweenFactor.h>
 #include "semantic_slam/CeresBetweenFactor.h"
 #include "semantic_slam/CeresSE3PriorFactor.h"
+#include "semantic_slam/SemanticKeyframe.h"
 
 #include <string>
 
