@@ -71,6 +71,8 @@ class SemanticSmoother
 
     void informLoopClosure() { invalidate_optimization_ = true; }
 
+    void informKeyframeUpdated(boost::shared_ptr<SemanticKeyframe> frame);
+
     // TODO we shouldn't need to expose these
     boost::shared_ptr<FactorGraph> graph() { return graph_; }
     boost::shared_ptr<FactorGraph> essential_graph()
@@ -95,6 +97,9 @@ class SemanticSmoother
 
     std::unordered_set<int> unfrozen_kfs_;
     std::unordered_set<int> unfrozen_objs_;
+
+    std::vector<boost::shared_ptr<SemanticKeyframe>> updated_keyframes_;
+    std::mutex updated_keyframes_mutex_;
 
     bool include_geometric_features_;
     boost::shared_ptr<GeometricFeatureHandler> geom_handler_;

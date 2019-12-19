@@ -127,7 +127,8 @@ SemanticMapper::processMessagesUpdateObjectsThread()
         // bool processed_msg = false;
 
         if (operation_mode_ == OperationMode::LOOP_CLOSING) {
-            checkLoopClosingDone();
+            if (checkLoopClosingDone())
+                processLoopClosure();
         }
 
         if (haveNextKeyframe()) {
@@ -180,7 +181,10 @@ SemanticMapper::processPendingKeyframes()
         auto next_keyframe = pending_keyframes_.front();
         pending_keyframes_.pop_front();
 
-        updateKeyframeObjects(next_keyframe);
+        {
+            std::lock_guard<std::mutex> lock(map_mutex_);
+            updateKeyframeObjects(next_keyframe);
+        }
 
         last_added_kf_index = next_keyframe->index();
 
@@ -203,6 +207,13 @@ SemanticMapper::processPendingKeyframes()
 bool
 SemanticMapper::checkLoopClosingDone()
 {
+    return operation_mode_ == OperationMode::LOOP_CLOSING &&
+           !loop_closer_->running();
+}
+
+bool
+SemanticMapper::processLoopClosure()
+{
     if (loop_closer_->running())
         return false;
 
@@ -213,8 +224,27 @@ SemanticMapper::checkLoopClosingDone()
     smoother_->informLoopClosure();
 
     std::lock_guard<std::mutex> map_lock(map_mutex_);
-
     loop_closer_->updateLoopInMapper();
+
+    // Recompute the data association for the post-closure frames
+    // TODO figure out how best to account for newly created objects that
+    // ideally would not have been created, maybe remove all measurements from
+    // the entire set of frames then re-add them
+    //
+    // covariance information is very wonky here??
+    for (int kf_id = loop_closer_->endOfLoopIndex() + 1;
+         kf_id < keyframes_.size();
+         ++kf_id) {
+
+        auto kf = getKeyframeByIndex(kf_id);
+
+        // only for those frames that have already been processed once,
+        // otherwise they remain part of the normal order of operations
+        if (kf->measurements_processed()) {
+            updateKeyframeObjects(kf);
+            smoother_->informKeyframeUpdated(kf);
+        }
+    }
 
     operation_mode_ = OperationMode::NORMAL;
 
@@ -729,6 +759,7 @@ SemanticMapper::removeMeasurementsFromObjects(SemanticKeyframe::Ptr frame)
         auto& msmt = frame->measurements()[msmt_id];
 
         for (auto& da_pair : frame->association_weights()[msmt_id]) {
+            ROS_INFO_STREAM("Removing from object " << da_pair.first);
             estimated_objects_[da_pair.first]->removeKeypointMeasurements(msmt);
         }
     }
@@ -742,10 +773,10 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
     if (!frame)
         return false;
 
-    std::lock_guard<std::mutex> lock(map_mutex_);
-
     // TODO fix this bad approximation
     frame->covariance() = smoother_->mostRecentKeyframeCovariance();
+
+    removeMeasurementsFromObjects(frame);
 
     computeDataAssociationWeights(frame);
 

@@ -752,6 +752,8 @@ EstimatedObject::removeKeypointMeasurements(const ObjectMeasurement& msmt)
         return;
     }
 
+    ROS_INFO_STREAM("Found a measurement to remove");
+
     auto keyframe = mapper_->getKeyframeByKey(msmt.observed_key);
 
     auto kf_observations_it = std::find(
@@ -801,10 +803,14 @@ EstimatedObject::removeKeypointMeasurements(const ObjectMeasurement& msmt)
 
         structure_problem_->removeCamera(keyframe);
 
-        for (auto& kp_msmt : msmt.keypoint_measurements) {
-            if (kp_msmt.observed)
-                structure_problem_->removeKeypointMeasurement(kp_msmt);
-        }
+        // removing a parameter block from a ceres::Problem also removes
+        // all residuals that depend upon that block, so removing the projection
+        // cost functions explicitly is not required...
+
+        // for (auto& kp_msmt : msmt.keypoint_measurements) {
+        //     if (kp_msmt.observed)
+        //         structure_problem_->removeKeypointMeasurement(kp_msmt);
+        // }
     }
 }
 

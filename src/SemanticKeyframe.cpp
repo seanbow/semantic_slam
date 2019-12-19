@@ -48,6 +48,10 @@ SemanticKeyframe::addGeometricConnection(SemanticKeyframe::Ptr other, int count)
 void
 SemanticKeyframe::updateConnections()
 {
+    // TODO if we previously had a connection to a neighbor that we removed in
+    // the graph, this doesn't properly account for that (it won't update with
+    // neighbor's connections list with the now-removed link information)
+
     neighbors_.clear();
 
     for (const EstimatedObject::Ptr& obj : visible_objects_) {

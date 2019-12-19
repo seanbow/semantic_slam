@@ -20,6 +20,8 @@ class LoopCloser
     void startLoopClosing(boost::shared_ptr<FactorGraph> graph,
                           int loop_closing_kf_index);
 
+    int endOfLoopIndex() { return loop_index_; }
+
     bool containsNode(Key key);
 
     bool updateLoopInMapper();

@@ -96,6 +96,7 @@ class SemanticMapper
     std::vector<boost::shared_ptr<EstimatedObject>> estimated_objects();
 
     bool checkLoopClosingDone();
+    bool processLoopClosure();
 
   private:
     std::mutex map_mutex_;

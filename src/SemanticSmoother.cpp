@@ -108,6 +108,16 @@ SemanticSmoother::processingThreadFunction()
                 }
             }
 
+            // At this point the "updated" keyframes will certainly be included
+            // in either a loop closing optimization or a normal smoothing
+            // optimization, so clear them and allow new frames to be
+            // accumulated...
+            {
+                std::lock_guard<std::mutex> updated_lock(
+                  updated_keyframes_mutex_);
+                updated_keyframes_.clear();
+            }
+
             // if loop_closure_added is true now, we've detected a loop closure
             // and added this loop to the graph for the first time. start the
             // actual loop closing process
@@ -461,6 +471,23 @@ SemanticSmoother::freezeNonCovisible(
         }
     }
 
+    // We may also have a list of "updated" frames; frames that were already
+    // included in the graph at some point but that the mapper modified in some
+    // way. We want to include these too though they don't count as a loop
+    // closure, so account for them separately.
+    std::lock_guard<std::mutex> updated_lock(updated_keyframes_mutex_);
+    for (auto& kf : updated_keyframes_) {
+        unfrozen_kfs_.insert(kf->index());
+
+        for (const auto& cov_frame : kf->neighbors()) {
+            unfrozen_kfs_.insert(cov_frame.first->index());
+        }
+
+        for (const auto& obj : kf->visible_objects()) {
+            unfrozen_objs_.insert(obj->id());
+        }
+    }
+
     for (const auto& kf : mapper_->keyframes()) {
         if (!kf->inGraph())
             continue;
@@ -509,6 +536,14 @@ SemanticSmoother::unfreezeAll()
 
         obj->setVariableInGraph();
     }
+}
+
+void
+SemanticSmoother::informKeyframeUpdated(
+  boost::shared_ptr<SemanticKeyframe> frame)
+{
+    std::lock_guard<std::mutex> lock(updated_keyframes_mutex_);
+    updated_keyframes_.push_back(frame);
 }
 
 bool
