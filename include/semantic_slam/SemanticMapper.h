@@ -156,6 +156,8 @@ class SemanticMapper
       boost::shared_ptr<SemanticKeyframe> node);
 
     bool addMeasurementsToObjects(boost::shared_ptr<SemanticKeyframe> frame);
+    bool removeMeasurementsFromObjects(
+      boost::shared_ptr<SemanticKeyframe> frame);
 
     void processPendingKeyframes();
 

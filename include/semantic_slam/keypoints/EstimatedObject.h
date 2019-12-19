@@ -44,6 +44,7 @@ class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
     double computeMahalanobisDistance(const ObjectMeasurement& msmt) const;
 
     void addKeypointMeasurements(const ObjectMeasurement& msmt, double weight);
+    void removeKeypointMeasurements(const ObjectMeasurement& msmt);
 
     // void updateAndCheck(uint64_t pose_id, const gtsam::Values& estimate);
     void update(boost::shared_ptr<SemanticKeyframe> keyframe);
@@ -55,6 +56,7 @@ class EstimatedObject : public boost::enable_shared_from_this<EstimatedObject>
     // void mergeWith(EstimatedObject& obj2);
 
     void removeFromEstimation();
+    void removeFromGraph();
 
     void markBad() { is_bad_ = true; }
 

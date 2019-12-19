@@ -12,7 +12,7 @@ if(CCACHE_FOUND)
 endif(CCACHE_FOUND)
 
 # add_compile_options(-g -O3 -march=native -ffast-math -flto=auto -Wall)
-add_compile_options(-g -O3 -march=native -ffast-math -Wall)
+add_compile_options(-g -O3 -march=native -ffast-math -Wall -ansi -fdiagnostics-color)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)

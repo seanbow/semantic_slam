@@ -190,6 +190,8 @@ StructureOptimizationProblem::addKeypointMeasurement(
     // ceres::LossFunction* cauchy_loss =
     //   new ceres::CauchyLoss(params_.robust_estimator_parameter);
 
+    int index = Symbol(kp_msmt.measured_key).index();
+
     ceres::LossFunction* huber_loss =
       new ceres::HuberLoss(params_.robust_estimator_parameter);
 
@@ -210,11 +212,12 @@ StructureOptimizationProblem::addKeypointMeasurement(
     // ceres_problem_.AddResidualBlock(projection_cf, NULL,
     // object_pose_.rotation_data(), object_pose_.translation_data(),
     // kps_[kp_msmt.kp_class_id]->data());
-    auto& pose_node = local_pose_nodes_[Symbol(kp_msmt.measured_key).index()];
-    ceres_problem_.AddResidualBlock(projection_cf,
-                                    huber_loss,
-                                    pose_node->pose().data(),
-                                    kps_[kp_msmt.kp_class_id]->data());
+    auto& pose_node = local_pose_nodes_[index];
+    projection_residual_ids_[index] =
+      ceres_problem_.AddResidualBlock(projection_cf,
+                                      huber_loss,
+                                      pose_node->pose().data(),
+                                      kps_[kp_msmt.kp_class_id]->data());
 
     // // Add depth if available
     // if (params_.include_depth_constraints && kp_msmt.measured_depth > 0) {
@@ -231,6 +234,19 @@ StructureOptimizationProblem::addKeypointMeasurement(
 
     solved_ = false;
     have_covariance_ = false;
+}
+
+void
+StructureOptimizationProblem::removeKeypointMeasurement(
+  const KeypointMeasurement& kp_msmt)
+{
+    int index = Symbol(kp_msmt.measured_key).index();
+    auto residual_it = projection_residual_ids_.find(index);
+
+    if (residual_it != projection_residual_ids_.end()) {
+        ceres_problem_.RemoveResidualBlock(residual_it->second);
+        projection_residual_ids_.erase(residual_it);
+    }
 }
 
 void
@@ -334,8 +350,9 @@ StructureOptimizationProblem::addCamera(SemanticKeyframe::Ptr keyframe,
             ceres::CostFunction* pose_prior_cf = PosePriorCostTerm::Create(
               keyframe->pose(), keyframe->covariance());
 
-            ceres_problem_.AddResidualBlock(
-              pose_prior_cf, NULL, node->pose().data());
+            prior_residual_ids_[keyframe->index()] =
+              ceres_problem_.AddResidualBlock(
+                pose_prior_cf, NULL, node->pose().data());
 
         } else {
             ceres_problem_.SetParameterBlockConstant(node->pose().data());
@@ -353,6 +370,34 @@ StructureOptimizationProblem::addCamera(SemanticKeyframe::Ptr keyframe,
         //                   camera_poses_[pose_index].translation_data(),
         //                   object_pose_.translation_data());
     }
+}
+
+void
+StructureOptimizationProblem::removeCamera(
+  boost::shared_ptr<SemanticKeyframe> keyframe)
+{
+    auto existing_kf = keyframes_.find(keyframe->index());
+
+    if (existing_kf == keyframes_.end()) {
+        return;
+    }
+
+    auto node = local_pose_nodes_[keyframe->index()];
+
+    keyframes_.erase(keyframe->index());
+    local_pose_nodes_.erase(keyframe->index());
+
+    ceres_problem_.RemoveParameterBlock(node->pose().data());
+
+    if (prior_residual_ids_.find(keyframe->index()) !=
+        prior_residual_ids_.end()) {
+        ceres_problem_.RemoveResidualBlock(
+          prior_residual_ids_[keyframe->index()]);
+        prior_residual_ids_.erase(keyframe->index());
+    }
+
+    solved_ = false;
+    have_covariance_ = false;
 }
 
 void

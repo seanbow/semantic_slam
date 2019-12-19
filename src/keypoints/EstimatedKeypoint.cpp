@@ -43,10 +43,7 @@ EstimatedKeypoint::EstimatedKeypoint(
   , platform_(platform)
   , camera_calibration_(camera_calib)
   , in_graph_(false)
-  , is_bad_(false)
-  ,
-  //  object_in_graph_(false),
-  initialized_(false)
+  , initialized_(false)
   , detection_score_sum_(0.0)
   , parent_(parent)
   , mapper_(mapper)
@@ -140,12 +137,43 @@ EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt,
 
     // TODO "safety" check / error check
     // TODO factor uniqueness check???
-    // if (in_graph_)
-    // {
-    //   tryAddProjectionFactors();
+    // if (in_graph_) {
+    //     tryAddProjectionFactors();
     // }
 
     // last_seen_ = msmt.pose_id;
+}
+
+void
+EstimatedKeypoint::removeMeasurement(const KeypointMeasurement& msmt)
+{
+    // We don't have a global measurement id for these like we do for the object
+    // measurements (TODO). So instead we will just assume that each keypoint is
+    // observed at most once per keyframe and compare the measured_key field...
+    bool found = false;
+    int index = 0;
+    for (auto it = measurements_.begin(); it != measurements_.end(); ++it) {
+        if (it->measured_key == msmt.measured_key) {
+            found = true;
+            measurements_.erase(it);
+            break;
+        }
+        index++;
+    }
+
+    if (!found) {
+        return;
+    }
+
+    auto fac = projection_factors_[index];
+
+    projection_factors_.erase(projection_factors_.begin() + index);
+    measurement_weights_.erase(measurement_weights_.begin() + index);
+
+    if (in_graph_) {
+        graph_->removeFactor(fac);
+        semantic_graph_->removeFactor(fac);
+    }
 }
 
 double
@@ -165,15 +193,19 @@ EstimatedKeypoint::initializeFromMeasurement(const KeypointMeasurement& msmt)
     initialized_ = true;
 }
 
+bool
+EstimatedKeypoint::bad() const
+{
+    return parent_->bad();
+}
+
 void
 EstimatedKeypoint::removeFromEstimation()
 {
-    is_bad_ = true;
-
     if (!in_graph_)
         return;
 
-    ROS_WARN_STREAM("Removing kp " << id() << " from estimation.");
+    // ROS_WARN_STREAM("Removing kp " << id() << " from estimation.");
 
     if (params_.include_objects_in_graph) {
         for (auto factor : projection_factors_) {
@@ -457,7 +489,7 @@ EstimatedKeypoint::addToGraphForced()
     // measurements_.size() <= 1.
     bool unsafe_to_add = measurements_.size() > 1 && !checkSafeToAdd();
 
-    if (params_.include_objects_in_graph && (is_bad_ || unsafe_to_add)) {
+    if (params_.include_objects_in_graph && unsafe_to_add) {
         // remove all measurements of this point
         // things like the id, calibration, etc remain the same of course
         // projection_factors_.clear();
@@ -465,8 +497,6 @@ EstimatedKeypoint::addToGraphForced()
         measurement_weights_.clear();
         measurements_.clear();
     }
-
-    is_bad_ = false;
 
     if (params_.include_objects_in_graph) {
         // proceed to add to graph as normal
@@ -504,7 +534,7 @@ EstimatedKeypoint::tryAddProjectionFactors()
 void
 EstimatedKeypoint::addToGraph()
 {
-    if (in_graph_ || is_bad_)
+    if (in_graph_)
         return;
 
     if (checkSafeToAdd()) {
@@ -519,8 +549,6 @@ EstimatedKeypoint::addToGraph()
 
             in_graph_ = true;
         }
-    } else {
-        is_bad_ = true;
     }
 }
 
@@ -558,7 +586,7 @@ EstimatedKeypoint::computeMahalanobisDistance(
         return std::numeric_limits<double>::max();
     }
 
-    if (is_bad_) {
+    if (bad()) {
         ROS_WARN_STREAM("Mahalanobis distance called for BAD landmark "
                         << id());
         return std::numeric_limits<double>::max();

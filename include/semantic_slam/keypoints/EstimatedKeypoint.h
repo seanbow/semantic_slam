@@ -38,7 +38,7 @@ class EstimatedKeypoint
 
     size_t classid() const { return classid_; }
 
-    bool bad() const { return is_bad_; }
+    bool bad() const;
 
     void commitGraphSolution();
     void commitGraphSolution(boost::shared_ptr<FactorGraph> graph);
@@ -55,6 +55,7 @@ class EstimatedKeypoint
     uint64_t local_id;
 
     void addMeasurement(const KeypointMeasurement& msmt, double weight);
+    void removeMeasurement(const KeypointMeasurement& msmt);
 
     double computeMahalanobisDistance(const KeypointMeasurement& msmt) const;
 
@@ -126,7 +127,6 @@ class EstimatedKeypoint
     Eigen::Matrix3d global_covariance_;
 
     bool in_graph_;
-    bool is_bad_;
     // bool object_in_graph_;
 
     bool initialized_;

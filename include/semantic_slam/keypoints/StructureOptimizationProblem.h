@@ -47,6 +47,9 @@ class StructureOptimizationProblem
 
     Eigen::VectorXd getBasisCoefficients() const;
 
+    void removeCamera(boost::shared_ptr<SemanticKeyframe> keyframe);
+    void removeKeypointMeasurement(const KeypointMeasurement& kp_msmt);
+
     void computeCovariances();
 
     void solve();
@@ -82,6 +85,11 @@ class StructureOptimizationProblem
 
     std::unordered_map<size_t, boost::shared_ptr<SemanticKeyframe>> keyframes_;
     std::unordered_map<size_t, boost::shared_ptr<SE3Node>> local_pose_nodes_;
+
+    // Each added camera will define one residual id for its prior factor (if
+    // used) and one for its projection factor, map from kf indices to them
+    std::unordered_map<size_t, ceres::ResidualBlockId> prior_residual_ids_;
+    std::unordered_map<size_t, ceres::ResidualBlockId> projection_residual_ids_;
 
     ObjectParams params_;
 

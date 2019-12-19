@@ -534,6 +534,9 @@ void
 SemanticSmoother::setMaxOptimizationTime(double max_optimization_time)
 {
     max_optimization_time_ = max_optimization_time;
+
+    graph_->solver_options().max_solver_time_in_seconds =
+      max_optimization_time_;
 }
 
 void

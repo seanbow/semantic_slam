@@ -710,18 +710,10 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
 
         modified_ = true;
 
-        // ROS_INFO_STREAM("Initializing keypoint " << kp_msmt.kp_class_id);
-
         kp->addMeasurement(kp_msmt, weight);
-
-        // last_seen_ = kp_msmt.pose_id;
     }
 
     last_seen_ = keyframe->index();
-
-    // if (!in_graph_ && readyToAddToGraph()) {
-    //   addToGraph();
-    // }
 
     // TEST TODO
     if (!in_graph_) {
@@ -738,6 +730,80 @@ EstimatedObject::addKeypointMeasurements(const ObjectMeasurement& msmt,
         for (auto& kp_msmt : msmt.keypoint_measurements) {
             if (kp_msmt.observed)
                 structure_problem_->addKeypointMeasurement(kp_msmt);
+        }
+    }
+}
+
+void
+EstimatedObject::removeKeypointMeasurements(const ObjectMeasurement& msmt)
+{
+    // Find the measurement in our local list and remove it
+    bool found = false;
+    for (auto msmt_it = measurements_.begin(); msmt_it != measurements_.end();
+         ++msmt_it) {
+        if (msmt_it->global_msmt_id == msmt.global_msmt_id) {
+            measurements_.erase(msmt_it);
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        return;
+    }
+
+    auto keyframe = mapper_->getKeyframeByKey(msmt.observed_key);
+
+    auto kf_observations_it = std::find(
+      keyframe_observations_.begin(), keyframe_observations_.end(), keyframe);
+    keyframe_observations_.erase(kf_observations_it);
+
+    auto object_it = std::find(keyframe->visible_objects().begin(),
+                               keyframe->visible_objects().end(),
+                               shared_from_this());
+    keyframe->visible_objects().erase(object_it);
+
+    for (size_t i = 0; i < msmt.keypoint_measurements.size(); ++i) {
+        const KeypointMeasurement& kp_msmt = msmt.keypoint_measurements[i];
+
+        if (!kp_msmt.observed)
+            continue;
+
+        int64_t local_kp_id = findKeypointByClass(kp_msmt.kp_class_id);
+
+        if (local_kp_id < 0) {
+            ROS_WARN_STREAM("Unable to find keypoint object for measurement");
+            continue;
+        }
+
+        EstimatedKeypoint::Ptr kp = keypoints_[local_kp_id];
+
+        if (kp->bad()) {
+            continue;
+        }
+
+        modified_ = true;
+
+        // ROS_INFO_STREAM("Initializing keypoint " << kp_msmt.kp_class_id);
+
+        kp->removeMeasurement(kp_msmt);
+
+        // last_seen_ = kp_msmt.pose_id;
+    }
+
+    // We might have removed measurements to the point now where we should
+    // either remove ourself from the graph or delete ourself entirely.
+    if (measurements_.size() == 0) {
+        removeFromEstimation();
+    } else if (!readyToAddToGraph()) {
+        removeFromGraph();
+    } else {
+
+        structure_problem_->removeCamera(keyframe);
+
+        for (auto& kp_msmt : msmt.keypoint_measurements) {
+            if (kp_msmt.observed)
+                structure_problem_->removeKeypointMeasurement(kp_msmt);
         }
     }
 }
@@ -821,9 +887,6 @@ EstimatedObject::getKeypointOptimizationWeights() const
 bool
 EstimatedObject::readyToAddToGraph()
 {
-    if (in_graph_)
-        return false;
-
     // Count how many keypoints have enough measurements to be considered well
     // localized
     // TODO use a better metric than #measurements?
@@ -938,6 +1001,12 @@ EstimatedObject::removeFromEstimation()
 
     ROS_WARN_STREAM("Removing object " << id() << " from estimation.");
 
+    removeFromGraph();
+}
+
+void
+EstimatedObject::removeFromGraph()
+{
     for (auto& kp : keypoints_) {
         kp->removeFromEstimation();
     }

@@ -702,11 +702,34 @@ SemanticMapper::addMeasurementsToObjects(SemanticKeyframe::Ptr frame)
             }
         }
 
+        // Change the "new object" signalling id (-1) to the id of the object
+        // that was created and this is actually associated with now
         if (new_obj_id >= 0) {
             frame->association_weights()[msmt_id][new_obj_id] =
               frame->association_weights()[msmt_id][-1];
 
             frame->association_weights()[msmt_id].erase(-1);
+        }
+    }
+
+    return true;
+}
+
+bool
+SemanticMapper::removeMeasurementsFromObjects(SemanticKeyframe::Ptr frame)
+{
+    if (frame->measurements().size() == 0 ||
+        frame->association_weights().size() == 0) {
+        return false;
+    }
+
+    // Similar code to adding measurements except we're removing...
+    for (size_t msmt_id = 0; msmt_id < frame->measurements().size();
+         ++msmt_id) {
+        auto& msmt = frame->measurements()[msmt_id];
+
+        for (auto& da_pair : frame->association_weights()[msmt_id]) {
+            estimated_objects_[da_pair.first]->removeKeypointMeasurements(msmt);
         }
     }
 
