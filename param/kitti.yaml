@@ -48,7 +48,7 @@ reprojection_error_threshold: 4
 use_smart_projection_factors: true
 
 ### Semantic measurement parameters
-keypoint_msmt_sigma: 10                 # keypoint measurement sigma (pixels)
+keypoint_msmt_sigma: 12                 # keypoint measurement sigma (pixels)
 keypoint_initialization_depth_sigma: 2  # meters
 
 min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph

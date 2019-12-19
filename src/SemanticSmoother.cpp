@@ -113,8 +113,7 @@ SemanticSmoother::processingThreadFunction()
             // actual loop closing process
             if (loop_closure_added) {
                 prepareGraphNodes();
-                loop_closer_->startLoopClosing(essential_graph_,
-                                               loop_closure_index);
+                loop_closer_->startLoopClosing(graph_, loop_closure_index);
                 mapper_->setOperationMode(
                   SemanticMapper::OperationMode::LOOP_CLOSING);
             } else {

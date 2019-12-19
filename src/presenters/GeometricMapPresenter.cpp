@@ -67,7 +67,7 @@ GeometricMapPresenter::present(
             if (feat->point.norm() > 1e6 || !feat->point.allFinite())
                 continue;
 
-            if (!feat->active)
+            if (!feat->active || !feat->triangulation_good)
                 continue;
 
             geometry_msgs::Point p_msg;
