@@ -9,7 +9,10 @@ class EstimatedObject;
 class Presenter
 {
   public:
-    Presenter();
+    Presenter()
+      : nh_()
+      , pnh_("~")
+    {}
 
     virtual ~Presenter(){};
 
@@ -27,8 +30,3 @@ class Presenter
     ros::NodeHandle nh_;
     ros::NodeHandle pnh_;
 };
-
-Presenter::Presenter()
-  : nh_()
-  , pnh_("~")
-{}

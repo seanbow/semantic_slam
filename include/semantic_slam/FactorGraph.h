@@ -174,22 +174,15 @@ class IterationCallbackWrapper : public ceres::IterationCallback
 {
   public:
     IterationCallbackWrapper(
-      const FactorGraph::IterationCallbackType& callback_function);
+      const FactorGraph::IterationCallbackType& callback_function)
+      : callback_fn_(callback_function)
+    {}
 
-    ceres::CallbackReturnType operator()(
-      const ceres::IterationSummary& summary);
+    ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary)
+    {
+        return callback_fn_(summary);
+    }
 
   private:
     FactorGraph::IterationCallbackType callback_fn_;
 };
-
-IterationCallbackWrapper::IterationCallbackWrapper(
-  const FactorGraph::IterationCallbackType& callback_function)
-  : callback_fn_(callback_function)
-{}
-
-ceres::CallbackReturnType
-IterationCallbackWrapper::operator()(const ceres::IterationSummary& summary)
-{
-    return callback_fn_(summary);
-}

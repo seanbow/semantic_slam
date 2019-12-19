@@ -3,7 +3,7 @@
 #include "semantic_slam/Common.h"
 
 #include "semantic_slam/CameraCalibration.h"
-#include "semantic_slam/pose_math.h"
+#include "semantic_slam/Pose3.h"
 
 #include <gtsam/nonlinear/Values.h>
 

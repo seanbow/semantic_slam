@@ -2,7 +2,7 @@
 
 #include "semantic_slam/Common.h"
 #include "semantic_slam/OdometryHandler.h"
-#include "semantic_slam/pose_math.h"
+#include "semantic_slam/Pose3.h"
 
 #include <deque>
 #include <mutex>

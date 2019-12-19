@@ -36,6 +36,9 @@ find_package(Boost COMPONENTS filesystem serialization system REQUIRED)
 find_package(Ceres REQUIRED)
 include_directories(${CERES_INCLUDE_DIRS})
 
+# for google logger and ceres
+find_package(gflags REQUIRED)
+
 find_package(OpenCV)
 
 ## System dependencies are found with CMake's conventions
@@ -76,256 +79,77 @@ if (MKL_FOUND)
   include_directories(${MKL_INCLUDE_DIR})
 endif()
 
-## Declare a C++ library
-add_library(FactorGraph
+add_library(SemanticMapper STATIC
+  src/Key.cpp
+  src/Symbol.cpp
+  src/Camera.cpp
+  src/CameraSet.cpp
+  src/CameraCalibration.cpp
+  src/Pose3.cpp
+  src/SemanticKeyframe.cpp
+  src/Utils.cpp
+  src/munkres.cpp
+  src/MLDataAssociator.cpp
+
+  src/ceres_cost_terms/ceres_pose_prior.cpp
+  src/ceres_cost_terms/ceres_projection.cpp
+  src/ceres_cost_terms/ceres_structure.cpp
+  src/ceres_cost_terms/ceres_structure_projection.cpp
+  src/ceres_cost_terms/ceres_between.cpp
+  src/LocalParameterizations.cpp
+
+  src/CeresNode.cpp
+  src/CeresFactor.cpp
+  src/CeresProjectionFactor.cpp
+  src/CeresBetweenFactor.cpp
+  src/CeresStructureFactor.cpp
+  src/MultiProjectionFactor.cpp
+  src/SmartProjectionFactor.cpp
+  src/keypoints/gtsam/StructureFactor.cpp
   src/FactorGraph.cpp
-)
-target_link_libraries(FactorGraph
-    Eigen3::Eigen
-    ${catkin_LIBRARIES}
-    ${Boost_LIBRARIES}
-    # gtsam
-)
 
-add_library(Utils src/Utils.cpp)
+  src/keypoints/EstimatedKeypoint.cpp
+  src/keypoints/geometry.cpp
+  src/keypoints/EstimatedObject.cpp
+  src/keypoints/StructureOptimizationProblem.cpp
 
-add_library(Key src/Key.cpp)
-add_library(Symbol src/Symbol.cpp)
-add_library(CameraCalibration src/CameraCalibration.cpp)
-add_library(Camera src/Camera.cpp)
-add_library(CameraSet src/CameraSet.cpp)
-target_link_libraries(CameraSet
-  CeresProjectionFactor
+  src/LoopCloser.cpp
+  src/GeometricFeatureHandler.cpp
+  src/SemanticSmoother.cpp
+  src/SemanticMapper.cpp
+  src/ExternalOdometryHandler.cpp
+
+  src/presenters/GeometricMapPresenter.cpp
+  src/presenters/SemanticCovisibilityPresenter.cpp
+  src/presenters/ObjectMeshPresenter.cpp
+  src/presenters/TrajectoryPresenter.cpp
+  src/presenters/PosePresenter.cpp
+  src/presenters/ObjectKeypointPresenter.cpp
+  src/presenters/GeometricCovisibilityPresenter.cpp
+
+  src/feature_tracker/ORBextractor.cpp
+  src/feature_tracker/TwoPointRansac.cpp
+  src/feature_tracker/FeatureTracker.cpp
+  src/feature_tracker/FivePointRansac.cpp
 )
-
-## Feature Tracker ##
-add_library(TwoPointRansac src/feature_tracker/TwoPointRansac.cpp)
-add_library(FivePointRansac src/feature_tracker/FivePointRansac.cpp)
-add_library(ORBextractor src/feature_tracker/ORBextractor.cpp)
-add_library(FeatureTracker src/feature_tracker/FeatureTracker.cpp)
-target_link_libraries(FeatureTracker
-  ORBextractor
-  FivePointRansac
-  TwoPointRansac
-  ${OpenCV_LIBRARIES}
+target_link_libraries(SemanticMapper
   ${catkin_LIBRARIES}
-)
-
-add_library(StructureFactor src/keypoints/gtsam/StructureFactor.cpp)
-# add_library(StructureProjectionFactor src/keypoints/gtsam/StructureProjectionFactor.cpp)
-
-# add_executable(test_structure_factor src/test_structure_factor.cpp)
-# target_link_libraries(test_structure_factor
-#     ${catkin_LIBRARIES}
-#     StructureFactor
-#     Utils
-#     # gtsam
-# )
-
-set(BASE_LIBS 
-    Utils
-    Key
-    Symbol
-    CameraCalibration
-)
-
-set(CERES_FACTORS
-  CeresProjectionFactor
-  CeresBetweenFactor
-  CeresStructureFactor
-)
-
-add_library(CeresProjectionFactor src/CeresProjectionFactor.cpp)
-target_link_libraries(CeresProjectionFactor
+  ${Boost_LIBRARIES}
+  ${OpenCV_LIBRARIES}
   ${CERES_LIBRARIES}
+  # ${MKL_LIBRARIES}
+  gtsam
 )
-cotire(CeresProjectionFactor)
-
-add_library(CeresBetweenFactor src/CeresBetweenFactor.cpp)
-target_link_libraries(CeresBetweenFactor
-  ${CERES_LIBRARIES}
-)
-cotire(CeresBetweenFactor)
-
-add_library(CeresStructureFactor src/CeresStructureFactor.cpp)
-target_link_libraries(CeresStructureFactor
-  StructureFactor
-  ${CERES_LIBRARIES}
-)
-cotire(CeresStructureFactor)
-
-add_library(ExternalOdometryHandler src/ExternalOdometryHandler.cpp)
-target_link_libraries(ExternalOdometryHandler
-  CeresBetweenFactor
-  ${CERES_LIBRARIES}
-)
-cotire(ExternalOdometryHandler)
-
-add_library(LoopCloser src/LoopCloser.cpp)
-target_link_libraries(LoopCloser
-  ${CERES_LIBRARIES}
-)
-cotire(LoopCloser)
-
-add_library(MultiProjectionFactor src/MultiProjectionFactor.cpp)
-target_link_libraries(MultiProjectionFactor
-  Camera
-  CameraSet
-  ${CERES_LIBRARIES}
-  ${BASE_LIBS}
-)
-cotire(MultiProjectionFactor)
-
-add_library(SmartProjectionFactor src/SmartProjectionFactor.cpp)
-target_link_libraries(SmartProjectionFactor
-  Camera
-  ${CERES_LIBRARIES}
-  ${BASE_LIBS}
-)
-cotire(SmartProjectionFactor)
-
-add_library(GeometricFeatureHandler src/GeometricFeatureHandler.cpp)
-target_link_libraries(GeometricFeatureHandler
-  FeatureTracker
-  MultiProjectionFactor
-  SmartProjectionFactor
-)
-cotire(GeometricFeatureHandler)
-
-add_library(PosePresenter src/presenters/PosePresenter.cpp)
-add_library(TrajectoryPresenter src/presenters/TrajectoryPresenter.cpp)
-add_library(ObjectMeshPresenter src/presenters/ObjectMeshPresenter.cpp)
-add_library(GeometricMapPresenter src/presenters/GeometricMapPresenter.cpp)
-add_library(ObjectKeypointPresenter src/presenters/ObjectKeypointPresenter.cpp)
-add_library(SemanticCovisibilityPresenter src/presenters/SemanticCovisibilityPresenter.cpp)
-add_library(GeometricCovisibilityPresenter src/presenters/GeometricCovisibilityPresenter.cpp)
-
-add_library(LocalParameterizations src/LocalParameterizations.cpp)
-
-add_library(EstimatedObject src/keypoints/EstimatedObject.cpp)
-target_link_libraries(EstimatedObject
-  Camera
-)
-cotire(EstimatedObject)
-
-add_library(EstimatedKeypoint src/keypoints/EstimatedKeypoint.cpp)
-#target_link_libraries(EstimatedKeypoint
-#    ${BASE_LIBS}
- #   ${CERES_FACTORS}
-#)
-cotire(EstimatedKeypoint)
-
-add_library(SemanticKeyframe src/SemanticKeyframe.cpp)
-
-add_library(munkres src/munkres.cpp)
+cotire(SemanticMapper)
 
 add_library(SimpleObjectTracker src/SimpleObjectTracker.cpp)
 target_link_libraries(SimpleObjectTracker
   ${catkin_LIBRARIES}
 )
 
-add_library(MLDataAssociator src/MLDataAssociator.cpp)
-target_link_libraries(MLDataAssociator
-  munkres
-)
-
-add_library(geometry src/keypoints/geometry.cpp)
-# target_link_libraries(geometry 
-#   gtsam
-# )
-
-add_library(SemanticSmoother src/SemanticSmoother.cpp)
-target_link_libraries(SemanticSmoother
-  geometry
-  EstimatedObject
-  EstimatedKeypoint
-  StructureOptimizationProblem
-  Utils
-  GeometricFeatureHandler
-  MLDataAssociator
-  LocalParameterizations
-  LoopCloser
-#  SemanticKeyframe
-  FactorGraph
-  ${CERES_FACTORS}
-#  ${CERES_LIBRARIES}
-#  ${BASE_LIBS}
-)
-cotire(SemanticSmoother)
-
-add_library(SemanticMapper src/SemanticMapper.cpp)
-target_link_libraries(SemanticMapper
-  geometry
-  SemanticSmoother
-  EstimatedObject
-  EstimatedKeypoint
-  StructureOptimizationProblem
-  Utils
-  LocalParameterizations
-  GeometricFeatureHandler
-  MLDataAssociator
-  LoopCloser
-#  SemanticKeyframe
-  FactorGraph
-  ${CERES_FACTORS}
-#  ${CERES_LIBRARIES}
-#  ${BASE_LIBS}
-)
-cotire(SemanticMapper)
-
-
-add_library(StructureOptimizationProblem src/keypoints/StructureOptimizationProblem.cpp)
-cotire(StructureOptimizationProblem)
-
-
-## Add cmake target dependencies of the library
-## as an example, code may need to be generated before libraries
-## either from message generation or dynamic reconfigure
-# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-## Declare a C++ executable
-## With catkin_make all packages are built within a single CMake context
-## The recommended prefix ensures that target names across packages don't collide
-# add_executable(test_geometry src/test_geometry.cpp)
-# target_link_libraries(test_geometry
-#     ${catkin_LIBRARIES}
-#     Utils
-#     # gtsam
-#     geometry
-#     ${CERES_LIBRARIES}
-#     ${BASE_LIBS}
-# )
-
 add_executable(semantic_slam_node src/semantic_slam_node.cpp)
 target_link_libraries(semantic_slam_node
-    ${catkin_LIBRARIES}
-    # ${GTSAM_LIBRARIES}
-    ${Boost_LIBRARIES}
-    ${CERES_LIBRARIES}
-    StructureOptimizationProblem
-    Camera
-    MLDataAssociator
-    FactorGraph
-    CameraSet
-    geometry
-    munkres
-    FactorGraph
-    ExternalOdometryHandler
-    GeometricFeatureHandler
-    LocalParameterizations
-    FeatureTracker
-    SemanticMapper
-    SemanticSmoother
-    PosePresenter
-    TrajectoryPresenter
-    ObjectMeshPresenter
-    GeometricMapPresenter
-    ObjectKeypointPresenter
-    SemanticCovisibilityPresenter
-    GeometricCovisibilityPresenter
-    SemanticKeyframe
-    gtsam
-    ${BASE_LIBS}
+SemanticMapper
 )
 cotire(semantic_slam_node)
 

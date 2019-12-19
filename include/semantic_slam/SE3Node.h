@@ -4,7 +4,7 @@
 
 #include "semantic_slam/CeresNode.h"
 #include "semantic_slam/LocalParameterizations.h"
-#include "semantic_slam/pose_math.h"
+#include "semantic_slam/Pose3.h"
 
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
@@ -55,6 +55,7 @@ class SE3Node : public CeresNode
 
 using SE3NodePtr = SE3Node::Ptr;
 
+inline
 SE3Node::SE3Node(Symbol sym, boost::optional<ros::Time> time)
   : CeresNode(sym, time)
 {
@@ -73,6 +74,7 @@ SE3Node::SE3Node(Symbol sym, boost::optional<ros::Time> time)
     addParameterBlock(pose_.data(), 7, SE3Node::Parameterization());
 }
 
+inline
 boost::shared_ptr<CeresNode>
 SE3Node::clone() const
 {
@@ -81,6 +83,7 @@ SE3Node::clone() const
     return node;
 }
 
+inline
 boost::shared_ptr<gtsam::Value>
 SE3Node::getGtsamValue() const
 {

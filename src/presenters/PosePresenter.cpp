@@ -1,7 +1,7 @@
 #include "semantic_slam/presenters/PosePresenter.h"
+#include "semantic_slam/Pose3.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
-#include "semantic_slam/pose_math.h"
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 

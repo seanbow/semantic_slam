@@ -11,7 +11,7 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/Imu.h>
 
-#include "semantic_slam/pose_math.h"
+#include "semantic_slam/Pose3.h"
 
 #include <chrono>
 
@@ -62,7 +62,7 @@ allocate_aligned(Args&&... args)
 
 } // namespace util
 
-ros::Duration
+inline ros::Duration
 abs_duration(ros::Duration d)
 {
     if (d.sec < 0 || (d.sec == 0 && d.nsec < 0)) {
@@ -109,62 +109,18 @@ computeMedian(std::vector<T> vec)
  * Returns:
  *   - H is a 2 by 9 jacobian matrix = [Hl Hq Hp]
  */
-// Eigen::Matrix<double, 2, 9> computeProjectionJacobian(const Eigen::Matrix3d&
-// G_R_I,
-//                                           const Eigen::Vector3d& G_t_I,
-//                                           const Eigen::Matrix3d& I_R_C,
-//                                           const Eigen::Vector3d& G_l);
 Eigen::Matrix<double, 2, 9>
 computeProjectionJacobian(const Pose3& G_T_I,
                           const Pose3& I_T_C,
                           const Eigen::Vector3d& G_l);
 
-Eigen::Matrix3d
+inline Eigen::Matrix3d
 skewsymm(const Eigen::Vector3d& x)
 {
     Eigen::Matrix3d S;
     S << 0, -x(2), x(1), x(2), 0, -x(0), -x(1), x(0), 0;
     return S;
 }
-
-// bool rotationsApproxEqual(const gtsam::Rot3& a, const gtsam::Rot3& b, double
-// threshold) {
-//   Eigen::Quaterniond q = (a.inverse() * b).toQuaternion();
-//   if (2 * acos(q.w()) < threshold) return true;
-//   return false;
-// }
-
-// bool pointsApproxEqual(const gtsam::Point3& a, const gtsam::Point3& b, double
-// threshold) {
-//   return (a - b).norm() < threshold;
-// }
-
-// bool pointsApproxEqual(const gtsam::Point2& a, const gtsam::Point2& b, double
-// threshold) {
-//   return (a - b).norm() < threshold;
-// }
-
-// bool posesApproxEqual(const gtsam::Pose3& a, const gtsam::Pose3& b, double
-// threshold) {
-//   // todo rotations and points should not use the same threshold probably
-//   return rotationsApproxEqual(a.rotation(), b.rotation(), threshold) &&
-//   pointsApproxEqual(a.translation(), b.translation(), threshold);
-// }
-
-// typedef gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3,
-// gtsam::Cal3DS2> ProjectionFactorInUtils; //vomit;
-
-// bool cameraFactorsApproxEqual(const ProjectionFactorInUtils& a, const
-// ProjectionFactorInUtils& b, const gtsam::Values& vals_, double thresh) {
-//   // camera poses
-//   if (posesApproxEqual(vals_.at<gtsam::Pose3>(a.key1()),
-//   vals_.at<gtsam::Pose3>(b.key1()), thresh)) return true;
-
-//   // measurements
-//   if (pointsApproxEqual(a.measured(), b.measured(), thresh)) return true;
-
-//   return false;
-// }
 
 /**
  * For any given angle theta \in R returns the equivalent rotation theta' \in
@@ -193,7 +149,7 @@ findSimilarityTransform(const Eigen::MatrixXd& S1,
                         boost::optional<double&> w = boost::none);
 
 // approx chi2inv(.95, dof)
-double
+inline double
 chi2inv95(int dof)
 {
     if (dof == 2)
@@ -203,7 +159,7 @@ chi2inv95(int dof)
 }
 
 // approx chi2inv(.99, dof)
-double
+inline double
 chi2inv99(int dof)
 {
     if (dof == 2)
@@ -218,7 +174,7 @@ chi2inv99(int dof)
 // them so comparing them to Chi2(2) produces the same result. This function
 // returns the (approximate) value r(n) = chi2inv(.95,2) / chi2inv(.95,n) so
 // that r(n) * dist < chi2inv(2)  <->  dist < chi2inv(n)
-double
+inline double
 mahalanobisMultiplicativeFactor(int dof)
 {
     // return 1.618*std::pow(dof, -0.6288) - 0.05175;
@@ -274,53 +230,6 @@ erase_column_indices(const Eigen::MatrixXd& data, std::vector<size_t>& indices);
 
 inline Eigen::MatrixXd
 erase_row_indices(const Eigen::MatrixXd& data, std::vector<size_t>& indices);
-
-// template <typename T>
-// std::vector<boost::shared_ptr<T> >
-// makeVectorUnique(const std::vector<boost::shared_ptr<T> >& vec,
-// boost::function<bool(const T&, const T&)> equals) {
-//   std::vector<boost::shared_ptr<T> > out;
-//   std::vector<bool> invalid(vec.size(),false);
-
-//   for (size_t i = 0; i < vec.size(); ++i) {
-//     if (invalid[i]) continue;
-//     out.push_back(vec[i]);
-//     for (size_t j = i + 1; j < vec.size(); ++j) {
-//       if (equals( *vec[i], *vec[j] )) invalid[j] = true;
-//     }
-//   }
-
-//   return out;
-// }
-
-// template <typename T>
-// std::vector<T>
-// makeVectorUnique(const std::vector<T>& vec, boost::function<bool(const T&,
-// const T&)> equals) {
-//   std::vector<T> out;
-//   std::vector<bool> invalid(vec.size(),false);
-
-//   for (size_t i = 0; i < vec.size(); ++i) {
-//     if (invalid[i]) continue;
-//     out.push_back(vec[i]);
-//     for (size_t j = i + 1; j < vec.size(); ++j) {
-//       if (equals( vec[i], vec[j] )) invalid[j] = true;
-//     }
-//   }
-
-//   return out;
-// }
-
-// template <typename T>
-// bool isItemInContainer(const boost::shared_ptr<T>& item, const
-// std::vector<boost::shared_ptr<T> >& vec, boost::function<bool(const T&, const
-// T&)> equals) {
-//   // T must implement .equals()
-//   for (auto it = vec.begin(); it != vec.end(); ++it) {
-//     if (equals(*(*it), *item)) return true;
-//   }
-//   return false;
-// }
 
 template<typename T>
 struct RosParamType

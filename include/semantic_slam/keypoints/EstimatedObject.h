@@ -1,9 +1,9 @@
 #pragma once
 
 #include "semantic_slam/Common.h"
+#include "semantic_slam/Pose3.h"
 #include "semantic_slam/VectorNode.h"
 #include "semantic_slam/keypoints/geometry.h"
-#include "semantic_slam/pose_math.h"
 
 #include <memory>
 #include <mutex>

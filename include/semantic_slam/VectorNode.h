@@ -6,7 +6,7 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
 
-#include "semantic_slam/pose_math.h"
+#include "semantic_slam/Pose3.h"
 
 #include <gtsam/base/GenericValue.h>
 #include <gtsam/base/VectorSpace.h> // for type traits

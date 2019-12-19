@@ -11,8 +11,8 @@
 
 #include "semantic_slam/CameraCalibration.h"
 
+#include "semantic_slam/Pose3.h"
 #include "semantic_slam/keypoints/geometry.h"
-#include "semantic_slam/pose_math.h"
 
 class SemanticKeyframe;
 class SE3Node;

@@ -26,9 +26,11 @@ class SemanticSmoother
     void tryAddObjectsToGraph();
     bool tryOptimize();
 
-    void run();
+    void start(); // does not block
     void stop();
     bool running() { return running_; }
+
+    void join(); // threading function
 
     bool needToComputeCovariances();
     bool computeLatestCovariance();

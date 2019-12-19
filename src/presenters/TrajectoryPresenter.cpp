@@ -2,7 +2,7 @@
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
 
-#include "semantic_slam/pose_math.h"
+#include "semantic_slam/Pose3.h"
 #include <visualization_msgs/Marker.h>
 
 void

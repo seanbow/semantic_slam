@@ -2,7 +2,6 @@
 
 #include "semantic_slam/Common.h"
 #include "semantic_slam/Handler.h"
-// #include "semantic_slam/pose_math.h"
 
 #include <vector>
 
@@ -11,7 +10,9 @@ class SemanticKeyframe;
 class OdometryHandler : public Handler
 {
   public:
-    OdometryHandler();
+    OdometryHandler()
+      : Handler()
+    {}
 
     virtual void setup() = 0;
 
@@ -28,7 +29,3 @@ class OdometryHandler : public Handler
   protected:
     std::vector<boost::shared_ptr<SemanticKeyframe>> keyframes_;
 };
-
-OdometryHandler::OdometryHandler()
-  : Handler()
-{}

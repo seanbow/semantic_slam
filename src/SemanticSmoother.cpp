@@ -64,13 +64,17 @@ SemanticSmoother::setOrigin(SemanticKeyframe::Ptr origin_frame)
 }
 
 void
-SemanticSmoother::run()
+SemanticSmoother::start()
 {
     running_ = true;
 
     work_thread_ =
       std::thread(&SemanticSmoother::processingThreadFunction, this);
+}
 
+void
+SemanticSmoother::join()
+{
     work_thread_.join();
 }
 

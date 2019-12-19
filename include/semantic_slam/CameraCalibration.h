@@ -75,36 +75,10 @@ CameraCalibration::uncalibrate(const Eigen::Matrix<T, 2, 1>& p,
     T xd0 = x * cdist + p1_ * a1 + p2_ * a2;
     T yd0 = y * cdist + p1_ * a3 + p2_ * a1;
 
-    // if (Hpoint) {
-    //     Duncalibrate(p, *Hpoint);
-    // }
-
-    return Eigen::Matrix<T, 2, 1>(fx_ * xd0 + s_ * yd0 + u0_, fy_ * yd0 + v0_);
-}
-
-template<>
-Eigen::Matrix<double, 2, 1>
-CameraCalibration::uncalibrate(const Eigen::Matrix<double, 2, 1>& p,
-                               boost::optional<Eigen::MatrixXd&> Hpoint) const
-{
-    // Code borrowed from opencv's projectpoints function
-    double x = p(0), y = p(1);
-    double r2 = x * x + y * y;
-    double r4 = r2 * r2;
-
-    double a1 = 2.0 * x * y;
-    double a2 = r2 + 2.0 * x * x;
-    double a3 = r2 + 2.0 * y * y;
-
-    double cdist = 1.0 + k1_ * r2 + k2_ * r4;
-
-    double xd0 = x * cdist + p1_ * a1 + p2_ * a2;
-    double yd0 = y * cdist + p1_ * a3 + p2_ * a1;
-
     if (Hpoint) {
-        Duncalibrate(p, *Hpoint);
+        throw std::runtime_error(
+          "Error: requesting Hpoint with incompatible data type");
     }
 
-    return Eigen::Matrix<double, 2, 1>(fx_ * xd0 + s_ * yd0 + u0_,
-                                       fy_ * yd0 + v0_);
+    return Eigen::Matrix<T, 2, 1>(fx_ * xd0 + s_ * yd0 + u0_, fy_ * yd0 + v0_);
 }

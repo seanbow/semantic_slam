@@ -1,8 +1,8 @@
 #pragma once
 
 #include "semantic_slam/Common.h"
+#include "semantic_slam/Pose3.h"
 #include "semantic_slam/keypoints/geometry.h"
-#include "semantic_slam/pose_math.h"
 
 #include <object_pose_interface_msgs/KeypointDetections.h>
 

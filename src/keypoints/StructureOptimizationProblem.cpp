@@ -8,7 +8,7 @@
 #include "semantic_slam/ceres_cost_terms/ceres_pose_prior.h"
 #include "semantic_slam/ceres_cost_terms/ceres_projection.h"
 #include "semantic_slam/ceres_cost_terms/ceres_structure.h"
-#include "semantic_slam/keypoints/ceres_camera_constraint.h"
+// #include "semantic_slam/keypoints/ceres_camera_constraint.h"
 #include "semantic_slam/keypoints/geometry.h"
 
 void

@@ -10,7 +10,10 @@ class FactorGraph;
 class Handler
 {
   public:
-    Handler();
+    Handler()
+      : nh_()
+      , pnh_("~")
+    {}
 
     virtual ~Handler(){};
 
@@ -35,8 +38,3 @@ class Handler
 
     // boost::shared_ptr<std::condition_variable> cv_;
 };
-
-Handler::Handler()
-  : nh_()
-  , pnh_("~")
-{}

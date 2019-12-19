@@ -2,9 +2,9 @@
 
 #include "semantic_slam/CeresFactor.h"
 #include "semantic_slam/Common.h"
+#include "semantic_slam/Pose3.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/VectorNode.h"
-#include "semantic_slam/pose_math.h"
 
 #include <ceres/ceres.h>
 #include <eigen3/Eigen/Core>

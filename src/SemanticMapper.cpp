@@ -110,11 +110,11 @@ SemanticMapper::start()
     std::thread process_messages_thread(
       &SemanticMapper::processMessagesUpdateObjectsThread, this);
 
-    smoother_->run();
+    smoother_->start();
 
     process_messages_thread.join();
-
     smoother_->stop();
+    smoother_->join();
 
     running_ = false;
 }

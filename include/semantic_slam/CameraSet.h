@@ -26,7 +26,7 @@ class CameraSet
   public:
     CameraSet() {}
 
-    void addCamera(const Camera& camera);
+    void addCamera(const Camera& camera) { cameras_.push_back(camera); }
 
     aligned_vector<Camera>& cameras() { return cameras_; }
     const aligned_vector<Camera>& cameras() const { return cameras_; }
@@ -49,9 +49,3 @@ class CameraSet
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
-
-void
-CameraSet::addCamera(const Camera& camera)
-{
-    cameras_.push_back(camera);
-}

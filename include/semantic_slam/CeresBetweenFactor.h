@@ -1,7 +1,7 @@
 #pragma once
 
 #include "semantic_slam/CeresFactor.h"
-#include "semantic_slam/pose_math.h"
+#include "semantic_slam/Pose3.h"
 #include <ceres/ceres.h>
 #include <eigen3/Eigen/Core>
 
