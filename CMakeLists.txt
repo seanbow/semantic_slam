@@ -3,13 +3,16 @@ project(semantic_slam)
 
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake") 
 
-include(cotire)
-
 ## Compile as C++11, supported in ROS Kinetic and newer
 set(CMAKE_CXX_STANDARD 14)
 
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+endif(CCACHE_FOUND)
+
+# add_compile_options(-g -O3 -march=native -ffast-math -flto=auto -Wall)
 add_compile_options(-g -O3 -march=native -ffast-math -Wall)
-# add_compile_options(-g3 -O3)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -79,7 +82,7 @@ if (MKL_FOUND)
   include_directories(${MKL_INCLUDE_DIR})
 endif()
 
-add_library(SemanticMapper STATIC
+add_library(SemanticMapper SHARED
   src/Key.cpp
   src/Symbol.cpp
   src/Camera.cpp
@@ -140,7 +143,6 @@ target_link_libraries(SemanticMapper
   # ${MKL_LIBRARIES}
   gtsam
 )
-cotire(SemanticMapper)
 
 add_library(SimpleObjectTracker src/SimpleObjectTracker.cpp)
 target_link_libraries(SimpleObjectTracker
@@ -151,7 +153,6 @@ add_executable(semantic_slam_node src/semantic_slam_node.cpp)
 target_link_libraries(semantic_slam_node
 SemanticMapper
 )
-cotire(semantic_slam_node)
 
 add_executable(image_republish_node src/image_republish_node.cpp)
 target_link_libraries(image_republish_node

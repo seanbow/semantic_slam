@@ -271,6 +271,7 @@ GeometricFeatureHandler::processPendingFrames()
 
                 feature->point = factor->point();
                 feature->active = factor->active();
+                feature->triangulation_good = factor->triangulation_good();
 
             } else {
                 MultiProjectionFactor::Ptr factor;

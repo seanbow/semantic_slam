@@ -182,12 +182,6 @@ SemanticMapper::processPendingKeyframes()
 
         updateKeyframeObjects(next_keyframe);
 
-        {
-            std::lock_guard<std::mutex> lock(map_mutex_);
-            next_keyframe->updateConnections();
-            next_keyframe->measurements_processed() = true;
-        }
-
         last_added_kf_index = next_keyframe->index();
 
         if (operation_mode_ == OperationMode::NORMAL &&
@@ -743,6 +737,9 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
             obj->update(frame);
         }
     }
+
+    frame->updateConnections();
+    frame->measurements_processed() = true;
 
     return true;
 }

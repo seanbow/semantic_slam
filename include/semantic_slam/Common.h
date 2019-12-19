@@ -119,6 +119,7 @@ struct GeometricFeature
 {
     int id;
     bool active;
+    bool triangulation_good;
     std::vector<boost::shared_ptr<SemanticKeyframe>> keyframe_observations;
     Eigen::Vector3d point;
 
