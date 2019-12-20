@@ -84,9 +84,10 @@ SemanticSmoother::processingThreadFunction()
     while (running_) {
         auto new_frames = addNewOdometryToGraph();
 
-        if (graph_->modified() &&
-            mapper_->operation_mode() !=
-              SemanticMapper::OperationMode::LOOP_CLOSING) {
+        // if (graph_->modified() &&
+        //     mapper_->operation_mode() !=
+        //       SemanticMapper::OperationMode::LOOP_CLOSING) {
+        if (graph_->modified()) {
 
             if (include_geometric_features_)
                 processGeometricFeatureTracks(new_frames);
@@ -193,14 +194,19 @@ SemanticSmoother::tryOptimize()
 
     bool solve_succeeded = solveGraph();
 
-    if (solve_succeeded && !invalidate_optimization_) {
-        commitGraphSolution();
+    if (solve_succeeded) {
         ROS_INFO_STREAM(
           fmt::format("Solved {} nodes and {} edges in {:.2f} ms.",
                       graph_->num_nodes(),
                       graph_->num_factors(),
                       TIME_TOC));
-        last_optimized_kf_index_ = mapper_->getLastKeyframeInGraph()->index();
+        if (!invalidate_optimization_) {
+            commitGraphSolution();
+            last_optimized_kf_index_ =
+              mapper_->getLastKeyframeInGraph()->index();
+        } else {
+            ROS_INFO_STREAM(" -- Solution IGNORED due to loop closure.");
+        }
         return true;
     } else if (!solve_succeeded) {
         ROS_INFO_STREAM("Graph solve failed");
@@ -488,6 +494,14 @@ SemanticSmoother::freezeNonCovisible(
         }
     }
 
+    // TODO TODO
+    // test freezing the loop closure frame...
+    // Sort of like creating two linked submaps?? not really...
+    // if (loop_closer_->running() &&
+    //     unfrozen_kfs_.count(loop_closer_->endOfLoopIndex())) {
+    //     unfrozen_kfs_.erase(loop_closer_->endOfLoopIndex());
+    // }
+
     for (const auto& kf : mapper_->keyframes()) {
         if (!kf->inGraph())
             continue;
@@ -551,6 +565,12 @@ SemanticSmoother::solveGraph()
 {
     std::lock_guard<std::mutex> lock(graph_mutex_);
     return graph_->solve(false);
+}
+
+void
+SemanticSmoother::informLoopClosure()
+{
+    invalidate_optimization_ = true;
 }
 
 void

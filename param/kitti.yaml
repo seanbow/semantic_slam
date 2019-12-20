@@ -43,7 +43,7 @@ tracking_framerate: 10     # drops images so tracking is performed at this frame
 
 ### Geometric feature parameters
 include_geometric_features: true
-cam_sigma: 5
+cam_sigma: 3
 reprojection_error_threshold: 4
 use_smart_projection_factors: true
 
@@ -55,10 +55,10 @@ min_object_n_keypoints: 5               # minimum number of observed keypoints n
 min_landmark_observations: 3           # minimum number of observations needed for a keypoint before estimating depth and including in optimization
 min_observed_keypoints_to_initialize: 4
 
-keyframe_translation_threshold: 0.5
-keyframe_translation_without_measurement_threshold: 2
+keyframe_translation_threshold: 1
+keyframe_translation_without_measurement_threshold: 2.5
 keyframe_rotation_threshold: 10 # degrees
-keyframe_rotation_without_measurement_threshold: 30
+keyframe_rotation_without_measurement_threshold: 15
 
 ### Semantic object optimization parameters
 structure_regularization_factor: 5     # lambda in structure optimization term lambda * ||c||^2

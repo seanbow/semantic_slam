@@ -69,7 +69,7 @@ class SemanticSmoother
     void setSmoothingLength(int smoothing_length_);
     void setLoopClosureThreshold(int loop_closure_threshold_);
 
-    void informLoopClosure() { invalidate_optimization_ = true; }
+    void informLoopClosure();
 
     void informKeyframeUpdated(boost::shared_ptr<SemanticKeyframe> frame);
 

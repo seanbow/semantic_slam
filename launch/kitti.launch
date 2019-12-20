@@ -30,7 +30,7 @@
     <arg name="reset_on_detection" default="true" />
     <arg name="filter_2class" default="true" />
     <arg name="detection_conf_threshold" default="0.80" />
-    <arg name="f2f_match_threshold" default="1.0" />
+    <arg name="f2f_match_threshold" default="2.0" />
     <arg name="missed_detection_threshold" default="2" />
     <arg name="visualize" default="true" />
 

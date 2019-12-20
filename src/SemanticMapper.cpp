@@ -97,7 +97,9 @@ SemanticMapper::setGeometricFeatureHandler(
     geom->setExtrinsicCalibration(I_T_C_);
     geom->setup();
 
-    smoother_->setGeometricFeatureHandler(geom);
+    if (include_geometric_features_) {
+        smoother_->setGeometricFeatureHandler(geom);
+    }
 }
 
 void
