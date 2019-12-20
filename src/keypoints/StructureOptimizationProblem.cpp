@@ -3,6 +3,7 @@
 #include "semantic_slam/Symbol.h"
 #include <algorithm>
 
+#include "semantic_slam/Pose3.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/ceres_cost_terms/ceres_pose_prior.h"
@@ -10,6 +11,8 @@
 #include "semantic_slam/ceres_cost_terms/ceres_structure.h"
 // #include "semantic_slam/keypoints/ceres_camera_constraint.h"
 #include "semantic_slam/keypoints/geometry.h"
+
+#include <rosfmt/rosfmt.h>
 
 void
 StructureOptimizationProblem::setBasisCoefficients(
@@ -140,6 +143,7 @@ StructureOptimizationProblem::StructureOptimizationProblem(
   , params_(params)
   , solved_(false)
   , have_covariance_(false)
+  , random_generator_(random_device_())
 {
     m_ = model_.mu.cols();
     k_ = model_.pc.rows() / 3;
@@ -174,6 +178,42 @@ StructureOptimizationProblem::StructureOptimizationProblem(
       structure_cf_, structure_loss, ceres_parameters_);
     ceres_problem_.SetParameterization(object_pose_.data(),
                                        pose_parameterization_);
+}
+
+void
+StructureOptimizationProblem::setRotation(const Eigen::Quaterniond& G_q_O)
+{
+    Pose3 new_pose = object_pose_;
+    new_pose.rotation() = G_q_O;
+
+    for (auto& kp : kps_) {
+        *kp = new_pose.transform_from(object_pose_.transform_to(*kp));
+    }
+
+    object_pose_ = new_pose;
+}
+
+Eigen::Quaterniond
+StructureOptimizationProblem::randomUniformQuaternion()
+{
+    std::uniform_real_distribution<> dist(0.0, 1.0);
+
+    double s = dist(random_generator_);
+    double sigma1 = std::sqrt(1 - s);
+    double sigma2 = std::sqrt(s);
+
+    double theta1 = 3.14159 * 2 * dist(random_generator_);
+    double theta2 = 3.14159 * 2 * dist(random_generator_);
+
+    Eigen::Quaterniond q(std::cos(theta2) * sigma2,
+                         std::sin(theta1) * sigma1,
+                         std::cos(theta1) * sigma1,
+                         std::sin(theta2) * sigma2);
+
+    if (q.w() < 0)
+        q.coeffs() *= -1;
+
+    return q.normalized();
 }
 
 void
@@ -249,7 +289,42 @@ StructureOptimizationProblem::removeKeypointMeasurement(
     }
 }
 
-void
+double
+StructureOptimizationProblem::solveWithRestarts()
+{
+    // We have been initialized with the result of optimization from a single
+    // frame, probably. This often results in landing in a local minimum for the
+    // resulting orientation... try a few different starting orientations.
+    std::vector<double> costs;
+    aligned_vector<Eigen::Quaterniond> orientations;
+
+    int n_restarts = 8;
+
+    orientations.push_back(object_pose_.rotation());
+    double cost0 = solve();
+    costs.push_back(cost0);
+
+    for (int i = 0; i < n_restarts; ++i) {
+        setRotation(Eigen::Quaterniond::UnitRandom());
+
+        orientations.push_back(object_pose_.rotation());
+        costs.push_back(solve());
+    }
+
+    int best_index = 0;
+    double best_cost = std::numeric_limits<double>::max();
+    for (int i = 0; i < costs.size(); ++i) {
+        if (costs[i] < best_cost) {
+            best_cost = costs[i];
+            best_index = i;
+        }
+    }
+
+    setRotation(orientations[best_index]);
+    solve();
+}
+
+double
 StructureOptimizationProblem::solve()
 {
     ceres::Solver::Options options;
@@ -274,6 +349,8 @@ StructureOptimizationProblem::solve()
     // std::cout << "t = \n" << object_pose_.translation() << std::endl;
 
     solved_ = true;
+
+    return summary.final_cost;
 }
 
 // void

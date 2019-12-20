@@ -284,7 +284,7 @@ EstimatedObject::optimizeStructure()
         // measurements." << std::endl;
     }
 
-    structure_problem_->solve();
+    structure_problem_->solveWithRestarts();
 
     pose_ = structure_problem_->getObjectPose();
 

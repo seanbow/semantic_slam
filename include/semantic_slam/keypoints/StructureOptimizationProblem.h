@@ -2,17 +2,17 @@
 
 #include "semantic_slam/Common.h"
 
-#include <vector>
-
-#include <boost/shared_ptr.hpp>
-#include <ceres/ceres.h>
-
 // #include <gtsam/geometry/Cal3DS2.h>
 
 #include "semantic_slam/CameraCalibration.h"
 
 #include "semantic_slam/Pose3.h"
 #include "semantic_slam/keypoints/geometry.h"
+
+#include <boost/shared_ptr.hpp>
+#include <ceres/ceres.h>
+#include <random>
+#include <vector>
 
 class SemanticKeyframe;
 class SE3Node;
@@ -38,6 +38,8 @@ class StructureOptimizationProblem
                    bool use_constant_camera_pose = true);
     void setBasisCoefficients(const Eigen::VectorXd& coefficientS);
 
+    void setRotation(const Eigen::Quaterniond& G_q_O);
+
     boost::shared_ptr<Eigen::Vector3d> getKeypoint(size_t index) const;
     Pose3 getObjectPose() const;
 
@@ -52,7 +54,8 @@ class StructureOptimizationProblem
 
     void computeCovariances();
 
-    void solve();
+    double solve();
+    double solveWithRestarts();
 
     // void addAllBlockPairs(const std::vector<const double*>& to_add,
     //                       CovarianceBlocks& blocks) const;
@@ -101,6 +104,10 @@ class StructureOptimizationProblem
 
     bool solved_;
     bool have_covariance_;
+
+    Eigen::Quaterniond randomUniformQuaternion();
+    std::random_device random_device_;
+    std::mt19937 random_generator_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
