@@ -133,25 +133,31 @@ SemanticMapper::processMessagesUpdateObjectsThread()
                 processLoopClosure();
         }
 
-        if (haveNextKeyframe()) {
+        bool did_anything = false;
 
+        if (haveNextKeyframe()) {
             SemanticKeyframe::Ptr next_keyframe = tryFetchNextKeyframe();
 
             if (next_keyframe) {
-
                 pending_keyframes_.push_back(next_keyframe);
-
-                processPendingKeyframes();
-
-                std::unique_lock<std::mutex> lock(map_mutex_, std::defer_lock);
-                std::unique_lock<std::mutex> present_lock(present_mutex_,
-                                                          std::defer_lock);
-                std::lock(lock, present_lock);
-
-                for (auto& p : presenters_)
-                    p->present(keyframes_, estimated_objects_);
             }
 
+            did_anything = true;
+        }
+
+        if (!pending_keyframes_.empty()) {
+            int n_keyframes_processed = processPendingKeyframes();
+            did_anything = n_keyframes_processed > 0;
+        }
+
+        if (did_anything) {
+            std::unique_lock<std::mutex> lock(map_mutex_, std::defer_lock);
+            std::unique_lock<std::mutex> present_lock(present_mutex_,
+                                                      std::defer_lock);
+            std::lock(lock, present_lock);
+
+            for (auto& p : presenters_)
+                p->present(keyframes_, estimated_objects_);
         } else {
             ros::Duration(0.001).sleep();
         }
@@ -160,14 +166,16 @@ SemanticMapper::processMessagesUpdateObjectsThread()
     running_ = false;
 }
 
-void
+int
 SemanticMapper::processPendingKeyframes()
 {
     if (pending_keyframes_.empty() ||
         operation_mode_ == OperationMode::LOOP_CLOSING) {
         // TODO figure out a better way to handle this when LOOP_CLOSING
-        return;
+        return 0;
     }
+
+    int n_keyframes_processed = 0;
 
     // Use a heuristic to prevent the tracking part from getting too far
     // ahead...
@@ -182,6 +190,8 @@ SemanticMapper::processPendingKeyframes()
         smoothing_length_ / 2) {
         auto next_keyframe = pending_keyframes_.front();
         pending_keyframes_.pop_front();
+
+        n_keyframes_processed++;
 
         {
             std::lock_guard<std::mutex> lock(map_mutex_);
@@ -204,6 +214,8 @@ SemanticMapper::processPendingKeyframes()
             operation_mode_ = OperationMode::LOOP_CLOSURE_PENDING;
         }
     }
+
+    return n_keyframes_processed;
 }
 
 bool
@@ -458,6 +470,7 @@ SemanticMapper::anchorOrigin()
       odometry_handler_->originKeyframe(ros::Time(0));
 
     keyframes_.push_back(origin_kf);
+    pending_keyframes_.push_back(origin_kf);
 
     smoother_->setOrigin(origin_kf);
 }

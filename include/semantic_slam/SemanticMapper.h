@@ -160,7 +160,8 @@ class SemanticMapper
     bool removeMeasurementsFromObjects(
       boost::shared_ptr<SemanticKeyframe> frame);
 
-    void processPendingKeyframes();
+    // returns number of keyframes processed
+    int processPendingKeyframes();
 
     int createNewObject(const ObjectMeasurement& measurement,
                         const Pose3& map_T_camera,

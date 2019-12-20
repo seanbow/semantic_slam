@@ -41,7 +41,6 @@ tracking_framerate: 2     # drops images so tracking is performed at this framer
 
 ### Geometric feature parameters
 include_geometric_features: true
-cam_sigma: 5
 reprojection_error_threshold: 4
 use_smart_projection_factors: true
 

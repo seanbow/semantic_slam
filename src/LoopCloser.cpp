@@ -104,11 +104,6 @@ LoopCloser::updateLoopInMapper()
     Pose3 old_T_new = old_pose.inverse() * new_pose;
     old_T_new.rotation().normalize();
 
-    // map_T_old_kf.rotation().normalize();
-    // map_T_new_kf.rotation().normalize();
-
-    std::cout << "Loop closure delta pose:\n" << old_T_new << std::endl;
-
     // Perform the update!
     // Begin with keyframe poses
     for (size_t i = 1; i < mapper_->keyframes().size(); ++i) {

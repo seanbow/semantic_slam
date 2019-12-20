@@ -364,8 +364,7 @@ GeometricFeatureHandler::loadParameters()
                        reprojection_error_threshold_) ||
         !pnh_.getParam("use_smart_projection_factors",
                        use_smart_projection_factors_) ||
-        !pnh_.getParam("tracking_framerate", tracking_framerate) ||
-        !pnh_.getParam("cam_sigma", cam_sigma_)) {
+        !pnh_.getParam("tracking_framerate", tracking_framerate)) {
         ROS_ERROR("Error: unable to get geometric feature handler parameters.");
         return;
     }

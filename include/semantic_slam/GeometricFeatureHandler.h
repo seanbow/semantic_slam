@@ -65,7 +65,6 @@ class GeometricFeatureHandler : public Handler
     std::condition_variable queue_cv_;
 
     double reprojection_error_threshold_;
-    double cam_sigma_;
 
     bool use_smart_projection_factors_;
 
