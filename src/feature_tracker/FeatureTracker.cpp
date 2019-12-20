@@ -256,6 +256,9 @@ FeatureTracker::trackFeaturesForward(size_t idx1)
             tf.n_images_in = frame1.feature_tracks[indices1[i]].n_images_in + 1;
             tf.pt_id = frame1.feature_tracks[indices1[i]].pt_id;
 
+            tf.pixel_sigma2 =
+              orb_->GetScaleSigmaSquares()[kps2[indices2[i]].octave];
+
             frame2.feature_tracks.push_back(tf);
         }
     }

@@ -84,6 +84,7 @@ class FeatureTracker
         size_t pt_id;
 
         float size;
+        double pixel_sigma2;
 
         size_t n_images_in;
     };

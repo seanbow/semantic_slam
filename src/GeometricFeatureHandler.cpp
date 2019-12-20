@@ -261,7 +261,7 @@ GeometricFeatureHandler::processPendingFrames()
 
                 Eigen::Vector2d msmt(tf.pt.x, tf.pt.y);
                 Eigen::Matrix2d msmt_noise =
-                  cam_sigma_ * Eigen::Matrix2d::Identity();
+                  tf.pixel_sigma2 * Eigen::Matrix2d::Identity();
 
                 factor->addMeasurement(frame->graph_node(), msmt, msmt_noise);
 
@@ -295,7 +295,7 @@ GeometricFeatureHandler::processPendingFrames()
 
                 Eigen::Vector2d msmt(tf.pt.x, tf.pt.y);
                 Eigen::Matrix2d msmt_noise =
-                  cam_sigma_ * Eigen::Matrix2d::Identity();
+                  tf.pixel_sigma2 * Eigen::Matrix2d::Identity();
 
                 factor->addMeasurement(frame->graph_node(), msmt, msmt_noise);
 

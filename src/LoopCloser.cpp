@@ -41,7 +41,7 @@ LoopCloser::optimizeCurrentGraph()
     current_graph_->solver_options().linear_solver_type = ceres::CGNR;
     current_graph_->solver_options().nonlinear_conjugate_gradient_type =
       ceres::POLAK_RIBIERE;
-    current_graph_->solver_options().max_linear_solver_iterations = 50;
+    current_graph_->solver_options().max_linear_solver_iterations = 25;
 
     // current_graph_->solver_options().linear_solver_type =
     //   ceres::SPARSE_NORMAL_CHOLESKY;

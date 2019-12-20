@@ -234,19 +234,19 @@ SemanticMapper::processLoopClosure()
     // the entire set of frames then re-add them
     //
     // covariance information is very wonky here??
-    for (int kf_id = loop_closer_->endOfLoopIndex() + 1;
-         kf_id < keyframes_.size();
-         ++kf_id) {
+    // for (int kf_id = loop_closer_->endOfLoopIndex() + 1;
+    //      kf_id < keyframes_.size();
+    //      ++kf_id) {
 
-        auto kf = getKeyframeByIndex(kf_id);
+    //     auto kf = getKeyframeByIndex(kf_id);
 
-        // only for those frames that have already been processed once,
-        // otherwise they remain part of the normal order of operations
-        if (kf->measurements_processed()) {
-            updateKeyframeObjects(kf);
-            smoother_->informKeyframeUpdated(kf);
-        }
-    }
+    //     // only for those frames that have already been processed once,
+    //     // otherwise they remain part of the normal order of operations
+    //     if (kf->measurements_processed()) {
+    //         updateKeyframeObjects(kf);
+    //         smoother_->informKeyframeUpdated(kf);
+    //     }
+    // }
 
     operation_mode_ = OperationMode::NORMAL;
 
