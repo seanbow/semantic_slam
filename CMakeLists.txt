@@ -24,6 +24,7 @@ find_package(catkin REQUIRED
     cv_bridge
     image_transport
     rosfmt
+    tf2_ros
     object_pose_interface_msgs
     darknet_ros_msgs
 )
@@ -129,6 +130,7 @@ add_library(SemanticMapper SHARED
   src/presenters/PosePresenter.cpp
   src/presenters/ObjectKeypointPresenter.cpp
   src/presenters/GeometricCovisibilityPresenter.cpp
+  src/presenters/OdometryTransformPresenter.cpp
 
   src/feature_tracker/ORBextractor.cpp
   src/feature_tracker/TwoPointRansac.cpp

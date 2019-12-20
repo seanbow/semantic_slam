@@ -56,6 +56,7 @@
   <depend>darknet_ros_msgs</depend>
   <depend>roslib</depend>
   <depend>feature_tracker</depend>
+  <depend>tf2_ros</depend>
 
   <exec_depend>rviz_plugin_covariance</exec_depend>
 

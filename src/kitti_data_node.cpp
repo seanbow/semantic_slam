@@ -288,12 +288,12 @@ main(int argc, char* argv[])
         cv::Mat img1 = cv::imread(fname);
 
         cv_bridge::CvImage img0_msg;
-        img0_msg.header.stamp = ros::Time(cam_ts[cam_next] * rate);
+        img0_msg.header.stamp = ros::Time(cam_ts[cam_next] * rate + t_offset);
         img0_msg.image = img0;
         img0_msg.encoding = sensor_msgs::image_encodings::BGR8;
 
         cv_bridge::CvImage img1_msg;
-        img1_msg.header.stamp = ros::Time(cam_ts[cam_next] * rate);
+        img1_msg.header.stamp = ros::Time(cam_ts[cam_next] * rate + t_offset);
         img1_msg.image = img1;
         img1_msg.encoding = sensor_msgs::image_encodings::BGR8;
 
@@ -358,10 +358,10 @@ main(int argc, char* argv[])
         // car_det_pub.publish(car_det_msg);
         // window_det_pub.publish(window_det_msg);
 
-        info0_msg.header.stamp = ros::Time(cam_ts[cam_next] * rate);
+        info0_msg.header.stamp = ros::Time(cam_ts[cam_next] * rate + t_offset);
         cam0_info_pub.publish(info0_msg);
 
-        info1_msg.header.stamp = ros::Time(cam_ts[cam_next] * rate);
+        info1_msg.header.stamp = ros::Time(cam_ts[cam_next] * rate + t_offset);
         cam1_info_pub.publish(info1_msg);
 
         // last_t = cam_ts[cam_next];
