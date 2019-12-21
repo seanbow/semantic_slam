@@ -469,8 +469,8 @@ SemanticMapper::anchorOrigin()
     SemanticKeyframe::Ptr origin_kf =
       odometry_handler_->originKeyframe(ros::Time(0));
 
-    keyframes_.push_back(origin_kf);
-    pending_keyframes_.push_back(origin_kf);
+    keyframes_.emplace_back(origin_kf);
+    pending_keyframes_.emplace_back(origin_kf);
 
     smoother_->setOrigin(origin_kf);
 }

@@ -122,13 +122,14 @@ EstimatedKeypoint::addMeasurement(const KeypointMeasurement& msmt,
       mapper_->keyframes()[Symbol(msmt.measured_key).index()]->graph_node();
     // auto camera_node = graph_->getNode<SE3Node>(msmt.measured_key);
     CeresProjectionFactorPtr proj_factor =
-      util::allocate_aligned<CeresProjectionFactor>(camera_node,
-                                                    graph_node_,
-                                                    msmt.pixel_measurement,
-                                                    noise_vec.asDiagonal(),
-                                                    camera_calibration_,
-                                                    I_T_C_,
-                                                    true // robust loss function
+      util::allocate_aligned<CeresProjectionFactor>(
+        camera_node,
+        graph_node_,
+        msmt.pixel_measurement,
+        noise_vec.asDiagonal(),
+        camera_calibration_,
+        I_T_C_,
+        false // robust loss function
       );
 
     projection_factors_.push_back(proj_factor);

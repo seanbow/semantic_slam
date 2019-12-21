@@ -13,6 +13,14 @@ TrajectoryPresenter::setup()
     if (!pnh_.param("trajectory_width", trajectory_width_, 0.25)) {
         ROS_WARN("Unable to read trajectory width visualization parameter");
     }
+
+    if (!pnh_.param("smoothing_length", smoothing_length_, 50)) {
+        ROS_WARN("Unable to read smoothing_length parameter");
+    }
+
+    if (!pnh_.param("color_smoothing_window", color_smoothing_window_, true)) {
+        ROS_WARN("Unable to read trajectory width visualization parameter");
+    }
 }
 
 void
@@ -20,7 +28,7 @@ TrajectoryPresenter::present(
   const std::vector<SemanticKeyframe::Ptr>& keyframes,
   const std::vector<EstimatedObject::Ptr>& objects)
 {
-    if (keyframes.empty())
+    if (keyframes.size() < 2)
         return;
 
     visualization_msgs::Marker traj;
@@ -52,11 +60,13 @@ TrajectoryPresenter::present(
 
     // create vertices for each pose
     // Assume that the keyframe vector is ordered...
-    for (size_t i = 0; i < keyframes.size(); ++i) {
-        // auto node = graph_->getNode<SE3Node>(Symbol('x', i));
+    int upper_limit =
+      color_smoothing_window_
+        ? std::min((int)keyframes.size(),
+                   (int)keyframes.size() - smoothing_length_ + 1)
+        : (int)keyframes.size();
 
-        // if (!node) continue;
-
+    for (int i = 0; i < upper_limit; ++i) {
         Eigen::Vector3d p = keyframes[i]->pose().translation();
 
         geometry_msgs::Point p_msg;
@@ -66,6 +76,29 @@ TrajectoryPresenter::present(
 
         traj.points.push_back(p_msg);
     }
-
     publisher_.publish(traj);
+
+    if (color_smoothing_window_) {
+        size_t start_index =
+          std::max(0, (int)keyframes.size() - smoothing_length_);
+        traj.color.r = 1;
+        traj.id = 1;
+        traj.points.clear();
+        for (int i = start_index; i < (int)keyframes.size(); ++i) {
+            // auto node = graph_->getNode<SE3Node>(Symbol('x', i));
+
+            // if (!node) continue;
+
+            Eigen::Vector3d p = keyframes[i]->pose().translation();
+
+            geometry_msgs::Point p_msg;
+            p_msg.x = p(0);
+            p_msg.y = p(1);
+            p_msg.z = Z_SCALE * p(2);
+
+            traj.points.push_back(p_msg);
+        }
+
+        publisher_.publish(traj);
+    }
 }

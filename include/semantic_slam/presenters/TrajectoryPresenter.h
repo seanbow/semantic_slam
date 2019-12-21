@@ -18,4 +18,6 @@ class TrajectoryPresenter : public Presenter
     ros::Publisher publisher_;
 
     double trajectory_width_;
+    int smoothing_length_;
+    bool color_smoothing_window_;
 };

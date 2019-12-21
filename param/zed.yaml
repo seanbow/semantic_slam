@@ -102,3 +102,4 @@ trajectory_width: 0.1
 covisibility_width: 0.05
 draw_semantic_covisibility: true
 draw_geometric_covisibility: true
+color_smoothing_window: true
