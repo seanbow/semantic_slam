@@ -265,7 +265,7 @@ GeometricFeatureHandler::processPendingFrames()
 
                 factor->addMeasurement(frame->graph_node(), msmt, msmt_noise);
 
-                if (factor->nMeasurements() >= 5 && !factor->inGraph()) {
+                if (factor->nMeasurements() >= 3 && !factor->inGraph()) {
                     graph_->addFactor(factor);
                 }
 
