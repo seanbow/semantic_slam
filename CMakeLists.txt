@@ -146,6 +146,17 @@ target_link_libraries(SemanticMapper
   gtsam
 )
 
+
+# add_library(UnityMapper unity_mapper.cpp)
+# target_link_libraries(UnityMapper
+#   ${catkin_LIBRARIES}
+#   ${Boost_LIBRARIES}
+#   ${OpenCV_LIBRARIES}
+#   ${CERES_LIBRARIES}
+#   # ${MKL_LIBRARIES}
+#   gtsam
+# )
+
 add_library(SimpleObjectTracker src/SimpleObjectTracker.cpp)
 target_link_libraries(SimpleObjectTracker
   ${catkin_LIBRARIES}
@@ -154,6 +165,7 @@ target_link_libraries(SimpleObjectTracker
 add_executable(semantic_slam_node src/semantic_slam_node.cpp)
 target_link_libraries(semantic_slam_node
 SemanticMapper
+# UnityMapper
 )
 
 add_executable(image_republish_node src/image_republish_node.cpp)
@@ -237,40 +249,29 @@ target_link_libraries(object_tracking_node
 ## Add gtest based cpp test target and link libraries
 catkin_add_gtest(testFactorGraph test/testFactorGraph.cpp)
 target_link_libraries(testFactorGraph 
-    FactorGraph
+    SemanticMapper
     gtsam
     ${CERES_LIBRARIES}
-    ${BASE_LIBS}
 )
 
 catkin_add_gtest(testCeresBasics test/testCeresBasics.cpp)
 target_link_libraries(testCeresBasics
-    FactorGraph
-    CeresBetweenFactor
+    SemanticMapper
     ${CERES_LIBRARIES}
     gtsam
-    ${BASE_LIBS}
 )
 
 catkin_add_gtest(testProjectionFactors test/testProjectionFactors.cpp)
 target_link_libraries(testProjectionFactors
-    FactorGraph
-    MultiProjectionFactor
-    SmartProjectionFactor
-    CeresProjectionFactor
+    SemanticMapper
     ${CERES_LIBRARIES}
-    ${BASE_LIBS}
     gtsam
 )
 
 catkin_add_gtest(testFactorGraphClone test/testFactorGraphClone.cpp)
 target_link_libraries(testFactorGraphClone
-    FactorGraph
-    MultiProjectionFactor
-    SmartProjectionFactor
-    CeresProjectionFactor
+    SemanticMapper
     ${CERES_LIBRARIES}
-    ${BASE_LIBS}
     gtsam
 )
 

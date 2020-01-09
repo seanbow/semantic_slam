@@ -1,5 +1,8 @@
 #include "semantic_slam/FactorGraph.h"
 
+#include "semantic_slam/Camera.h"
+#include "semantic_slam/CameraCalibration.h"
+#include "semantic_slam/CameraSet.h"
 #include "semantic_slam/CeresProjectionFactor.h"
 #include "semantic_slam/CeresSE3PriorFactor.h"
 #include "semantic_slam/MultiProjectionFactor.h"
@@ -7,6 +10,7 @@
 #include "semantic_slam/SmartProjectionFactor.h"
 #include "semantic_slam/Symbol.h"
 #include "semantic_slam/VectorNode.h"
+#include "semantic_slam/quaternion_math.h"
 #include <gtest/gtest.h>
 #include <random>
 

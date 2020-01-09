@@ -300,6 +300,7 @@ StructureOptimizationProblem::solveWithRestarts()
 
     int n_restarts = 8;
 
+    // including, of course, the initial orientation already given
     orientations.push_back(object_pose_.rotation());
     double cost0 = solve();
     costs.push_back(cost0);
@@ -313,7 +314,7 @@ StructureOptimizationProblem::solveWithRestarts()
 
     int best_index = 0;
     double best_cost = std::numeric_limits<double>::max();
-    for (int i = 0; i < costs.size(); ++i) {
+    for (size_t i = 0; i < costs.size(); ++i) {
         if (costs[i] < best_cost) {
             best_cost = costs[i];
             best_index = i;
@@ -321,7 +322,7 @@ StructureOptimizationProblem::solveWithRestarts()
     }
 
     setRotation(orientations[best_index]);
-    solve();
+    return solve();
 }
 
 double

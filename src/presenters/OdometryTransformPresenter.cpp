@@ -18,7 +18,7 @@ OdometryTransformPresenter::setup()
 void
 OdometryTransformPresenter::publishFunction()
 {
-    ros::Rate publish_rate(100); // publish at 100 Hz
+    ros::Rate publish_rate(1); // parameter is in Hz
 
     while (ros::ok()) {
         geometry_msgs::TransformStamped transform;
@@ -27,6 +27,8 @@ OdometryTransformPresenter::publishFunction()
         transform.header.stamp = ros::Time::now();
         transform.header.frame_id = "map";
         transform.child_frame_id = "odom";
+
+        // std::lock_guard<std::mutex> lock(transform_mutex_);
 
         transform.transform.translation.x = map_T_odom_.translation()(0);
         transform.transform.translation.y = map_T_odom_.translation()(1);
@@ -57,5 +59,8 @@ OdometryTransformPresenter::present(
 
     Pose3 map_T_pose = keyframe->pose();
     Pose3 odom_T_pose = keyframe->odometry();
+
+    // cannot afford the time it takes to wait on a mutex here...?
+    // std::lock_guard<std::mutex> lock(transform_mutex_);
     map_T_odom_ = map_T_pose * odom_T_pose.inverse();
 }

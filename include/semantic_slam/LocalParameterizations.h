@@ -1,3 +1,5 @@
+#pragma once
+
 #include <ceres/ceres.h>
 #include <ceres/local_parameterization.h>
 #include <eigen3/Eigen/Core>
