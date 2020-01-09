@@ -95,7 +95,8 @@ TEST(InertialIntegratorTest, testRK4_inertialStateNoMovement)
 
     std::function<Eigen::VectorXd(double, const Eigen::VectorXd&)> statedot =
       [&](double t, const Eigen::VectorXd& x) {
-          return integrator.statedot(t, x);
+          Eigen::Vector3d zero_bias = Eigen::Vector3d::Zero();
+          return integrator.statedot(t, x, zero_bias, zero_bias);
       };
 
     // Some fake data...
@@ -131,7 +132,8 @@ TEST(InertialIntegratorTest, testRK4_inertialStateNoMovementRotatedFrame)
 
     std::function<Eigen::VectorXd(double, const Eigen::VectorXd&)> statedot =
       [&](double t, const Eigen::VectorXd& x) {
-          return integrator.statedot(t, x);
+          Eigen::Vector3d zero_bias = Eigen::Vector3d::Zero();
+          return integrator.statedot(t, x, zero_bias, zero_bias);
       };
 
     // Some fake data...
@@ -162,7 +164,8 @@ TEST(InertialIntegratorTest, testRK4_inertialStateSimpleAccel)
 
     std::function<Eigen::VectorXd(double, const Eigen::VectorXd&)> statedot =
       [&](double t, const Eigen::VectorXd& x) {
-          return integrator.statedot(t, x);
+          Eigen::Vector3d zero_bias = Eigen::Vector3d::Zero();
+          return integrator.statedot(t, x, zero_bias, zero_bias);
       };
 
     // Some fake data...
@@ -192,7 +195,8 @@ TEST(InertialIntegratorTest, testRK4_inertialStateSimpleAccelAndSlowdown)
 
     std::function<Eigen::VectorXd(double, const Eigen::VectorXd&)> statedot =
       [&](double t, const Eigen::VectorXd& x) {
-          return integrator.statedot(t, x);
+          Eigen::Vector3d zero_bias = Eigen::Vector3d::Zero();
+          return integrator.statedot(t, x, zero_bias, zero_bias);
       };
 
     // Some fake data...
@@ -235,7 +239,8 @@ TEST(InertialIntegratorTest,
 
     std::function<Eigen::VectorXd(double, const Eigen::VectorXd&)> statedot =
       [&](double t, const Eigen::VectorXd& x) {
-          return integrator.statedot(t, x);
+          Eigen::Vector3d zero_bias = Eigen::Vector3d::Zero();
+          return integrator.statedot(t, x, zero_bias, zero_bias);
       };
 
     // Some fake data...
@@ -269,11 +274,6 @@ TEST(InertialIntegratorTest, testRK4_inertialStateSimulatedCircleTrajectory)
 {
     InertialIntegrator integrator;
 
-    std::function<Eigen::VectorXd(double, const Eigen::VectorXd&)> statedot =
-      [&](double t, const Eigen::VectorXd& x) {
-          return integrator.statedot(t, x);
-      };
-
     // Read in simulated data
     std::string base_path = ros::package::getPath("semantic_slam");
     std::string time_file(fmt::format("{}/test/data/times.dat", base_path));
@@ -299,14 +299,22 @@ TEST(InertialIntegratorTest, testRK4_inertialStateSimulatedCircleTrajectory)
     x0(7) = 50;
     x0(9) = 50;
 
-    Eigen::VectorXd x = integrator.integrateRK4(statedot, 0, 40, x0, 0.01);
+    Eigen::Vector3d zero_bias = Eigen::Vector3d::Zero();
 
-    std::cout << "X final =\n" << x << std::endl;
+    Eigen::VectorXd x =
+      integrator.integrateInertial(0, 40, x0, zero_bias, zero_bias);
 
-    // // Because we're linearly interpolating accel values we should reach zero
-    // // velocity at t=3.5 with the given data
-    // EXPECT_NEAR(x(3), 1.0, 1e-5);
-    // EXPECT_NEAR(x(6), 0.0, 1e-5);
+    // std::cout << "X final =\n" << x << std::endl;
+
+    // from known truth values
+    EXPECT_NEAR(x(3), -0.771482, 1e-3);
+
+    EXPECT_NEAR(x(4), -16.98, 1e-1);
+    EXPECT_NEAR(x(5), -20.49, 1e-1);
+    EXPECT_NEAR(x(6), -16.98, 1e-1);
+    EXPECT_NEAR(x(7), -38.492, 1);
+    EXPECT_NEAR(x(8), 31.91, 1);
+    EXPECT_NEAR(x(9), -38.492, 1);
 }
 
 // Run all the tests that were declared with TEST()

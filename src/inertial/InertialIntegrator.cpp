@@ -1,5 +1,7 @@
 #include "semantic_slam/inertial/InertialIntegrator.h"
 
+#include <algorithm>
+
 InertialIntegrator::InertialIntegrator()
   : gravity_(0, 0, -9.81)
 {}
@@ -24,27 +26,20 @@ InertialIntegrator::interpolateData(double t,
                                     const aligned_vector<Eigen::Vector3d>& data)
 {
     // Find first indices before and after t and linearly interpolate the omega
-    // values
-    int idx_begin = -1;
-    int idx_end = -1;
-    for (size_t i = 0; i < times.size(); ++i) {
-        if (times[i] <= t) {
-            idx_begin = i;
-        }
 
-        if (times[i] >= t) {
-            idx_end = i;
-            break;
-        }
-    }
+    auto it = std::lower_bound(times.begin(), times.end(), t);
 
-    if (idx_begin == -1 || idx_end == -1) {
+    if (it == times.end()) {
         throw std::runtime_error("Error: not enough data to do interpolation.");
     }
 
-    if (idx_begin == idx_end) {
-        return data[idx_begin];
+    int idx_end = it - times.begin();
+
+    if (*it == t) {
+        return data[idx_end];
     }
+
+    int idx_begin = idx_end - 1;
 
     double t_offset = t - times[idx_begin];
     double dt = times[idx_end] - times[idx_begin];

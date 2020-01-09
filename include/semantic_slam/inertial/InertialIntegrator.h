@@ -17,6 +17,14 @@ class InertialIntegrator
                  const Eigen::Vector3d& accel,
                  const Eigen::Vector3d& omega);
 
+    template<typename T>
+    Eigen::Matrix<T, -1, 1> integrateInertial(
+      double t1,
+      double t2,
+      const Eigen::Matrix<T, -1, 1>& qvp0,
+      const Eigen::Matrix<T, 3, 1>& gyro_bias,
+      const Eigen::Matrix<T, 3, 1>& accel_bias);
+
     // Performs runge-kutta numerical integration of a function ydot = f(t, y)
     template<typename T>
     T integrateRK4(const std::function<T(double, const T&)>& f,
@@ -33,7 +41,9 @@ class InertialIntegrator
 
     template<typename T>
     Eigen::Matrix<T, -1, 1> statedot(double t,
-                                     const Eigen::Matrix<T, -1, 1>& state);
+                                     const Eigen::Matrix<T, -1, 1>& state,
+                                     const Eigen::Matrix<T, 3, 1>& gyro_bias,
+                                     const Eigen::Matrix<T, 3, 1>& accel_bias);
 
   private:
     template<typename Derived>
@@ -43,10 +53,6 @@ class InertialIntegrator
     template<typename Derived>
     Eigen::Matrix<typename Derived::Scalar, -1, -1> quaternionMatrixXi(
       const Eigen::MatrixBase<Derived>& q);
-
-    template<typename Derived>
-    Eigen::Matrix<typename Derived::Scalar, -1, -1> quaternionMatrixGamma(
-      const Eigen::MatrixBase<Derived>& w);
 
     template<typename Derived>
     Eigen::Matrix<typename Derived::Scalar, -1, -1> quaternionMatrixOmega(
@@ -65,6 +71,9 @@ class InertialIntegrator
     std::vector<double> imu_times_;
     aligned_vector<Eigen::Vector3d> omegas_;
     aligned_vector<Eigen::Vector3d> accels_;
+
+  public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 template<typename T>
@@ -153,25 +162,12 @@ InertialIntegrator::quaternionMatrixXi(const Eigen::MatrixBase<Derived>& q)
     return Xi;
 }
 
-template<typename Derived>
-Eigen::Matrix<typename Derived::Scalar, -1, -1>
-InertialIntegrator::quaternionMatrixGamma(const Eigen::MatrixBase<Derived>& w)
-{
-    Eigen::Matrix<typename Derived::Scalar, -1, -1> Gamma(4, 4);
-
-    // clang-format off
-    Gamma <<  0,   -w(2),  w(1), w(0),
-             w(2),   0,   -w(0), w(1),
-            -w(1),  w(0),   0,   w(2),
-            -w(0), -w(1), -w(2),  0  ;
-    // clang-format on
-
-    return Gamma;
-}
-
 template<typename T>
 Eigen::Matrix<T, -1, 1>
-InertialIntegrator::statedot(double t, const Eigen::Matrix<T, -1, 1>& state)
+InertialIntegrator::statedot(double t,
+                             const Eigen::Matrix<T, -1, 1>& state,
+                             const Eigen::Matrix<T, 3, 1>& gyro_bias,
+                             const Eigen::Matrix<T, 3, 1>& accel_bias)
 {
     Eigen::Matrix<T, -1, 1> xdot(10, 1);
 
@@ -182,12 +178,10 @@ InertialIntegrator::statedot(double t, const Eigen::Matrix<T, -1, 1>& state)
     //   0.5 * quaternionMatrixXi(quat) * interpolateData(t, imu_times_,
     //   omegas_);
 
-    // xdot.template head<4>() =
-    //   0.5 * quaternionMatrixGamma(interpolateData(t, imu_times_, omegas_)) *
-    //   quat;
-
     xdot.template head<4>() =
-      0.5 * quaternionMatrixOmega(interpolateData(t, imu_times_, omegas_)) *
+      0.5 *
+      quaternionMatrixOmega(interpolateData(t, imu_times_, omegas_) -
+                            gyro_bias) *
       quat;
 
     quat.normalize();
@@ -199,10 +193,29 @@ InertialIntegrator::statedot(double t, const Eigen::Matrix<T, -1, 1>& state)
       quat(3), quat(0), quat(1), quat(2)); // w, x, y, z order
 
     xdot.template segment<3>(4) =
-      q.toRotationMatrix() * interpolateData(t, imu_times_, accels_) + gravity_;
+      q.toRotationMatrix() *
+        (interpolateData(t, imu_times_, accels_) - accel_bias) +
+      gravity_;
 
     // Position derivative
     xdot.template tail<3>() = state.template segment<3>(4);
 
     return xdot;
+}
+
+template<typename T>
+Eigen::Matrix<T, -1, 1>
+InertialIntegrator::integrateInertial(double t1,
+                                      double t2,
+                                      const Eigen::Matrix<T, -1, 1>& qvp0,
+                                      const Eigen::Matrix<T, 3, 1>& gyro_bias,
+                                      const Eigen::Matrix<T, 3, 1>& accel_bias)
+{
+    std::function<Eigen::Matrix<T, -1, 1>(double,
+                                          const Eigen::Matrix<T, -1, 1>&)>
+      f = [&](double t, const Eigen::Matrix<T, -1, 1>& x) {
+          return this->statedot(t, x, gyro_bias, accel_bias);
+      };
+
+    return this->integrateRK4(f, t1, t2, qvp0, 0.01);
 }
