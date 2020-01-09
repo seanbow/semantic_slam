@@ -184,6 +184,11 @@ target_link_libraries(object_tracking_node
   SimpleObjectTracker
 )
 
+add_library(InertialIntegrator src/inertial/InertialIntegrator.cpp)
+target_link_libraries(InertialIntegrator
+  ${catkin_LIBRARIES}
+)
+
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -273,6 +278,12 @@ target_link_libraries(testFactorGraphClone
     SemanticMapper
     ${CERES_LIBRARIES}
     gtsam
+)
+
+catkin_add_gtest(testInertialIntegrator test/testInertialIntegrator.cpp)
+target_link_libraries(testInertialIntegrator
+    InertialIntegrator
+    ${catkin_LIBRARIES}
 )
 
 
