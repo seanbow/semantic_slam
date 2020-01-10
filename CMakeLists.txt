@@ -12,7 +12,7 @@ if(CCACHE_FOUND)
 endif(CCACHE_FOUND)
 
 # add_compile_options(-g -O3 -march=native -ffast-math -flto=auto -Wall)
-add_compile_options(-g -O3 -march=native -ffast-math -Wall -ansi -fdiagnostics-color)
+add_compile_options(-g -O3 -march=native -ffast-math -Wall -ansi -fdiagnostics-color -ftemplate-backtrace-limit=0)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -94,12 +94,15 @@ add_library(SemanticMapper SHARED
   src/Utils.cpp
   src/munkres.cpp
   src/MLDataAssociator.cpp
+  
+  src/inertial/InertialIntegrator.cpp
 
   src/ceres_cost_terms/ceres_pose_prior.cpp
   src/ceres_cost_terms/ceres_projection.cpp
   src/ceres_cost_terms/ceres_structure.cpp
   src/ceres_cost_terms/ceres_structure_projection.cpp
   src/ceres_cost_terms/ceres_between.cpp
+  src/ceres_cost_terms/ceres_inertial.cpp
   src/LocalParameterizations.cpp
 
   src/CeresNode.cpp

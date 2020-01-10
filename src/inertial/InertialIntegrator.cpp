@@ -4,10 +4,12 @@
 
 InertialIntegrator::InertialIntegrator()
   : gravity_(0, 0, -9.81)
+  , Q_(Eigen::MatrixXd::Zero(15, 15))
 {}
 
 InertialIntegrator::InertialIntegrator(const Eigen::Vector3d& gravity)
   : gravity_(gravity)
+  , Q_(Eigen::MatrixXd::Zero(15, 15))
 {}
 
 void
@@ -18,6 +20,26 @@ InertialIntegrator::addData(double t,
     imu_times_.push_back(t);
     accels_.push_back(accel);
     omegas_.push_back(omega);
+}
+
+void
+InertialIntegrator::setAdditiveMeasurementNoise(double gyro_sigma,
+                                                double accel_sigma)
+{
+    Q_.block<3, 3>(0, 0) =
+      gyro_sigma * gyro_sigma * Eigen::Matrix3d::Identity();
+    Q_.block<3, 3>(6, 6) =
+      accel_sigma * accel_sigma * Eigen::Matrix3d::Identity();
+}
+
+void
+InertialIntegrator::setBiasRandomWalkNoise(double gyro_sigma,
+                                           double accel_sigma)
+{
+    Q_.block<3, 3>(3, 3) =
+      gyro_sigma * gyro_sigma * Eigen::Matrix3d::Identity();
+    Q_.block<3, 3>(9, 9) =
+      accel_sigma * accel_sigma * Eigen::Matrix3d::Identity();
 }
 
 Eigen::Vector3d
