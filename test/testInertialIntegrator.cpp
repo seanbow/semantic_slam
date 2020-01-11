@@ -11,6 +11,9 @@
 #include <ros/package.h>
 #include <rosfmt/rosfmt.h>
 
+#include "semantic_slam/CeresImuFactor.h"
+#include "semantic_slam/FactorGraph.h"
+
 Eigen::Matrix<double, 6, 1> zero_bias = Eigen::Matrix<double, 6, 1>::Zero();
 
 Eigen::MatrixXd
@@ -365,6 +368,56 @@ TEST(InertialIntegratorTest, testRK4_inertialCircleTrajectoryWithCovariance)
     EXPECT_NEAR(x(9), -38.492, 1);
 
     // TODO compute truth values for P...
+}
+
+namespace sym = symbol_shorthand;
+
+TEST(InertialIntegratorTest, testInertialFactor_Construct)
+{
+    InertialIntegrator integrator;
+
+    // Read in simulated data
+    std::string base_path = ros::package::getPath("semantic_slam");
+    std::string time_file(fmt::format("{}/test/data/times.dat", base_path));
+    std::string accel_file(
+      fmt::format("{}/test/data/accel_meas.dat", base_path));
+    std::string gyro_file(fmt::format("{}/test/data/gyro_meas.dat", base_path));
+
+    auto times = dlmread(time_file);
+    auto accels = dlmread(accel_file);
+    auto omegas = dlmread(gyro_file);
+
+    // add to integrator...
+    for (size_t i = 0; i < times.rows(); ++i) {
+        integrator.addData(times(i), accels.row(i), omegas.row(i));
+    }
+
+    Eigen::VectorXd x0 = Eigen::VectorXd::Zero(10);
+    x0(3) = 1.0; // set identity quaternion
+    // initial position = [50 0 50]
+    x0(7) = 50;
+    x0(9) = 50;
+
+    FactorGraph graph;
+
+    SE3NodePtr origin_x = util::allocate_aligned<SE3Node>(sym::X(0));
+    Vector3dNodePtr origin_v = util::allocate_aligned<VectorNode<3>>(sym::V(0));
+    VectorNode<6>::Ptr origin_b =
+      util::allocate_aligned<VectorNode<6>>(sym::B(0));
+
+    Eigen::VectorXd x = integrator.integrateInertial(0, 40, x0, zero_bias);
+
+    std::cout << "X final =\n" << x << std::endl;
+
+    // from known truth values
+    EXPECT_NEAR(x(3), -0.771482, 1e-3);
+
+    EXPECT_NEAR(x(4), -16.98, 1e-1);
+    EXPECT_NEAR(x(5), -20.49, 1e-1);
+    EXPECT_NEAR(x(6), -16.98, 1e-1);
+    EXPECT_NEAR(x(7), -38.492, 1);
+    EXPECT_NEAR(x(8), 31.91, 1);
+    EXPECT_NEAR(x(9), -38.492, 1);
 }
 
 // Run all the tests that were declared with TEST()

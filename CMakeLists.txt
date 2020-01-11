@@ -110,6 +110,7 @@ add_library(SemanticMapper SHARED
   src/CeresProjectionFactor.cpp
   src/CeresBetweenFactor.cpp
   src/CeresStructureFactor.cpp
+  src/CeresImuFactor.cpp
   src/MultiProjectionFactor.cpp
   src/SmartProjectionFactor.cpp
   src/keypoints/gtsam/StructureFactor.cpp
@@ -187,10 +188,10 @@ target_link_libraries(object_tracking_node
   SimpleObjectTracker
 )
 
-add_library(InertialIntegrator src/inertial/InertialIntegrator.cpp)
-target_link_libraries(InertialIntegrator
-  ${catkin_LIBRARIES}
-)
+# add_library(InertialIntegrator src/inertial/InertialIntegrator.cpp)
+# target_link_libraries(InertialIntegrator
+#   ${catkin_LIBRARIES}
+# )
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -285,7 +286,7 @@ target_link_libraries(testFactorGraphClone
 
 catkin_add_gtest(testInertialIntegrator test/testInertialIntegrator.cpp)
 target_link_libraries(testInertialIntegrator
-    InertialIntegrator
+    SemanticMapper
     ${catkin_LIBRARIES}
 )
 

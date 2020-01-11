@@ -18,12 +18,14 @@ class CeresImuFactor : public CeresFactor
     using Ptr = boost::shared_ptr<This>;
 
     CeresImuFactor(boost::shared_ptr<SE3Node> pose0,
-                   boost::shared_ptr<Vector3Node> vel0,
+                   boost::shared_ptr<Vector3dNode> vel0,
                    boost::shared_ptr<VectorNode<6>> bias0,
                    boost::shared_ptr<SE3Node> pose1,
-                   boost::shared_ptr<Vector3Node> vel1,
+                   boost::shared_ptr<Vector3dNode> vel1,
                    boost::shared_ptr<VectorNode<6>> bias1,
                    boost::shared_ptr<InertialIntegrator> integrator,
+                   double t0 = -1,
+                   double t1 = -1,
                    int tag = 0);
 
     ~CeresImuFactor();
@@ -33,14 +35,14 @@ class CeresImuFactor : public CeresFactor
         return boost::static_pointer_cast<SE3Node>(nodes_[3 * i]);
     }
 
-    boost::shared_ptr<Vector3Node> vel_node(int i) const
+    boost::shared_ptr<Vector3dNode> vel_node(int i) const
     {
-        return boost::static_pointer_cast<SE3Node>(nodes_[3 * i + 1]);
+        return boost::static_pointer_cast<Vector3dNode>(nodes_[3 * i + 1]);
     }
 
     boost::shared_ptr<VectorNode<6>> bias_node(int i) const
     {
-        return boost::static_pointer_cast<SE3Node>(nodes_[3 * i + 2]);
+        return boost::static_pointer_cast<VectorNode<6>>(nodes_[3 * i + 2]);
     }
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);
@@ -52,6 +54,8 @@ class CeresImuFactor : public CeresFactor
       boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
   private:
+    double t0_;
+    double t1_;
     mutable boost::shared_ptr<gtsam::NonlinearFactor> gtsam_factor_;
 
     boost::shared_ptr<InertialIntegrator> integrator_;
