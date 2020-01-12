@@ -47,7 +47,7 @@ InertialCostTerm::operator()(const T* const map_x_body0_ptr,
                              T* residual_ptr) const
 {
     Eigen::Map<const Eigen::Quaternion<T>> map_q_body0(map_x_body0_ptr);
-    Eigen::Map<const Eigen::Matrix<T, 3, 1>> map_p_body0(map_x_body1_ptr + 4);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> map_p_body0(map_x_body0_ptr + 4);
     Eigen::Map<const Eigen::Matrix<T, 3, 1>> map_v_body0(map_v_body0_ptr);
     Eigen::Map<const Eigen::Matrix<T, 6, 1>> bias0(bias0_ptr);
 
@@ -56,46 +56,76 @@ InertialCostTerm::operator()(const T* const map_x_body0_ptr,
     Eigen::Map<const Eigen::Matrix<T, 3, 1>> map_v_body1(map_v_body1_ptr);
     Eigen::Map<const Eigen::Matrix<T, 6, 1>> bias1(bias1_ptr);
 
-    // Integrate the inertial measurements given the current bias estimate
-    // We're just interested in relative transformations here so start with an
-    // identity initial state
-    Eigen::Matrix<T, -1, 1> identity_qvp = Eigen::Matrix<T, -1, 1>::Zero(10);
-    identity_qvp(3) = T(1.0);
+    Eigen::Map<Eigen::Matrix<T, 15, 1>> residual(residual_ptr);
 
-    auto xP_est = integrator_->integrateInertialWithCovariance(
-      t0_, t1_, identity_qvp, bias0);
+    // Integrate the inertial measurements given the current state estimate
+    Eigen::Matrix<T, -1, 1> qvp0(10);
+    qvp0.template head<4>() = map_q_body0.coeffs() / map_q_body0.norm();
+    qvp0.template segment<3>(4) = map_v_body0;
+    qvp0.template tail<3>() = map_p_body0;
 
-    auto x0_qvp_x1_hat = xP_est.first;
+    auto xP_est =
+      integrator_->integrateInertialWithCovariance(t0_, t1_, qvp0, bias0);
+    auto map_qvp_x1_hat = xP_est.first;
     auto P01 = xP_est.second;
 
-    // Now compute x0_qvp_x1 from the given state to compute the residual
-    Eigen::Quaternion<T> q0inv = map_q_body0.inverse();
-    Eigen::Quaternion<T> x0_q_x1 = q0inv * map_q_body1;
-    Eigen::Matrix<T, 3, 1> x0_v_x1 = q0inv * (map_v_body1 - map_v_body0);
-    Eigen::Matrix<T, 3, 1> x0_p_x1 = q0inv * (map_p_body1 - map_p_body0);
+    // auto map_qvp_x1_hat = integrator_->integrateInertial(t0_, t1_, qvp0,
+    // bias0);
 
-    Eigen::Quaternion<T> x0_q_x1_hat(
-      x0_qvp_x1_hat(3), x0_qvp_x1_hat(0), x0_qvp_x1_hat(1), x0_qvp_x1_hat(2));
+    // Relative state from current estimate
+    // Eigen::Quaternion<T> body0_q_map = map_q_body0.inverse();
+    // Eigen::Quaternion<T> x0_q_x1 = body0_q_map * map_q_body1;
+    // Eigen::Matrix<T, 3, 1> x0_v_x1 = body0_q_map * (map_v_body1 -
+    // map_v_body0); Eigen::Matrix<T, 3, 1> x0_p_x1 = body0_q_map * (map_p_body1
+    // - map_p_body0);
 
-    Eigen::Quaternion<T> deltaq = x0_q_x1_hat.conjugate() * x0_q_x1;
+    Eigen::Quaternion<T> map_q_x1_hat(map_qvp_x1_hat.template head<4>());
+    map_q_x1_hat.normalize();
 
-    // Residual ordering is [q bw v bv p]
-    Eigen::Map<Eigen::Matrix<T, 15, 1>> residual(residual_ptr);
+    Eigen::Quaternion<T> deltaq = map_q_x1_hat.conjugate() * map_q_body1;
+
+    // Eigen::Quaternion<T> deltaq = x0_q_x1_hat.conjugate() * x0_q_x1;
+
+    // // Residual ordering is [q bw v bv p]
 
     residual.template segment<3>(0) = T(2.0) * deltaq.vec();
     residual.template segment<3>(3) =
       bias1.template head<3>() - bias0.template head<3>();
     residual.template segment<3>(6) =
-      x0_v_x1 - x0_qvp_x1_hat.template segment<3>(4);
+      map_v_body1 - map_qvp_x1_hat.template segment<3>(4);
     residual.template segment<3>(9) =
       bias1.template tail<3>() - bias1.template tail<3>();
     residual.template segment<3>(12) =
-      x0_p_x1 - x0_qvp_x1_hat.template segment<3>(7);
+      map_p_body1 - map_qvp_x1_hat.template tail<3>();
 
-    // This is the same ordering that P is in so we can just apply it
-    // directly...
+    // residual.template segment<3>(0) = T(2.0) * deltaq.vec();
+    // residual.template segment<3>(3) =
+    //   bias1.template head<3>() - bias0.template head<3>();
+    // residual.template segment<3>(6) =
+    //   x0_v_x1 - x0_qvp_x1_hat.template segment<3>(4);
+    // residual.template segment<3>(9) =
+    //   bias1.template tail<3>() - bias1.template tail<3>();
+    // residual.template segment<3>(12) =
+    //   x0_p_x1 - x0_qvp_x1_hat.template segment<3>(7);
+
+    // std::cout << "Residual before P = \n" << residual.transpose() <<
+    // std::endl;
+    // std::cout << "P = \n" << P01 << std::endl;
+
+    // // This is the same ordering that P is in so we can just apply it
+    // // directly...
     auto sqrtP = P01.llt().matrixL();
-    sqrtP.solveInPlace(residual);
+    Eigen::MatrixXd sqrtPinv = Eigen::MatrixXd::Identity(15, 15);
+    sqrtP.solveInPlace(sqrtPinv);
+    residual.applyOnTheLeft(sqrtPinv);
+    // sqrtP.solveInPlace(residual);
+
+    // auto sqrtP =
+    //   Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd>(P01).operatorSqrt();
+    // residual = (sqrtP * residual).eval();
+
+    // std::cout << "Residual after P = \n" << residual.transpose() <<
+    // std::endl;
 
     return true;
 }

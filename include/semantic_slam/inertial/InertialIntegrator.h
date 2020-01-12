@@ -166,8 +166,10 @@ InertialIntegrator::rk4_iteration(
 {
     double h = t2 - t1;
     Eigen::Matrix<Scalar, -1, 1> k1 = h * f(t1, y0);
-    Eigen::Matrix<Scalar, -1, 1> k2 = h * f(t1 + h / 2, y0 + k1 / 2);
-    Eigen::Matrix<Scalar, -1, 1> k3 = h * f(t1 + h / 2, y0 + k2 / 2);
+    Eigen::Matrix<Scalar, -1, 1> k2 =
+      h * f(t1 + h / 2.0, y0 + k1 / Scalar(2.0));
+    Eigen::Matrix<Scalar, -1, 1> k3 =
+      h * f(t1 + h / 2.0, y0 + k2 / Scalar(2.0));
     Eigen::Matrix<Scalar, -1, 1> k4 = h * f(t1 + h, y0 + k3);
     return y0 + (k1 + Scalar(2.0) * k2 + Scalar(2.0) * k3 + k4) / Scalar(6.0);
 }
@@ -370,21 +372,38 @@ InertialIntegrator::Pdot(
 
     Eigen::Quaterniond quat(
       quat_double(3), quat_double(0), quat_double(1), quat_double(2));
+    quat.normalize();
 
     Eigen::VectorXd biases = removeJet(gyro_accel_bias);
 
     F.block<3, 3>(0, 0) =
       -skewsymm(interpolateData(t, imu_times_, omegas_) - biases.head<3>());
+
     F.block<3, 3>(0, 3) = -Eigen::Matrix3d::Identity();
 
     F.block<3, 3>(6, 0) =
       -quat.toRotationMatrix() *
       skewsymm(interpolateData(t, imu_times_, accels_) - biases.tail<3>());
+
     F.block<3, 3>(6, 9) = -quat.toRotationMatrix();
 
     F.block<3, 3>(12, 6) = Eigen::Matrix3d::Identity();
 
-    return F * P + P * F.transpose() + Q_;
+    Eigen::MatrixXd integration_covariance = Eigen::MatrixXd::Zero(15, 15);
+    integration_covariance.block<3, 3>(12, 12) =
+      1e-6 * Eigen::Matrix3d::Identity();
+    // Eigen::MatrixXd integration_covariance =
+    //   1e-4 * Eigen::MatrixXd::Identity(15, 15);
+
+    // Noise matrix
+    Eigen::MatrixXd G = Eigen::MatrixXd::Zero(15, 12);
+    G.block<3, 3>(0, 0) = -Eigen::Matrix3d::Identity();
+    G.block<3, 3>(3, 3) = Eigen::Matrix3d::Identity();
+    G.block<3, 3>(6, 6) = -quat.toRotationMatrix();
+    G.block<3, 3>(9, 9) = Eigen::Matrix3d::Identity();
+
+    return F * P + P * F.transpose() + G * Q_ * G.transpose() +
+           integration_covariance;
 }
 
 template<typename Derived>

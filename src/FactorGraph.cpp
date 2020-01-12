@@ -52,6 +52,16 @@ FactorGraph::setNodeConstant(CeresNodePtr node)
 }
 
 bool
+FactorGraph::setNodesConstant(const std::vector<CeresNodePtr>& nodes)
+{
+    for (const auto& node : nodes) {
+        setNodeConstant(node);
+    }
+
+    return true;
+}
+
+bool
 FactorGraph::setNodeVariable(Key key)
 {
     const auto& node = getNode(key);
@@ -67,8 +77,15 @@ FactorGraph::setNodeVariable(CeresNodePtr node)
     return true;
 }
 
-bool
-FactorGraph::isNodeConstant(CeresNodePtr node) const
+bool FactorGraph::setNodesVariable(const std::vector<CeresNodePtr>& nodes)
+{
+    for (const auto& node : nodes) {
+        setNodeVariable(node);
+    }
+}
+
+  bool
+  FactorGraph::isNodeConstant(CeresNodePtr node) const
 {
     // assume that the user is not interfacing with the ceres::Problem
     // directly... i.e. assume that one of the node's parameter blocks is
@@ -185,6 +202,14 @@ FactorGraph::addNode(CeresNodePtr node)
     nodes_[node->key()] = node;
     node->addToProblem(problem_);
     modified_ = true;
+}
+
+void
+FactorGraph::addNodes(const std::vector<CeresNodePtr>& nodes)
+{
+    for (auto& node : nodes) {
+        addNode(node);
+    }
 }
 
 void

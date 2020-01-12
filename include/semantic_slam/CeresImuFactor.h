@@ -30,6 +30,8 @@ class CeresImuFactor : public CeresFactor
 
     ~CeresImuFactor();
 
+    ceres::CostFunction* cf() { return cf_; }
+
     boost::shared_ptr<SE3Node> pose_node(int i) const
     {
         return boost::static_pointer_cast<SE3Node>(nodes_[3 * i]);

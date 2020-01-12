@@ -374,7 +374,7 @@ namespace sym = symbol_shorthand;
 
 TEST(InertialIntegratorTest, testInertialFactor_Construct)
 {
-    InertialIntegrator integrator;
+    // InertialIntegrator integrator;
 
     // Read in simulated data
     std::string base_path = ros::package::getPath("semantic_slam");
@@ -388,36 +388,155 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
     auto omegas = dlmread(gyro_file);
 
     // add to integrator...
-    for (size_t i = 0; i < times.rows(); ++i) {
-        integrator.addData(times(i), accels.row(i), omegas.row(i));
-    }
+    // for (size_t i = 0; i < times.rows(); ++i) {
+    //     integrator.addData(times(i), accels.row(i), omegas.row(i));
+    // }
 
-    Eigen::VectorXd x0 = Eigen::VectorXd::Zero(10);
-    x0(3) = 1.0; // set identity quaternion
-    // initial position = [50 0 50]
-    x0(7) = 50;
-    x0(9) = 50;
+    // Eigen::VectorXd x0 = Eigen::VectorXd::Zero(10);
+    // x0(3) = 1.0; // set identity quaternion
+    // // initial position = [50 0 50]
+    // x0(7) = 50;
+    // x0(9) = 50;
 
     FactorGraph graph;
 
-    SE3NodePtr origin_x = util::allocate_aligned<SE3Node>(sym::X(0));
-    Vector3dNodePtr origin_v = util::allocate_aligned<VectorNode<3>>(sym::V(0));
+    SE3NodePtr origin_x =
+      util::allocate_aligned<SE3Node>(sym::X(0), ros::Time(0.0));
+    Vector3dNodePtr origin_v =
+      util::allocate_aligned<VectorNode<3>>(sym::V(0), ros::Time(0.0));
     VectorNode<6>::Ptr origin_b =
-      util::allocate_aligned<VectorNode<6>>(sym::B(0));
+      util::allocate_aligned<VectorNode<6>>(sym::B(0), ros::Time(0.0));
 
-    Eigen::VectorXd x = integrator.integrateInertial(0, 40, x0, zero_bias);
+    origin_x->pose().rotation().coeffs() << 0, 0, 0, 1;
+    origin_x->pose().translation() << 50, 0, 50;
 
-    std::cout << "X final =\n" << x << std::endl;
+    graph.addNodes({ origin_x, origin_v, origin_b });
+    graph.setNodesConstant({ origin_x, origin_v, origin_b });
 
-    // from known truth values
-    EXPECT_NEAR(x(3), -0.771482, 1e-3);
+    // Say a keyframe every 0.5 seconds...
+    double key_period = 0.5;
+    double tmax = 40.0;
+    double last_key_time = 0.0;
+    SE3NodePtr last_x = origin_x;
+    Vector3dNodePtr last_v = origin_v;
+    VectorNode<6>::Ptr last_b = origin_b;
+    int key_index = 1;
+    boost::shared_ptr<InertialIntegrator> integrator =
+      util::allocate_aligned<InertialIntegrator>();
 
-    EXPECT_NEAR(x(4), -16.98, 1e-1);
-    EXPECT_NEAR(x(5), -20.49, 1e-1);
-    EXPECT_NEAR(x(6), -16.98, 1e-1);
-    EXPECT_NEAR(x(7), -38.492, 1);
-    EXPECT_NEAR(x(8), 31.91, 1);
-    EXPECT_NEAR(x(9), -38.492, 1);
+    // These values are approx. the values of the IMU in the VI sensor
+    integrator->setAdditiveMeasurementNoise(1e-4, 1.7e-3);
+    integrator->setBiasRandomWalkNoise(5e-5, 1e-3);
+
+    for (size_t i = 0; i < times.rows(); ++i) {
+        double t = times(i);
+
+        if (t > tmax)
+            break;
+
+        integrator->addData(t, accels.row(i), omegas.row(i));
+
+        if (t >= last_key_time + key_period) {
+            // Add a new keyframe
+            // Perform an integration and compute an initial estimate for the
+            // new frame's pose
+            Eigen::VectorXd last_qvp(10);
+            last_qvp.head<4>() = last_x->pose().rotation().coeffs();
+            last_qvp.segment<3>(4) = last_v->vector();
+            last_qvp.segment<3>(7) = last_x->pose().translation();
+
+            Eigen::VectorXd xhat = integrator->integrateInertial(
+              last_key_time, t, last_qvp, last_b->vector());
+
+            // Create the new graph nodes
+            ros::Time rost(t);
+            SE3NodePtr x =
+              util::allocate_aligned<SE3Node>(sym::X(key_index), rost);
+            Vector3dNodePtr v =
+              util::allocate_aligned<Vector3dNode>(sym::V(key_index), rost);
+            VectorNode<6>::Ptr b =
+              util::allocate_aligned<VectorNode<6>>(sym::B(key_index), rost);
+
+            // Compute estimates of the propagated pose
+            Pose3 G_T_new(Eigen::Quaterniond(xhat.head<4>()), xhat.tail<3>());
+            if (G_T_new.rotation().w() < 0) {
+                G_T_new.rotation().coeffs() *= -1;
+            }
+
+            x->pose() = G_T_new;
+            v->vector() = xhat.segment<3>(4);
+            b->vector() = last_b->vector();
+
+            std::cout << "Pose at t = " << t << " is \n"
+                      << x->pose() << "v: " << v->vector().transpose()
+                      << "\nb: " << b->vector().transpose() << "\n"
+                      << std::endl;
+
+            graph.addNodes({ x, v, b });
+
+            // Create the actual factor and add it
+            auto factor = util::allocate_aligned<CeresImuFactor>(
+              last_x, last_v, last_b, x, v, b, integrator, last_key_time, t);
+            graph.addFactor(factor);
+
+            // test test...
+            auto cf = factor->cf();
+            double residual[15];
+            double* parameters[] = {
+                last_x->pose().data(),   last_v->vector().data(),
+                last_b->vector().data(), x->pose().data(),
+                v->vector().data(),      b->vector().data()
+            };
+            cf->Evaluate(parameters, residual, NULL);
+
+            std::cout << "Residual on adding = [";
+            for (int i = 0; i < 15; ++i) {
+                std::cout << residual[i] << " ";
+            }
+            std::cout << "];\n";
+
+            // Update variables for next keyframe
+            last_x = x;
+            last_v = v;
+            last_b = b;
+            key_index++;
+            last_key_time = t;
+
+            integrator = util::allocate_aligned<InertialIntegrator>();
+            integrator->setAdditiveMeasurementNoise(1e-4, 1.7e-3);
+            integrator->setBiasRandomWalkNoise(5e-5, 1e-3);
+            integrator->addData(t, accels.row(i), omegas.row(i));
+        }
+    }
+
+    std::cout << "X initial:\n"
+              << last_x->pose() << "v: " << last_v->vector().transpose()
+              << "\nb: " << last_b->vector().transpose() << "\n"
+              << std::endl
+              << std::endl;
+
+    graph.solver_options().max_num_iterations = 25;
+    graph.solve(true);
+
+    std::cout << "After optimization:\n"
+              << last_x->pose() << "v: " << last_v->vector().transpose()
+              << "\nb: " << last_b->vector().transpose() << "\n"
+              << std::endl
+              << std::endl;
+
+    // Eigen::VectorXd x = integrator.integrateInertial(0, 40, x0, zero_bias);
+
+    // std::cout << "X final =\n" << x << std::endl;
+
+    // // from known truth values
+    // EXPECT_NEAR(x(3), -0.771482, 1e-3);
+
+    // EXPECT_NEAR(x(4), -16.98, 1e-1);
+    // EXPECT_NEAR(x(5), -20.49, 1e-1);
+    // EXPECT_NEAR(x(6), -16.98, 1e-1);
+    // EXPECT_NEAR(x(7), -38.492, 1);
+    // EXPECT_NEAR(x(8), 31.91, 1);
+    // EXPECT_NEAR(x(9), -38.492, 1);
 }
 
 // Run all the tests that were declared with TEST()

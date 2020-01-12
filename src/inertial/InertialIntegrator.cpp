@@ -4,12 +4,12 @@
 
 InertialIntegrator::InertialIntegrator()
   : gravity_(0, 0, -9.81)
-  , Q_(Eigen::MatrixXd::Zero(15, 15))
+  , Q_(Eigen::MatrixXd::Zero(12, 12))
 {}
 
 InertialIntegrator::InertialIntegrator(const Eigen::Vector3d& gravity)
   : gravity_(gravity)
-  , Q_(Eigen::MatrixXd::Zero(15, 15))
+  , Q_(Eigen::MatrixXd::Zero(12, 12))
 {}
 
 void
