@@ -467,10 +467,13 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
             v->vector() = xhat.segment<3>(4);
             b->vector() = last_b->vector();
 
-            std::cout << "Pose at t = " << t << " is \n"
-                      << x->pose() << "v: " << v->vector().transpose()
-                      << "\nb: " << b->vector().transpose() << "\n"
-                      << std::endl;
+            x->pose().translation() += Eigen::Vector3d(.1, .1, .1);
+            // v->vector() += Eigen::Vector3d(0.01, -0.1, 0.5);
+
+            // std::cout << "Pose at t = " << t << " is \n"
+            //           << x->pose() << "v: " << v->vector().transpose()
+            //           << "\nb: " << b->vector().transpose() << "\n"
+            //           << std::endl;
 
             graph.addNodes({ x, v, b });
 
@@ -480,20 +483,20 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
             graph.addFactor(factor);
 
             // test test...
-            auto cf = factor->cf();
-            double residual[15];
-            double* parameters[] = {
-                last_x->pose().data(),   last_v->vector().data(),
-                last_b->vector().data(), x->pose().data(),
-                v->vector().data(),      b->vector().data()
-            };
-            cf->Evaluate(parameters, residual, NULL);
+            // auto cf = factor->cf();
+            // double residual[15];
+            // double* parameters[] = {
+            //     last_x->pose().data(),   last_v->vector().data(),
+            //     last_b->vector().data(), x->pose().data(),
+            //     v->vector().data(),      b->vector().data()
+            // };
+            // cf->Evaluate(parameters, residual, NULL);
 
-            std::cout << "Residual on adding = [";
-            for (int i = 0; i < 15; ++i) {
-                std::cout << residual[i] << " ";
-            }
-            std::cout << "];\n";
+            // std::cout << "Residual on adding = [";
+            // for (int i = 0; i < 15; ++i) {
+            //     std::cout << residual[i] << " ";
+            // }
+            // std::cout << "];\n";
 
             // Update variables for next keyframe
             last_x = x;
@@ -502,10 +505,10 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
             key_index++;
             last_key_time = t;
 
-            integrator = util::allocate_aligned<InertialIntegrator>();
-            integrator->setAdditiveMeasurementNoise(1e-4, 1.7e-3);
-            integrator->setBiasRandomWalkNoise(5e-5, 1e-3);
-            integrator->addData(t, accels.row(i), omegas.row(i));
+            // integrator = util::allocate_aligned<InertialIntegrator>();
+            // integrator->setAdditiveMeasurementNoise(1e-4, 1.7e-3);
+            // integrator->setBiasRandomWalkNoise(5e-5, 1e-3);
+            // integrator->addData(t, accels.row(i), omegas.row(i));
         }
     }
 

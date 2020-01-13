@@ -15,6 +15,8 @@ class InertialIntegrator
     InertialIntegrator();
     InertialIntegrator(const Eigen::Vector3d& gravity);
 
+    Eigen::Vector3d gravity() const { return gravity_; }
+
     void setAdditiveMeasurementNoise(double gyro_sigma, double accel_sigma);
     void setBiasRandomWalkNoise(double gyro_sigma, double accel_sigma);
 
@@ -27,6 +29,12 @@ class InertialIntegrator
       double t1,
       double t2,
       const Eigen::Matrix<typename Derived::Scalar, -1, 1>& qvp0,
+      const Eigen::MatrixBase<Derived>& gyro_accel_bias);
+
+    template<typename Derived>
+    Eigen::Matrix<typename Derived::Scalar, -1, 1> preintegrateInertial(
+      double t1,
+      double t2,
       const Eigen::MatrixBase<Derived>& gyro_accel_bias);
 
     template<typename Derived>
@@ -92,24 +100,25 @@ class InertialIntegrator
       const Eigen::MatrixBase<Derived>& gyro_accel_bias);
 
     template<typename Derived>
+    Eigen::Matrix<typename Derived::Scalar, -1, 1> statedot_preint(
+      double t,
+      const Eigen::Matrix<typename Derived::Scalar, -1, 1>& state,
+      const Eigen::MatrixBase<Derived>& gyro_accel_bias);
+
+    template<typename Derived>
     Eigen::MatrixXd Pdot(
       double t,
       const Eigen::Matrix<typename Derived::Scalar, -1, 1>& state,
       const Eigen::MatrixXd& P,
       const Eigen::MatrixBase<Derived>& gyro_accel_bias);
 
-  private:
-    template<typename Derived>
-    Eigen::Matrix<typename Derived::Scalar, -1, -1> quaternionMatrixPhi(
-      const Eigen::MatrixBase<Derived>& q);
-
-    template<typename Derived>
-    Eigen::Matrix<typename Derived::Scalar, -1, -1> quaternionMatrixXi(
-      const Eigen::MatrixBase<Derived>& q);
-
     template<typename Derived>
     Eigen::Matrix<typename Derived::Scalar, -1, -1> quaternionMatrixOmega(
       const Eigen::MatrixBase<Derived>& w);
+
+    template<typename Derived>
+    Eigen::Matrix<typename Derived::Scalar, -1, -1> Dqdot_dnoise(
+      const Eigen::Matrix<typename Derived::Scalar, -1, 1>& quat);
 
     Eigen::Vector3d interpolateData(
       double t,
@@ -256,34 +265,57 @@ InertialIntegrator::quaternionMatrixOmega(const Eigen::MatrixBase<Derived>& w)
 
 template<typename Derived>
 Eigen::Matrix<typename Derived::Scalar, -1, -1>
-InertialIntegrator::quaternionMatrixPhi(const Eigen::MatrixBase<Derived>& q)
+InertialIntegrator::Dqdot_dnoise(
+  const Eigen::Matrix<typename Derived::Scalar, -1, 1>& q)
 {
-    Eigen::Matrix<typename Derived::Scalar, -1, -1> Phi(4, 3);
+    using T = typename Derived::Scalar;
+    Eigen::Matrix<T, -1, -1> H(4, 3);
 
     // clang-format off
-    Phi << q(3),  q(2), -q(1), 
-          -q(2),  q(3),  q(0), 
-           q(1), -q(0),  q(3), 
-          -q(0), -q(1), -q(2);
+    H << -q(3),  q(2), -q(1), 
+         -q(2), -q(3),  q(0),
+          q(1), -q(0), -q(3), 
+          q(0),  q(1),  q(2);
     // clang-format on
 
-    return Phi;
+    return T(0.5) * H;
 }
 
 template<typename Derived>
-Eigen::Matrix<typename Derived::Scalar, -1, -1>
-InertialIntegrator::quaternionMatrixXi(const Eigen::MatrixBase<Derived>& q)
+Eigen::Matrix<typename Derived::Scalar, -1, 1>
+InertialIntegrator::statedot_preint(
+  double t,
+  const Eigen::Matrix<typename Derived::Scalar, -1, 1>& state,
+  const Eigen::MatrixBase<Derived>& gyro_accel_bias)
 {
-    Eigen::Matrix<typename Derived::Scalar, -1, -1> Xi(4, 3);
+    using T = typename Derived::Scalar;
 
-    // clang-format off
-    Xi << q(3), -q(2),  q(1), 
-          q(2),  q(3), -q(0), 
-         -q(1),  q(0),  q(3), 
-         -q(0), -q(1), -q(2);
-    // clang-format on
+    Eigen::Matrix<T, -1, 1> xdot(10, 1);
 
-    return Xi;
+    Eigen::Matrix<T, 4, 1> quat = state.template head<4>();
+
+    xdot.template head<4>() =
+      0.5 *
+      quaternionMatrixOmega(interpolateData(t, imu_times_, omegas_) -
+                            gyro_accel_bias.template head<3>()) *
+      quat;
+
+    quat.normalize();
+    if (quat(3) < 0.0)
+        quat = -quat;
+
+    // Velocity derivative
+    Eigen::Quaternion<T> q(
+      quat(3), quat(0), quat(1), quat(2)); // w, x, y, z order
+
+    xdot.template segment<3>(4) =
+      q.toRotationMatrix() * (interpolateData(t, imu_times_, accels_) -
+                              gyro_accel_bias.template tail<3>());
+
+    // Position derivative
+    xdot.template tail<3>() = state.template segment<3>(4);
+
+    return xdot;
 }
 
 template<typename Derived>
@@ -298,11 +330,6 @@ InertialIntegrator::statedot(
     Eigen::Matrix<T, -1, 1> xdot(10, 1);
 
     Eigen::Matrix<T, 4, 1> quat = state.template head<4>();
-
-    // Quaternion derivative
-    // xdot.template head<4>() =
-    //   0.5 * quaternionMatrixXi(quat) * interpolateData(t, imu_times_,
-    //   omegas_);
 
     xdot.template head<4>() =
       0.5 *
@@ -423,6 +450,28 @@ InertialIntegrator::integrateInertial(
       };
 
     return this->integrateRK4(f, t1, t2, qvp0, 0.01);
+}
+
+template<typename Derived>
+Eigen::Matrix<typename Derived::Scalar, -1, 1>
+InertialIntegrator::preintegrateInertial(
+  double t1,
+  double t2,
+  const Eigen::MatrixBase<Derived>& gyro_accel_bias)
+{
+    using Scalar = typename Derived::Scalar;
+    using StateType = Eigen::Matrix<Scalar, -1, 1>;
+
+    StateType qvp_identity(10);
+    qvp_identity.setZero();
+    qvp_identity(3) = Scalar(1.0);
+
+    std::function<StateType(double, const StateType&)> f =
+      [&](double t, const StateType& x) {
+          return this->statedot_preint(t, x, gyro_accel_bias);
+      };
+
+    return this->integrateRK4(f, t1, t2, qvp_identity, 0.01);
 }
 
 template<typename Derived>
