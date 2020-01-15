@@ -45,11 +45,6 @@ class InertialIntegrator
       double t2,
       const Eigen::VectorXd& gyro_accel_bias);
 
-    aligned_vector<Eigen::MatrixXd> preintegrateInertialWithJacobian(
-      double t1,
-      double t2,
-      const Eigen::VectorXd& gyro_accel_bias);
-
     aligned_vector<Eigen::MatrixXd>
     preintegrateInertialWithJacobianAndCovariance(
       double t1,

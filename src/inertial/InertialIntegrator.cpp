@@ -469,37 +469,6 @@ InertialIntegrator::integrateInertialWithCovariance(
 }
 
 aligned_vector<Eigen::MatrixXd>
-InertialIntegrator::preintegrateInertialWithJacobian(
-  double t1,
-  double t2,
-  const Eigen::VectorXd& gyro_accel_bias)
-{
-    std::function<aligned_vector<Eigen::MatrixXd>(
-      double, const aligned_vector<Eigen::MatrixXd>&)>
-      f = [&](double t, const aligned_vector<Eigen::MatrixXd>& xJ) {
-          return aligned_vector<Eigen::MatrixXd>{
-              this->statedot_preint(t, xJ[0], gyro_accel_bias),
-              this->Dbias_sensitivity_dt(t, xJ[0], xJ[1], gyro_accel_bias)
-          };
-      };
-
-    Eigen::VectorXd qvp_identity(10);
-    qvp_identity.setZero();
-    qvp_identity(3) = 1.0;
-
-    Eigen::MatrixXd Jbias0 = Eigen::MatrixXd::Zero(10, 6);
-
-    auto xJ = this->integrateRK4(f, t1, t2, { qvp_identity, Jbias0 }, 0.01);
-    Eigen::VectorXd x = xJ[0];
-    xJ[0].topRows<4>() /= x.head<4>().norm();
-    if (x(3) < 0) {
-        xJ[0].topRows<4>() *= -1;
-    }
-
-    return xJ;
-}
-
-aligned_vector<Eigen::MatrixXd>
 InertialIntegrator::preintegrateInertialWithJacobianAndCovariance(
   double t1,
   double t2,
