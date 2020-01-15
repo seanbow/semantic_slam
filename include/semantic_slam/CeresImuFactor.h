@@ -23,6 +23,7 @@ class CeresImuFactor : public CeresFactor
                    boost::shared_ptr<SE3Node> pose1,
                    boost::shared_ptr<Vector3dNode> vel1,
                    boost::shared_ptr<VectorNode<6>> bias1,
+                   boost::shared_ptr<Vector3dNode> gravity,
                    boost::shared_ptr<InertialIntegrator> integrator,
                    double t0 = -1,
                    double t1 = -1,
@@ -45,6 +46,11 @@ class CeresImuFactor : public CeresFactor
     boost::shared_ptr<VectorNode<6>> bias_node(int i) const
     {
         return boost::static_pointer_cast<VectorNode<6>>(nodes_[3 * i + 2]);
+    }
+
+    boost::shared_ptr<Vector3dNode> gravity_node() const
+    {
+        return boost::static_pointer_cast<Vector3dNode>(nodes_[6]);
     }
 
     void addToProblem(boost::shared_ptr<ceres::Problem> problem);

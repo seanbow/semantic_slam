@@ -15,6 +15,7 @@
 #include "semantic_slam/FactorGraph.h"
 
 Eigen::Matrix<double, 6, 1> zero_bias = Eigen::Matrix<double, 6, 1>::Zero();
+Eigen::Vector3d G_gravity(0, 0, -9.81);
 
 Eigen::MatrixXd
 dlmread(std::string filename)
@@ -100,7 +101,7 @@ TEST(InertialIntegratorTest, testRK4_inertialStateNoMovement)
 
     std::function<Eigen::VectorXd(double, const Eigen::VectorXd&)> statedot =
       [&](double t, const Eigen::VectorXd& x) {
-          return integrator.statedot(t, x, zero_bias);
+          return integrator.statedot(t, x, zero_bias, G_gravity);
       };
 
     // Some fake data...
@@ -136,7 +137,7 @@ TEST(InertialIntegratorTest, testRK4_inertialStateNoMovementRotatedFrame)
 
     std::function<Eigen::VectorXd(double, const Eigen::VectorXd&)> statedot =
       [&](double t, const Eigen::VectorXd& x) {
-          return integrator.statedot(t, x, zero_bias);
+          return integrator.statedot(t, x, zero_bias, G_gravity);
       };
 
     // Some fake data...
@@ -167,7 +168,7 @@ TEST(InertialIntegratorTest, testRK4_inertialStateSimpleAccel)
 
     std::function<Eigen::VectorXd(double, const Eigen::VectorXd&)> statedot =
       [&](double t, const Eigen::VectorXd& x) {
-          return integrator.statedot(t, x, zero_bias);
+          return integrator.statedot(t, x, zero_bias, G_gravity);
       };
 
     // Some fake data...
@@ -197,7 +198,7 @@ TEST(InertialIntegratorTest, testRK4_inertialStateSimpleAccelAndSlowdown)
 
     std::function<Eigen::VectorXd(double, const Eigen::VectorXd&)> statedot =
       [&](double t, const Eigen::VectorXd& x) {
-          return integrator.statedot(t, x, zero_bias);
+          return integrator.statedot(t, x, zero_bias, G_gravity);
       };
 
     // Some fake data...
@@ -240,7 +241,7 @@ TEST(InertialIntegratorTest,
 
     std::function<Eigen::VectorXd(double, const Eigen::VectorXd&)> statedot =
       [&](double t, const Eigen::VectorXd& x) {
-          return integrator.statedot(t, x, zero_bias);
+          return integrator.statedot(t, x, zero_bias, G_gravity);
       };
 
     // Some fake data...
@@ -299,7 +300,8 @@ TEST(InertialIntegratorTest, testRK4_inertialStateSimulatedCircleTrajectory)
     x0(7) = 50;
     x0(9) = 50;
 
-    Eigen::VectorXd x = integrator.integrateInertial(0, 40, x0, zero_bias);
+    Eigen::VectorXd x =
+      integrator.integrateInertial(0, 40, x0, zero_bias, G_gravity);
 
     std::cout << "X final =\n" << x << std::endl;
 
@@ -347,7 +349,8 @@ TEST(InertialIntegratorTest, testRK4_inertialCircleTrajectoryWithCovariance)
     integrator.setAdditiveMeasurementNoise(1e-4, 1.7e-3);
     integrator.setBiasRandomWalkNoise(5e-5, 1e-3);
 
-    auto xP = integrator.integrateInertialWithCovariance(0, 40, x0, zero_bias);
+    auto xP = integrator.integrateInertialWithCovariance(
+      0, 40, x0, zero_bias, G_gravity);
 
     std::cout << "X final =\n" << xP[0] << std::endl;
 
@@ -408,10 +411,9 @@ TEST(InertialIntegratorTest, testRK4_inertialJacobians)
     // Compute actual X estimate from this preintegration
     Eigen::VectorXd xhat(10);
     xhat.head<4>() = xJ[0].topRows<4>();
-    xhat.segment<3>(4) =
-      xJ[0].middleRows<3>(4) + integrator.gravity() * (t2 - t1);
+    xhat.segment<3>(4) = xJ[0].middleRows<3>(4) + G_gravity * (t2 - t1);
     xhat.tail<3>() = xJ[0].bottomRows<3>() +
-                     0.5 * integrator.gravity() * (t2 - t1) * (t2 - t1) +
+                     0.5 * G_gravity * (t2 - t1) * (t2 - t1) +
                      Eigen::Vector3d(50, 0, 50);
 
     std::cout << "X estimate final = \n" << xhat.transpose() << std::endl;
@@ -626,11 +628,15 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
     VectorNode<6>::Ptr origin_b =
       util::allocate_aligned<VectorNode<6>>(sym::B(0), ros::Time(0.0));
 
+    Vector3dNodePtr gravity_node =
+      util::allocate_aligned<Vector3dNode>(sym::R(0));
+    gravity_node->vector() = G_gravity;
+
     origin_x->pose().rotation().coeffs() << 0, 0, 0, 1;
     origin_x->pose().translation() << 50, 0, 50;
 
-    graph.addNodes({ origin_x, origin_v, origin_b });
-    graph.setNodesConstant({ origin_x, origin_v, origin_b });
+    graph.addNodes({ origin_x, origin_v, origin_b, gravity_node });
+    graph.setNodesConstant({ origin_x, origin_v, origin_b, gravity_node });
 
     // Say a keyframe every some seconds...
     double key_period = 0.1;
@@ -664,8 +670,12 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
             last_qvp.segment<3>(4) = last_v->vector();
             last_qvp.segment<3>(7) = last_x->pose().translation();
 
-            Eigen::VectorXd xhat = integrator->integrateInertial(
-              last_key_time, t, last_qvp, last_b->vector());
+            Eigen::VectorXd xhat =
+              integrator->integrateInertial(last_key_time,
+                                            t,
+                                            last_qvp,
+                                            last_b->vector(),
+                                            gravity_node->vector());
 
             // Create the new graph nodes
             ros::Time rost(t);
@@ -700,8 +710,16 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
             graph.addNodes({ x, v, b });
 
             // Create the actual factor and add it
-            auto factor = util::allocate_aligned<CeresImuFactor>(
-              last_x, last_v, last_b, x, v, b, integrator, last_key_time, t);
+            auto factor = util::allocate_aligned<CeresImuFactor>(last_x,
+                                                                 last_v,
+                                                                 last_b,
+                                                                 x,
+                                                                 v,
+                                                                 b,
+                                                                 gravity_node,
+                                                                 integrator,
+                                                                 last_key_time,
+                                                                 t);
             graph.addFactor(factor);
 
             // test test...
@@ -746,7 +764,7 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
     last_qvp.segment<3>(4) = origin_v->vector();
     last_qvp.segment<3>(7) = origin_x->pose().translation();
     Eigen::VectorXd xtrue = integrator->integrateInertial(
-      0, last_key_time, last_qvp, origin_b->vector());
+      0, last_key_time, last_qvp, origin_b->vector(), gravity_node->vector());
 
     std::cout << "X true:\n"
               << Pose3(Eigen::Quaterniond(xtrue.head<4>()), xtrue.tail<3>())

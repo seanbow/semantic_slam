@@ -43,6 +43,8 @@ InertialCostTerm::Evaluate(double const* const* parameters,
     Eigen::Map<const Eigen::Vector3d> map_v_body1(parameters[4]);
     Eigen::Map<const Eigen::VectorXd> bias1(parameters[5], 6);
 
+    Eigen::Map<const Eigen::Vector3d> gravity(parameters[6]);
+
     Eigen::Map<Eigen::Matrix<double, 15, 1>> residual(residuals_ptr);
 
     Pose3 pose0(qp0);
@@ -70,10 +72,10 @@ InertialCostTerm::Evaluate(double const* const* parameters,
     Eigen::Quaterniond q0_inv = q0.conjugate();
     Eigen::Quaterniond qpre_hat = q0_inv * q1;
     Eigen::Vector3d vpre_hat =
-      q0_inv * (map_v_body1 - map_v_body0 - dt * integrator_->gravity());
+      q0_inv * (map_v_body1 - map_v_body0 - dt * gravity);
     Eigen::Vector3d ppre_hat =
       q0_inv * (pose1.translation() - pose0.translation() - map_v_body0 * dt -
-                0.5 * integrator_->gravity() * dt * dt);
+                0.5 * gravity * dt * dt);
 
     // Compute residuals / errors between prehat and pre
     Eigen::Quaterniond qpre_hat_inv = qpre_hat.conjugate();
@@ -106,6 +108,8 @@ InertialCostTerm::Evaluate(double const* const* parameters,
     // Jacobians...
     if (jacobians != NULL) {
         using JacobianType = Eigen::Matrix<double, -1, -1, Eigen::RowMajor>;
+        Eigen::Matrix3d Rq0_inv = q0_inv.toRotationMatrix();
+
         if (jacobians[0] != NULL) {
             // D(residuals)/D(qp0)
             Eigen::Map<JacobianType> J(jacobians[0], 15, 7);
@@ -125,7 +129,7 @@ InertialCostTerm::Evaluate(double const* const* parameters,
             // dv = vpre_hat - vpre
             //    = q0_inv * (...) - vpre
             J.block<3, 4>(3, 0) = math::Dpoint_transform_transpose_dq(
-              q0, map_v_body1 - map_v_body0 - dt * integrator_->gravity());
+              q0, map_v_body1 - map_v_body0 - dt * gravity);
 
             // Next do d(dq) / d(bg0). The rest of the d(dq)/d(qp0) derivatives
             // are zero. This has already been computed for us mostly
@@ -138,10 +142,10 @@ InertialCostTerm::Evaluate(double const* const* parameters,
             J.block<3, 4>(6, 0) = math::Dpoint_transform_transpose_dq(
               q0,
               pose1.translation() - pose0.translation() - map_v_body0 * dt -
-                0.5 * integrator_->gravity() * dt * dt);
+                0.5 * gravity * dt * dt);
 
             // Next, d(dp) / d(dp0)
-            J.block<3, 3>(6, 4) = -q0_inv.toRotationMatrix();
+            J.block<3, 3>(6, 4) = -Rq0_inv;
 
             // Bias terms d(b)/d(qp) = 0, so we're done.
 
@@ -155,10 +159,10 @@ InertialCostTerm::Evaluate(double const* const* parameters,
             J.setZero();
 
             // d(dv) / d(v0)
-            J.block<3, 3>(3, 0) = -q0_inv.toRotationMatrix();
+            J.block<3, 3>(3, 0) = -Rq0_inv;
 
             // d(dp) / d(v0)
-            J.block<3, 3>(6, 0) = -dt * q0_inv.toRotationMatrix();
+            J.block<3, 3>(6, 0) = -dt * Rq0_inv;
 
             J.applyOnTheLeft(sqrtPinv);
         }
@@ -203,7 +207,7 @@ InertialCostTerm::Evaluate(double const* const* parameters,
             // Unlike the q0 case, here d(dv)/d(q1) = d(dp)/d(q1) = 0.
 
             // Only remaining nonzero Jacobian is d(dp)/d(p1).
-            J.block<3, 3>(6, 4) = q0_inv.toRotationMatrix();
+            J.block<3, 3>(6, 4) = Rq0_inv;
 
             J.applyOnTheLeft(sqrtPinv);
         }
@@ -214,13 +218,13 @@ InertialCostTerm::Evaluate(double const* const* parameters,
             J.setZero();
 
             // Here the only dependent residual is d(dv)/d(v1)
-            J.block<3, 3>(3, 0) = q0_inv.toRotationMatrix();
+            J.block<3, 3>(3, 0) = Rq0_inv;
 
             J.applyOnTheLeft(sqrtPinv);
         }
 
         if (jacobians[5] != NULL) {
-            // Finally we have bias1.
+            // d/dbias1.
             Eigen::Map<JacobianType> J(jacobians[5], 15, 6);
             J.setZero();
 
@@ -228,6 +232,16 @@ InertialCostTerm::Evaluate(double const* const* parameters,
             J.block<6, 6>(9, 0) = Eigen::MatrixXd::Identity(6, 6);
 
             J.applyOnTheLeft(sqrtPinv);
+        }
+
+        if (jacobians[6] != NULL) {
+            // Finally the jacobians w.r.t. gravity.
+            // Only affects d(dv) and d(dp)
+            Eigen::Map<JacobianType> J(jacobians[6], 15, 3);
+            J.setZero();
+
+            J.block<3, 3>(3, 0) = -dt * Rq0_inv;
+            J.block<3, 3>(6, 0) = -0.5 * dt * dt * Rq0_inv;
         }
     }
 

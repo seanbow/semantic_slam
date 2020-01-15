@@ -3,14 +3,7 @@
 #include <algorithm>
 
 InertialIntegrator::InertialIntegrator()
-  : gravity_(0, 0, -9.81)
-  , Q_(Eigen::MatrixXd::Zero(6, 6))
-  , Q_random_walk_(Eigen::MatrixXd::Zero(6, 6))
-{}
-
-InertialIntegrator::InertialIntegrator(const Eigen::Vector3d& gravity)
-  : gravity_(gravity)
-  , Q_(Eigen::MatrixXd::Zero(6, 6))
+  : Q_(Eigen::MatrixXd::Zero(6, 6))
   , Q_random_walk_(Eigen::MatrixXd::Zero(6, 6))
 {}
 
@@ -337,7 +330,8 @@ InertialIntegrator::statedot_preint(double t,
 Eigen::VectorXd
 InertialIntegrator::statedot(double t,
                              const Eigen::VectorXd& state,
-                             const Eigen::VectorXd& gyro_accel_bias)
+                             const Eigen::VectorXd& gyro_accel_bias,
+                             const Eigen::VectorXd& gravity)
 {
     Eigen::VectorXd xdot(10, 1);
 
@@ -359,7 +353,7 @@ InertialIntegrator::statedot(double t,
     xdot.segment<3>(4) =
       q.toRotationMatrix() *
         (interpolateData(t, imu_times_, accels_) - gyro_accel_bias.tail<3>()) +
-      gravity_;
+      gravity;
 
     // Position derivative
     xdot.tail<3>() = state.segment<3>(4);
@@ -407,11 +401,12 @@ Eigen::VectorXd
 InertialIntegrator::integrateInertial(double t1,
                                       double t2,
                                       const Eigen::VectorXd& qvp0,
-                                      const Eigen::VectorXd& gyro_accel_bias)
+                                      const Eigen::VectorXd& gyro_accel_bias,
+                                      const Eigen::VectorXd& gravity)
 {
     std::function<Eigen::VectorXd(double, const Eigen::VectorXd&)> f =
       [&](double t, const Eigen::VectorXd& x) {
-          return this->statedot(t, x, gyro_accel_bias);
+          return this->statedot(t, x, gyro_accel_bias, gravity);
       };
 
     return this->integrateRK4(f, t1, t2, qvp0, 0.01);
@@ -445,13 +440,14 @@ InertialIntegrator::integrateInertialWithCovariance(
   double t1,
   double t2,
   const Eigen::VectorXd& qvp0,
-  const Eigen::VectorXd& gyro_accel_bias)
+  const Eigen::VectorXd& gyro_accel_bias,
+  const Eigen::VectorXd& gravity)
 {
     std::function<aligned_vector<Eigen::MatrixXd>(
       double, const aligned_vector<Eigen::MatrixXd>&)>
       f = [&](double t, const aligned_vector<Eigen::MatrixXd>& xP) {
           return aligned_vector<Eigen::MatrixXd>{
-              this->statedot(t, xP[0], gyro_accel_bias),
+              this->statedot(t, xP[0], gyro_accel_bias, gravity),
               this->Pdot(t, xP[0], xP[1], gyro_accel_bias)
           };
       };

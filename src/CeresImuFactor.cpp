@@ -10,6 +10,7 @@ CeresImuFactor::CeresImuFactor(boost::shared_ptr<SE3Node> pose0,
                                boost::shared_ptr<SE3Node> pose1,
                                boost::shared_ptr<Vector3dNode> vel1,
                                boost::shared_ptr<VectorNode<6>> bias1,
+                               boost::shared_ptr<Vector3dNode> gravity,
                                boost::shared_ptr<InertialIntegrator> integrator,
                                double t0,
                                double t1,
@@ -23,6 +24,7 @@ CeresImuFactor::CeresImuFactor(boost::shared_ptr<SE3Node> pose0,
     nodes_.push_back(pose1);
     nodes_.push_back(vel1);
     nodes_.push_back(bias1);
+    nodes_.push_back(gravity);
 
     if (t0 < 0.0 || t1 < 0.0) {
         t0_ = pose0->time()->toSec();
@@ -39,6 +41,7 @@ CeresFactor::Ptr
 CeresImuFactor::clone() const
 {
     return util::allocate_aligned<CeresImuFactor>(nullptr,
+                                                  nullptr,
                                                   nullptr,
                                                   nullptr,
                                                   nullptr,
@@ -68,7 +71,8 @@ CeresImuFactor::addToProblem(boost::shared_ptr<ceres::Problem> problem)
                                 bias_node(0)->vector().data(),
                                 pose_node(1)->pose().data(),
                                 vel_node(1)->vector().data(),
-                                bias_node(1)->vector().data());
+                                bias_node(1)->vector().data(),
+                                gravity_node()->vector().data());
 
     residual_ids_[problem.get()] = residual_id;
 }

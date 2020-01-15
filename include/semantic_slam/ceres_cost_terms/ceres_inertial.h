@@ -6,7 +6,7 @@
 
 #include "semantic_slam/inertial/InertialIntegrator.h"
 
-class InertialCostTerm : ceres::SizedCostFunction<15, 7, 3, 6, 7, 3, 6>
+class InertialCostTerm : ceres::SizedCostFunction<15, 7, 3, 6, 7, 3, 6, 3>
 {
   public:
     InertialCostTerm(double t0,

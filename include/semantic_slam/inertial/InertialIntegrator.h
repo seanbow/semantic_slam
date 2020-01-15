@@ -16,9 +16,6 @@ class InertialIntegrator
 {
   public:
     InertialIntegrator();
-    InertialIntegrator(const Eigen::Vector3d& gravity);
-
-    Eigen::Vector3d gravity() const { return gravity_; }
 
     void setAdditiveMeasurementNoise(double gyro_sigma, double accel_sigma);
     void setBiasRandomWalkNoise(double gyro_sigma, double accel_sigma);
@@ -32,13 +29,15 @@ class InertialIntegrator
     Eigen::VectorXd integrateInertial(double t1,
                                       double t2,
                                       const Eigen::VectorXd& qvp0,
-                                      const Eigen::VectorXd& gyro_accel_bias);
+                                      const Eigen::VectorXd& gyro_accel_bias,
+                                      const Eigen::VectorXd& gravity);
 
     aligned_vector<Eigen::MatrixXd> integrateInertialWithCovariance(
       double t1,
       double t2,
       const Eigen::VectorXd& qvp0,
-      const Eigen::VectorXd& gyro_accel_bias);
+      const Eigen::VectorXd& gyro_accel_bias,
+      const Eigen::VectorXd& gravity);
 
     Eigen::VectorXd preintegrateInertial(
       double t1,
@@ -85,7 +84,8 @@ class InertialIntegrator
 
     Eigen::VectorXd statedot(double t,
                              const Eigen::VectorXd& state,
-                             const Eigen::VectorXd& gyro_accel_bias);
+                             const Eigen::VectorXd& gyro_accel_bias,
+                             const Eigen::VectorXd& gravity);
 
     Eigen::VectorXd statedot_preint(double t,
                                     const Eigen::VectorXd& state,
@@ -122,8 +122,6 @@ class InertialIntegrator
       double t,
       const std::vector<double>& times,
       const aligned_vector<Eigen::Vector3d>& data);
-
-    Eigen::Vector3d gravity_;
 
     std::vector<double> imu_times_;
     aligned_vector<Eigen::Vector3d> omegas_;
