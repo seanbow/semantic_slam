@@ -32,7 +32,7 @@ CeresImuFactor::CeresImuFactor(boost::shared_ptr<SE3Node> pose0,
         t1_ = t1;
     }
 
-    cf_ = InertialCostTerm::Create(t0_, t1_, integrator);
+    cf_ = InertialCostTerm::Create(t0_, t1_, integrator, bias0->vector());
 }
 
 CeresFactor::Ptr
