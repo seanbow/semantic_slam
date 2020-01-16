@@ -6,19 +6,22 @@
 
 #include "semantic_slam/inertial/InertialIntegrator.h"
 
-class InertialCostTerm : ceres::SizedCostFunction<15, 7, 3, 6, 7, 3, 6, 3>
+class InertialCostTerm
+  : public ceres::SizedCostFunction<15, 7, 3, 6, 7, 3, 6, 3>
 {
   public:
     InertialCostTerm(double t0,
                      double t1,
-                     boost::shared_ptr<InertialIntegrator> integrator,
-                     const Eigen::VectorXd& bias_estimate);
+                     boost::shared_ptr<InertialIntegrator> integrator);
 
     bool Evaluate(double const* const* parameters,
                   double* residuals,
                   double** jacobians) const;
 
-    void preintegrate(const Eigen::VectorXd& bias0);
+    void preintegrate(const Eigen::VectorXd& bias0) const;
+
+    const Eigen::VectorXd& preint_x() const { return preint_x_; }
+    const Eigen::MatrixXd& preint_P() const { return preint_P_; }
 
     // template<typename T>
     // bool operator()(const T* const map_x_body0_ptr,
@@ -32,8 +35,7 @@ class InertialCostTerm : ceres::SizedCostFunction<15, 7, 3, 6, 7, 3, 6, 3>
     static ceres::CostFunction* Create(
       double t0,
       double t1,
-      boost::shared_ptr<InertialIntegrator> integrator,
-      const Eigen::VectorXd& bias_estimate);
+      boost::shared_ptr<InertialIntegrator> integrator);
 
   private:
     double t0_;
@@ -43,6 +45,10 @@ class InertialCostTerm : ceres::SizedCostFunction<15, 7, 3, 6, 7, 3, 6, 3>
     mutable Eigen::VectorXd preint_x_;
     mutable Eigen::MatrixXd preint_Jbias_;
     mutable Eigen::MatrixXd preint_P_;
+
+    mutable Eigen::VectorXd bias_at_integration_;
+
+    mutable bool have_preintegrated_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

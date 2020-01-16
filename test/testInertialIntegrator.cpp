@@ -346,8 +346,10 @@ TEST(InertialIntegratorTest, testRK4_inertialCircleTrajectoryWithCovariance)
     x0(9) = 50;
 
     // These values are approx. the values of the IMU in the VI sensor
-    integrator.setAdditiveMeasurementNoise(1e-4, 1.7e-3);
-    integrator.setBiasRandomWalkNoise(5e-5, 1e-3);
+    integrator.setAdditiveMeasurementNoise({ 1e-4, 1e-4, 1e-4 },
+                                           { 1.7e-3, 1.7e-3, 1.7e-3 });
+    integrator.setBiasRandomWalkNoise({ 5e-5, 5e-5, 5e-5 },
+                                      { 1e-3, 1e-3, 1e-3 });
 
     auto xP = integrator.integrateInertialWithCovariance(
       0, 40, x0, zero_bias, G_gravity);
@@ -395,8 +397,10 @@ TEST(InertialIntegratorTest, testRK4_inertialJacobians)
     }
 
     // These values are approx. the values of the IMU in the VI sensor
-    integrator.setAdditiveMeasurementNoise(1e-4, 1.7e-3);
-    integrator.setBiasRandomWalkNoise(5e-5, 1e-3);
+    integrator.setAdditiveMeasurementNoise({ 1e-4, 1e-4, 1e-4 },
+                                           { 1.7e-3, 1.7e-3, 1.7e-3 });
+    integrator.setBiasRandomWalkNoise({ 5e-5, 5e-5, 5e-5 },
+                                      { 1e-3, 1e-3, 1e-3 });
 
     double t1 = 0;
     double t2 = 40;
@@ -650,8 +654,10 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
       util::allocate_aligned<InertialIntegrator>();
 
     // These values are approx. the values of the IMU in the VI sensor
-    integrator->setAdditiveMeasurementNoise(1e-4, 1.7e-3);
-    integrator->setBiasRandomWalkNoise(5e-5, 1e-3);
+    integrator->setAdditiveMeasurementNoise({ 1e-4, 1e-4, 1e-4 },
+                                            { 1.7e-3, 1.7e-3, 1.7e-3 });
+    integrator->setBiasRandomWalkNoise({ 5e-5, 5e-5, 5e-5 },
+                                       { 1e-3, 1e-3, 1e-3 });
 
     for (size_t i = 0; i < times.rows(); ++i) {
         double t = times(i);

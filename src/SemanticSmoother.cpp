@@ -1,8 +1,12 @@
 #include "semantic_slam/SemanticSmoother.h"
 
+#include "semantic_slam/CeresSE3PriorFactor.h"
+#include "semantic_slam/CeresVectorNormPriorFactor.h"
+#include "semantic_slam/CeresVectorPriorFactor.h"
 #include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
 #include "semantic_slam/LoopCloser.h"
+#include "semantic_slam/OdometryHandler.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/SemanticMapper.h"
@@ -25,12 +29,15 @@ SemanticSmoother::SemanticSmoother(ObjectParams params, SemanticMapper* mapper)
     graph_ = util::allocate_aligned<FactorGraph>();
     essential_graph_ = util::allocate_aligned<FactorGraph>();
 
-    graph_->solver_options().function_tolerance = 1e-4;
-    graph_->solver_options().gradient_tolerance = 1e-8;
-    graph_->solver_options().parameter_tolerance = 1e-6;
+    // graph_->solver_options().function_tolerance = 1e-4;
+    // graph_->solver_options().gradient_tolerance = 1e-8;
+    // graph_->solver_options().parameter_tolerance = 1e-6;
 
     graph_->solver_options().max_solver_time_in_seconds =
       max_optimization_time_;
+
+    // graph_->solver_options().trust_region_strategy_type = ceres::DOGLEG;
+    // graph_->solver_options().dogleg_type = ceres::SUBSPACE_DOGLEG;
 
     graph_->solver_options().linear_solver_type = ceres::CGNR;
     graph_->solver_options().nonlinear_conjugate_gradient_type =
@@ -57,10 +64,53 @@ void
 SemanticSmoother::setOrigin(SemanticKeyframe::Ptr origin_frame)
 {
     origin_frame->addToGraph(graph_);
-    graph_->setNodeConstant(origin_frame->graph_node());
-
     origin_frame->addToGraph(essential_graph_);
-    essential_graph_->setNodeConstant(origin_frame->graph_node());
+
+    // graph_->setNodeConstant(origin_frame->graph_node());
+    // essential_graph_->setNodeConstant(origin_frame->graph_node());
+
+    // Try prior factors instead
+    Eigen::Matrix<double, 6, 6> prior_cov = Eigen::MatrixXd::Zero(6, 6);
+    prior_cov.block<3, 3>(0, 0) = 1 * 1 * Eigen::Matrix3d::Identity();
+    prior_cov.block<3, 3>(3, 3) = 1e-6 * 1e-6 * Eigen::Matrix3d::Identity();
+
+    auto prior_fac = util::allocate_aligned<CeresSE3PriorFactor>(
+      origin_frame->graph_node(), origin_frame->pose(), prior_cov);
+
+    graph_->addFactor(prior_fac);
+    essential_graph_->addFactor(prior_fac);
+
+    // We'll set/include the gravity vector here considering it effectively as
+    // a part of the origin keyframe
+    if (params_.odometry_source == OdometrySource::INERTIAL) {
+        mapper_->gravity_node()->vector() = mapper_->gravity();
+
+        graph_->addNode(mapper_->gravity_node());
+        graph_->setNodeConstant(mapper_->gravity_node());
+
+        // Add a prior on the gravity vector...
+        Eigen::Vector3d g_prior = mapper_->gravity();
+        double g_norm_sigma = 1;
+        Eigen::Matrix3d g_prior_cov =
+          g_norm_sigma * g_norm_sigma * Eigen::Matrix3d::Identity();
+
+        auto g_prior_fac = util::allocate_aligned<CeresVectorPriorFactor<3>>(
+          mapper_->gravity_node(), g_prior, g_prior_cov);
+
+        graph_->addFactor(g_prior_fac);
+
+        // Set initial velocity & bias priors
+        Eigen::Matrix<double, 6, 1> bias_prior = origin_frame->bias();
+        Eigen::Matrix<double, 6, 6> bias_cov = Eigen::MatrixXd::Zero(6, 6);
+        bias_cov.block<3, 3>(0, 0) = 2e-5 * 2e-5 * Eigen::Matrix3d::Identity();
+        bias_cov.block<3, 3>(3, 3) = 0.1 * 0.1 * Eigen::Matrix3d::Identity();
+
+        auto bias_prior_fac = util::allocate_aligned<CeresVectorPriorFactor<6>>(
+          origin_frame->bias_node(), bias_prior, bias_cov);
+        graph_->addFactor(bias_prior_fac);
+
+        graph_->setNodeConstant(origin_frame->velocity_node());
+    }
 }
 
 void
@@ -365,6 +415,11 @@ SemanticSmoother::prepareGraphNodes()
     for (auto& kf : mapper_->keyframes()) {
         if (kf->inGraph()) {
             kf->graph_node()->pose() = kf->pose();
+
+            if (params_.odometry_source == OdometrySource::INERTIAL) {
+                kf->velocity_node()->vector() = kf->velocity();
+                kf->bias_node()->vector() = kf->bias();
+            }
         }
     }
 
@@ -372,6 +427,10 @@ SemanticSmoother::prepareGraphNodes()
         if (obj->inGraph()) {
             obj->prepareGraphNode();
         }
+    }
+
+    if (params_.odometry_source == OdometrySource::INERTIAL) {
+        mapper_->gravity_node()->vector() = mapper_->gravity();
     }
 }
 
@@ -387,23 +446,22 @@ SemanticSmoother::commitGraphSolution()
     // transformation
     SemanticKeyframe::Ptr last_in_graph = mapper_->getLastKeyframeInGraph();
 
-    const Pose3& old_pose = last_in_graph->pose();
-
     // if (params_.optimization_backend == OptimizationBackend::CERES) {
-    Pose3 new_pose = last_in_graph->graph_node()->pose();
-    new_pose.rotation().normalize();
 
-    Pose3 old_T_new = old_pose.inverse() * new_pose;
-    old_T_new.rotation().normalize();
+    for (size_t i = 0; i < mapper_->keyframes().size(); ++i) {
+        auto& kf = mapper_->keyframes()[i];
 
-    for (auto& kf : mapper_->keyframes()) {
         if (kf->inGraph()) {
             kf->pose() = kf->graph_node()->pose();
             kf->pose().rotation().normalize();
+
+            if (params_.odometry_source == OdometrySource::INERTIAL) {
+                kf->velocity() = kf->velocity_node()->vector();
+                kf->bias() = kf->bias_node()->vector();
+            }
         } else {
-            // Keyframes not yet in the graph will be later so just
-            // propagate the computed transform forward
-            kf->pose() = kf->pose() * old_T_new;
+            mapper_->odometry_handler()->updateKeyframeAfterOptimization(
+              kf, last_in_graph);
         }
     }
 
@@ -414,6 +472,10 @@ SemanticSmoother::commitGraphSolution()
             // Update the object based on recomputed camera poses
             obj->optimizeStructure();
         }
+    }
+
+    if (params_.odometry_source == OdometrySource::INERTIAL) {
+        mapper_->gravity() = mapper_->gravity_node()->vector();
     }
 }
 
@@ -538,10 +600,10 @@ SemanticSmoother::unfreezeAll()
             continue;
 
         // do NOT unfreeze the first (gauge freedom)
-        if (kf->index() > 0) {
-            graph_->setNodeVariable(kf->graph_node());
-            essential_graph_->setNodeVariable(kf->graph_node());
-        }
+        // if (kf->index() > 0) {
+        graph_->setNodeVariable(kf->graph_node());
+        essential_graph_->setNodeVariable(kf->graph_node());
+        // }
     }
 
     for (const auto& obj : mapper_->estimated_objects()) {

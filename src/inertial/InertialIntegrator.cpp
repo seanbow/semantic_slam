@@ -18,27 +18,27 @@ InertialIntegrator::addData(double t,
 }
 
 void
-InertialIntegrator::setAdditiveMeasurementNoise(double gyro_sigma,
-                                                double accel_sigma)
+InertialIntegrator::setAdditiveMeasurementNoise(
+  const std::vector<double>& gyro_sigma,
+  const std::vector<double>& accel_sigma)
 {
-    Q_.block<3, 3>(0, 0) =
-      gyro_sigma * gyro_sigma * Eigen::Matrix3d::Identity();
-    Q_.block<3, 3>(3, 3) =
-      accel_sigma * accel_sigma * Eigen::Matrix3d::Identity();
+    Eigen::VectorXd covs(6);
+    covs << gyro_sigma[0], gyro_sigma[1], gyro_sigma[2], accel_sigma[0],
+      accel_sigma[1], accel_sigma[2];
+
+    Q_ = covs.array().pow(2).matrix().asDiagonal();
 }
 
 void
-InertialIntegrator::setBiasRandomWalkNoise(double gyro_sigma,
-                                           double accel_sigma)
+InertialIntegrator::setBiasRandomWalkNoise(
+  const std::vector<double>& gyro_sigma,
+  const std::vector<double>& accel_sigma)
 {
-    // Eigen::MatrixXd cov = Eigen::MatrixXd::Zero(6, 6);
-    Q_random_walk_.block<3, 3>(0, 0) =
-      gyro_sigma * gyro_sigma * Eigen::Matrix3d::Identity();
-    Q_random_walk_.block<3, 3>(3, 3) =
-      accel_sigma * accel_sigma * Eigen::Matrix3d::Identity();
+    Eigen::VectorXd covs(6);
+    covs << gyro_sigma[0], gyro_sigma[1], gyro_sigma[2], accel_sigma[0],
+      accel_sigma[1], accel_sigma[2];
 
-    // Q_random_walk_.setIdentity();
-    // cov.llt().matrixL().solveInPlace(Q_random_walk_);
+    Q_random_walk_ = covs.array().pow(2).matrix().asDiagonal();
 }
 
 Eigen::Vector3d
@@ -71,6 +71,34 @@ InertialIntegrator::interpolateData(double t,
 
     return data[idx_begin] +
            (data[idx_end] - data[idx_begin]) * (t_offset / dt);
+}
+
+Eigen::Vector3d
+InertialIntegrator::a_msmt(double t)
+{
+    return interpolateData(t, imu_times_, accels_);
+}
+
+Eigen::Vector3d
+InertialIntegrator::averageMeasurement(
+  double t1,
+  double t2,
+  const aligned_vector<Eigen::Vector3d>& data)
+{
+    Eigen::Vector3d average = Eigen::Vector3d::Zero();
+    size_t n_averaged = 0;
+    for (size_t i = 0; i < imu_times_.size(); ++i) {
+        if (imu_times_[i] < t1)
+            continue;
+
+        if (imu_times_[i] > t2)
+            break;
+
+        average += data[i];
+        n_averaged++;
+    }
+
+    return average / n_averaged;
 }
 
 Eigen::VectorXd
@@ -409,7 +437,7 @@ InertialIntegrator::integrateInertial(double t1,
           return this->statedot(t, x, gyro_accel_bias, gravity);
       };
 
-    return this->integrateRK4(f, t1, t2, qvp0, 0.01);
+    return this->integrateRK4(f, t1, t2, qvp0, 0.005);
 }
 
 Eigen::VectorXd
@@ -426,7 +454,7 @@ InertialIntegrator::preintegrateInertial(double t1,
           return this->statedot_preint(t, x, gyro_accel_bias);
       };
 
-    Eigen::VectorXd x = this->integrateRK4(f, t1, t2, qvp_identity, 0.01);
+    Eigen::VectorXd x = this->integrateRK4(f, t1, t2, qvp_identity, 0.005);
     x.head<4>() /= x.head<4>().norm();
     if (x(3) < 0) {
         x.head<4>() *= -1;
@@ -454,7 +482,7 @@ InertialIntegrator::integrateInertialWithCovariance(
 
     Eigen::MatrixXd P0 = Eigen::MatrixXd::Zero(9, 9);
 
-    auto xP = this->integrateRK4(f, t1, t2, { qvp0, P0 }, 0.01);
+    auto xP = this->integrateRK4(f, t1, t2, { qvp0, P0 }, 0.005);
     Eigen::VectorXd x = xP[0];
     xP[0].topRows<4>() /= x.head<4>().norm();
     if (x(3) < 0) {
@@ -488,7 +516,7 @@ InertialIntegrator::preintegrateInertialWithJacobianAndCovariance(
     Eigen::MatrixXd P0 = Eigen::MatrixXd::Zero(9, 9);
 
     auto xJP =
-      this->integrateRK4(f, t1, t2, { qvp_identity, Jbias0, P0 }, 0.01);
+      this->integrateRK4(f, t1, t2, { qvp_identity, Jbias0, P0 }, 0.005);
 
     Eigen::VectorXd x = xJP[0];
     xJP[0].topRows<4>() /= x.head<4>().norm();

@@ -4,6 +4,7 @@
 // #include <gtsam/slam/BetweenFactor.h>
 #include "semantic_slam/CeresBetweenFactor.h"
 #include "semantic_slam/CeresSE3PriorFactor.h"
+#include "semantic_slam/SE3Node.h"
 #include "semantic_slam/SemanticKeyframe.h"
 
 #include <string>
@@ -88,45 +89,20 @@ ExternalOdometryHandler::extractOdometryCovariance(
     return cov;
 }
 
-SemanticKeyframe::Ptr
-ExternalOdometryHandler::findNearestKeyframe(ros::Time t)
-{
-    ros::Duration shortest_duration = ros::DURATION_MAX;
-    SemanticKeyframe::Ptr kf = nullptr;
-
-    for (auto& frame : keyframes_) {
-        if (abs_duration(t - frame->time()) <= shortest_duration) {
-            shortest_duration = abs_duration(t - frame->time());
-            kf = frame;
-        }
-    }
-
-    return kf;
-}
-
 bool
-ExternalOdometryHandler::getRelativePoseEstimate(ros::Time t1,
-                                                 ros::Time t2,
-                                                 Pose3& T12)
+ExternalOdometryHandler::getRelativePoseEstimateTo(ros::Time t, Pose3& T12)
 {
-    // Assume here that t1 is not too far ahead of nodes that are already in the
-    // graph, so: auto node1 =
-    // boost::static_pointer_cast<SE3Node>(graph_->findNearestNode(node_chr_,
-    // t1));
-    auto kf1 = findNearestKeyframe(t1);
-
-    if (!kf1)
+    if (keyframes_.empty())
         return false;
 
-    Pose3 odom1 = kf1->odometry();
+    Pose3 odom1 = keyframes_.back()->odometry();
 
-    // And assume now (TODO) that t2 IS too far ahead of nodes so we just have
-    // to look in the message queue for its odometry information
+    // Assume that no keyframe has been created for time t
     if (msg_queue_.size() < 2)
         return false;
 
     auto msg_it = msg_queue_.begin();
-    while (msg_it->header.stamp < t2 && msg_it != msg_queue_.end()) {
+    while (msg_it->header.stamp < t && msg_it != msg_queue_.end()) {
         msg_it++;
     }
 
@@ -254,8 +230,7 @@ ExternalOdometryHandler::createKeyframe(ros::Time time)
 
     if (keyframes_.empty()) {
         // This is the first keyframe -- create the origin frame
-        SemanticKeyframe::Ptr frame =
-          originKeyframe(msg_queue_.front().header.stamp);
+        SemanticKeyframe::Ptr frame = originKeyframe();
         return frame;
     }
 
@@ -338,9 +313,31 @@ ExternalOdometryHandler::createKeyframe(ros::Time time)
     return keyframe;
 }
 
-SemanticKeyframe::Ptr
-ExternalOdometryHandler::originKeyframe(ros::Time time)
+void
+ExternalOdometryHandler::updateKeyframeAfterOptimization(
+  SemanticKeyframe::Ptr keyframe_to_update,
+  SemanticKeyframe::Ptr optimized_keyframe)
 {
+    // The optimization resulted in a new transformation between the odometry
+    // frame and the map frame.
+    //
+    // Just apply this transformation to the existing odometry.
+    Pose3 map_T_odom =
+      optimized_keyframe->pose() * optimized_keyframe->odometry().inverse();
+
+    keyframe_to_update->pose() = map_T_odom * keyframe_to_update->odometry();
+}
+
+SemanticKeyframe::Ptr
+ExternalOdometryHandler::originKeyframe()
+{
+    // Use the time of the first message as the keyframe time
+    while (msg_queue_.empty()) {
+        ros::Duration(0.002).sleep();
+    }
+
+    ros::Time time = msg_queue_.front().header.stamp;
+
     SemanticKeyframe::Ptr kf =
       util::allocate_aligned<SemanticKeyframe>(Symbol(node_chr_, 0), time);
 

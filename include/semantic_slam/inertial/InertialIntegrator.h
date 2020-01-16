@@ -17,8 +17,10 @@ class InertialIntegrator
   public:
     InertialIntegrator();
 
-    void setAdditiveMeasurementNoise(double gyro_sigma, double accel_sigma);
-    void setBiasRandomWalkNoise(double gyro_sigma, double accel_sigma);
+    void setAdditiveMeasurementNoise(const std::vector<double>& gyro_sigma,
+                                     const std::vector<double>& accel_sigma);
+    void setBiasRandomWalkNoise(const std::vector<double>& gyro_sigma,
+                                const std::vector<double>& accel_sigma);
 
     Eigen::MatrixXd randomWalkCovariance() const { return Q_random_walk_; }
 
@@ -26,11 +28,33 @@ class InertialIntegrator
                  const Eigen::Vector3d& accel,
                  const Eigen::Vector3d& omega);
 
+    double latestTime() const
+    {
+        return imu_times_.empty() ? -1.0 : imu_times_.back();
+    }
+
+    double earliestTime() const
+    {
+        return imu_times_.empty() ? -1.0 : imu_times_.front();
+    }
+
     Eigen::VectorXd integrateInertial(double t1,
                                       double t2,
                                       const Eigen::VectorXd& qvp0,
                                       const Eigen::VectorXd& gyro_accel_bias,
                                       const Eigen::VectorXd& gravity);
+
+    Eigen::Vector3d averageAcceleration(double t1, double t2)
+    {
+        return averageMeasurement(t1, t2, accels_);
+    }
+
+    Eigen::Vector3d averageMeasurement(
+      double t1,
+      double t2,
+      const aligned_vector<Eigen::Vector3d>& data);
+
+    Eigen::Vector3d a_msmt(double t);
 
     aligned_vector<Eigen::MatrixXd> integrateInertialWithCovariance(
       double t1,

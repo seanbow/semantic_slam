@@ -5,17 +5,15 @@
 InertialCostTerm::InertialCostTerm(
   double t0,
   double t1,
-  boost::shared_ptr<InertialIntegrator> integrator,
-  const Eigen::VectorXd& bias_estimate)
+  boost::shared_ptr<InertialIntegrator> integrator)
   : t0_(t0)
   , t1_(t1)
   , integrator_(integrator)
-{
-    preintegrate(bias_estimate);
-}
+  , have_preintegrated_(false)
+{}
 
 void
-InertialCostTerm::preintegrate(const Eigen::VectorXd& bias0)
+InertialCostTerm::preintegrate(const Eigen::VectorXd& bias0) const
 {
     auto preint_xJP =
       integrator_->preintegrateInertialWithJacobianAndCovariance(
@@ -24,6 +22,10 @@ InertialCostTerm::preintegrate(const Eigen::VectorXd& bias0)
     preint_x_ = preint_xJP[0];
     preint_Jbias_ = preint_xJP[1];
     preint_P_ = preint_xJP[2];
+
+    have_preintegrated_ = true;
+
+    bias_at_integration_ = bias0;
 
     // std::cout << "PREINTEGRATION done\n";
     // std::cout << "preint x = " << preint_x_.transpose() << "\npreint P = \n"
@@ -47,6 +49,9 @@ InertialCostTerm::Evaluate(double const* const* parameters,
 
     Eigen::Map<Eigen::Matrix<double, 15, 1>> residual(residuals_ptr);
 
+    if (!have_preintegrated_)
+        preintegrate(bias0);
+
     Pose3 pose0(qp0);
     Pose3 pose1(qp1);
 
@@ -59,7 +64,11 @@ InertialCostTerm::Evaluate(double const* const* parameters,
     // preint_Jbias_ = preint_xJP[1];
     // preint_P_ = preint_xJP[2];
 
-    Eigen::Quaterniond preint_q(preint_x_.head<4>());
+    Eigen::VectorXd preint_effective =
+      preint_x_ + preint_Jbias_ * (bias0 - bias_at_integration_);
+
+    Eigen::Quaterniond preint_q(preint_effective.head<4>());
+    preint_q.normalize();
 
     double dt = t1_ - t0_;
 
@@ -83,8 +92,8 @@ InertialCostTerm::Evaluate(double const* const* parameters,
 
     // residual ordering: [q v p bg ba]
     residual.head<3>() = 2 * dq.vec();
-    residual.segment<3>(3) = vpre_hat - preint_x_.segment<3>(4);
-    residual.segment<3>(6) = ppre_hat - preint_x_.tail<3>();
+    residual.segment<3>(3) = vpre_hat - preint_effective.segment<3>(4);
+    residual.segment<3>(6) = ppre_hat - preint_effective.tail<3>();
     residual.tail<6>() = bias1 - bias0;
 
     // Construct the full covariance of the residual
@@ -130,10 +139,6 @@ InertialCostTerm::Evaluate(double const* const* parameters,
             //    = q0_inv * (...) - vpre
             J.block<3, 4>(3, 0) = math::Dpoint_transform_transpose_dq(
               q0, map_v_body1 - map_v_body0 - dt * gravity);
-
-            // Next do d(dq) / d(bg0). The rest of the d(dq)/d(qp0) derivatives
-            // are zero. This has already been computed for us mostly
-            // dq = qpre * qpre_hat^-1
 
             // d(dv) / dp0 = 0.
 
@@ -242,6 +247,8 @@ InertialCostTerm::Evaluate(double const* const* parameters,
 
             J.block<3, 3>(3, 0) = -dt * Rq0_inv;
             J.block<3, 3>(6, 0) = -0.5 * dt * dt * Rq0_inv;
+
+            J.applyOnTheLeft(sqrtPinv);
         }
     }
 
@@ -251,8 +258,7 @@ InertialCostTerm::Evaluate(double const* const* parameters,
 ceres::CostFunction*
 InertialCostTerm::Create(double t0,
                          double t1,
-                         boost::shared_ptr<InertialIntegrator> integrator,
-                         const Eigen::VectorXd& bias_estimate)
+                         boost::shared_ptr<InertialIntegrator> integrator)
 {
-    return new InertialCostTerm(t0, t1, integrator, bias_estimate);
+    return new InertialCostTerm(t0, t1, integrator);
 }

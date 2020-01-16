@@ -39,6 +39,8 @@ tracking_framerate: 3     # drops images so tracking is performed at this framer
 
 ## Semslam parameters
 
+odometry_type: "external"   # odometry is handled by the zed, so "external"
+
 ### Geometric feature parameters
 include_geometric_features: true
 reprojection_error_threshold: 4

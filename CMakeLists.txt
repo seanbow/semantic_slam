@@ -111,6 +111,7 @@ add_library(SemanticMapper SHARED
   src/CeresBetweenFactor.cpp
   src/CeresStructureFactor.cpp
   src/CeresImuFactor.cpp
+  src/CeresSE3PriorFactor.cpp
   src/MultiProjectionFactor.cpp
   src/SmartProjectionFactor.cpp
   src/keypoints/gtsam/StructureFactor.cpp
@@ -126,6 +127,7 @@ add_library(SemanticMapper SHARED
   src/SemanticSmoother.cpp
   src/SemanticMapper.cpp
   src/ExternalOdometryHandler.cpp
+  src/InertialOdometryHandler.cpp
 
   src/presenters/GeometricMapPresenter.cpp
   src/presenters/SemanticCovisibilityPresenter.cpp

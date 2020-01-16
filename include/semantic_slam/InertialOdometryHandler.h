@@ -6,20 +6,24 @@
 
 #include <deque>
 #include <mutex>
-#include <nav_msgs/Odometry.h>
+#include <sensor_msgs/Imu.h>
 #include <unordered_map>
 // #include <gtsam/geometry/Pose3.h>
 
-class ExternalOdometryHandler : public OdometryHandler
+class InertialIntegrator;
+
+class InertialOdometryHandler : public OdometryHandler
 {
   public:
     void setup();
 
-    void msgCallback(const nav_msgs::Odometry::ConstPtr& msg);
+    void msgCallback(const sensor_msgs::Imu::ConstPtr& msg);
 
     boost::shared_ptr<SemanticKeyframe> originKeyframe();
 
     boost::shared_ptr<SemanticKeyframe> createKeyframe(ros::Time time);
+
+    boost::shared_ptr<SemanticKeyframe> findNearestKeyframe(ros::Time time);
 
     bool getRelativePoseEstimateTo(ros::Time t, Pose3& T12);
 
@@ -27,18 +31,17 @@ class ExternalOdometryHandler : public OdometryHandler
       boost::shared_ptr<SemanticKeyframe> keyframe_to_update,
       boost::shared_ptr<SemanticKeyframe> optimized_keyframe);
 
-    // bool getRelativePoseJacobianEstimate(ros::Time t1, ros::Time t2,
-    // Eigen::MatrixXd& J);
-
     // inherit constructor
     using OdometryHandler::OdometryHandler;
 
   private:
     ros::Subscriber subscriber_;
 
-    std::deque<nav_msgs::Odometry> msg_queue_;
+    std::deque<sensor_msgs::Imu> msg_queue_;
 
     std::vector<boost::shared_ptr<SemanticKeyframe>> keyframes_;
+
+    boost::shared_ptr<InertialIntegrator> integrator_;
 
     std::mutex mutex_;
 
@@ -50,12 +53,9 @@ class ExternalOdometryHandler : public OdometryHandler
     size_t last_msg_seq_;
 
     unsigned char node_chr_;
-    ros::Duration max_node_period_;
 
-    Eigen::MatrixXd extractOdometryCovariance(
-      const nav_msgs::Odometry& msg) const;
-
-    Pose3 msgToPose3(const nav_msgs::Odometry& msg) const;
+    std::vector<double> a_bias_init_;
+    std::vector<double> w_bias_init_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

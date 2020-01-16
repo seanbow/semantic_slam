@@ -21,6 +21,9 @@ class SemanticKeyframe;
 class Presenter;
 class CameraCalibration;
 
+template<int Dim>
+class VectorNode;
+
 class SemanticMapper
 {
   public:
@@ -62,6 +65,15 @@ class SemanticMapper
       const object_pose_interface_msgs::KeypointDetections& msg,
       Key keyframe_key);
 
+    Eigen::Vector3d& gravity() { return gravity_; }
+    const Eigen::Vector3d& gravity() const { return gravity_; }
+
+    boost::shared_ptr<VectorNode<3>>& gravity_node() { return gravity_node_; }
+    const boost::shared_ptr<VectorNode<3>>& gravity_node() const
+    {
+        return gravity_node_;
+    }
+
     void loadModelFiles(std::string path);
 
     bool loadCalibration();
@@ -78,6 +90,11 @@ class SemanticMapper
 
     std::mutex& map_mutex() { return map_mutex_; }
     std::mutex& geometric_map_mutex() { return present_mutex_; }
+
+    boost::shared_ptr<OdometryHandler> odometry_handler()
+    {
+        return odometry_handler_;
+    }
 
     const std::vector<boost::shared_ptr<SemanticKeyframe>>& keyframes()
     {
@@ -146,6 +163,9 @@ class SemanticMapper
 
     boost::shared_ptr<CameraCalibration> camera_calibration_;
     Pose3 I_T_C_;
+
+    Eigen::Vector3d gravity_;
+    boost::shared_ptr<VectorNode<3>> gravity_node_;
 
     ObjectParams params_;
 
