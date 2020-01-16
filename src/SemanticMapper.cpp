@@ -39,7 +39,7 @@ SemanticMapper::setup()
     ROS_INFO("Starting object handler.");
     std::string object_topic;
     pnh_.param(
-      "keypoint_detection_topic", object_topic, "/semslam/img_keypoints"s);
+      "keypoint_detection_topic", object_topic, "semslam/img_keypoints"s);
 
     ROS_INFO_STREAM("[SemanticMapper] Subscribing to topic " << object_topic);
 

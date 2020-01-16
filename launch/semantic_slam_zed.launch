@@ -15,12 +15,9 @@
     <arg name="robot_frame"                         default="/base_link"/>
     <arg name="imu_frame"                           default="/zed_imu_link"/>
 
-    <!-- <arg name="calib_file"                     default="$(find semslam)/param/turtlebot.yaml"/> -->
-
     <arg name="calib_file"                          default="$(find semantic_slam)/param/zed.yaml"/>
 
-    <arg name="detected_objects_topic"              default="/darknet_ros/bounding_boxes"/>
-    <arg name="detected_objects_topic_republished"  default="bounding_boxes_republished"/>
+    <arg name="detected_objects_topic"              default="darknet_ros/bounding_boxes"/>
     <arg name="keypoint_topic"                      default="img_keypoints"/>
 
     <arg name="yolo"                                default="true"/>
@@ -58,13 +55,8 @@
     <!--               3) change enable_opencv to true and enable_console_output to false to suppress all printing -->
     <!--               4) use relative namespaces in ros.yaml -->
     <include file="$(find darknet_ros)/launch/yolo_v3_voc_indoor.launch"/>
-
-    <!-- Launch detection republisher -->
-    <!-- <node pkg="object_keypoint_detector" type="detection_republisher.py" name="detection_republisher" output="screen">
-        <param name="detection_topic"						      value="$(arg detected_objects_topic)"/>
-        <param name="detection_republished_topic"			value="$(arg detected_objects_topic_republished)"/>
-    </node> -->
-
+    
+    <!-- Launch semantic SLAM node -->
     <node pkg="semantic_slam" type="object_tracking_node" name="object_tracker" output="screen">
         <param name="platform"                      value="zed" />
         <param name="image_topic"                   value="$(arg raw_cam_topic)" />
