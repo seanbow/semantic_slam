@@ -1,12 +1,12 @@
 
 #include "semantic_slam/SemanticMapper.h"
 
-#include "semantic_slam/ExternalOdometryHandler.h"
 #include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
 #include "semantic_slam/LocalParameterizations.h"
 #include "semantic_slam/LoopCloser.h"
 #include "semantic_slam/MLDataAssociator.h"
+#include "semantic_slam/OdometryHandler.h"
 #include "semantic_slam/Presenter.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/SemanticSmoother.h"
@@ -76,8 +76,7 @@ SemanticMapper::setup()
 }
 
 void
-SemanticMapper::setOdometryHandler(
-  boost::shared_ptr<ExternalOdometryHandler> odom)
+SemanticMapper::setOdometryHandler(boost::shared_ptr<OdometryHandler> odom)
 {
     odometry_handler_ = odom;
     odom->setGraph(smoother_->graph());

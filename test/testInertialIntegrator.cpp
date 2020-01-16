@@ -754,7 +754,8 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
 
     std::cout << "X initial:\n"
               << last_x->pose() << "v: " << last_v->vector().transpose()
-              << "\nb: " << last_b->vector().transpose() << "\n"
+              << "\nb: " << last_b->vector().transpose()
+              << "\ng: " << gravity_node->vector().transpose() << "\n"
               << std::endl
               << std::endl;
 
@@ -773,7 +774,7 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
               << std::endl
               << std::endl;
 
-    graph.solver_options().max_num_iterations = 100;
+    graph.solver_options().max_num_iterations = 5000;
 
     graph.solver_options().trust_region_strategy_type = ceres::DOGLEG;
     graph.solver_options().dogleg_type = ceres::SUBSPACE_DOGLEG;
@@ -791,7 +792,8 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
 
     std::cout << "After optimization:\n"
               << last_x->pose() << "v: " << last_v->vector().transpose()
-              << "\nb: " << last_b->vector().transpose() << "\n"
+              << "\nb: " << last_b->vector().transpose()
+              << "\ng: " << gravity_node->vector().transpose() << "\n"
               << std::endl
               << std::endl;
 

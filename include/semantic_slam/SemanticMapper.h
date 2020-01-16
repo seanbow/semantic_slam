@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-class ExternalOdometryHandler;
+class OdometryHandler;
 class GeometricFeatureHandler;
 class LoopCloser;
 class SemanticSmoother;
@@ -70,7 +70,7 @@ class SemanticMapper
 
     bool keepFrame(const object_pose_interface_msgs::KeypointDetections& msg);
 
-    void setOdometryHandler(boost::shared_ptr<ExternalOdometryHandler> odom);
+    void setOdometryHandler(boost::shared_ptr<OdometryHandler> odom);
     void setGeometricFeatureHandler(
       boost::shared_ptr<GeometricFeatureHandler> odom);
 
@@ -126,7 +126,7 @@ class SemanticMapper
 
     std::vector<boost::shared_ptr<EstimatedObject>> estimated_objects_;
 
-    boost::shared_ptr<ExternalOdometryHandler> odometry_handler_;
+    boost::shared_ptr<OdometryHandler> odometry_handler_;
 
     bool include_geometric_features_;
     boost::shared_ptr<GeometricFeatureHandler> geom_handler_;
