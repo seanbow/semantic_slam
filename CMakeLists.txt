@@ -126,6 +126,7 @@ add_library(SemanticMapper SHARED
   src/presenters/GeometricMapPresenter.cpp
   src/presenters/SemanticCovisibilityPresenter.cpp
   src/presenters/ObjectMeshPresenter.cpp
+  src/presenters/ObjectPosePresenter.cpp
   src/presenters/TrajectoryPresenter.cpp
   src/presenters/PosePresenter.cpp
   src/presenters/ObjectKeypointPresenter.cpp
