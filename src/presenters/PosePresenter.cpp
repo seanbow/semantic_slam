@@ -4,12 +4,16 @@
 #include "semantic_slam/keypoints/EstimatedObject.h"
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <nav_msgs/Odometry.h>
 
 void
 PosePresenter::setup()
 {
     pub_pose_ =
       nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("pose", 10);
+    
+    pub_odom_ =
+      nh_.advertise<nav_msgs::Odometry>("semslam/robot_odom", 10);
 }
 
 void
@@ -34,6 +38,7 @@ PosePresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
 
     geometry_msgs::PoseWithCovarianceStampedPtr msg_pose(
       new geometry_msgs::PoseWithCovarianceStamped);
+    nav_msgs::OdometryPtr msg_odom(new nav_msgs::Odometry);
     msg_pose->header.frame_id = "/map";
     msg_pose->header.stamp = keyframe->time();
     msg_pose->pose.pose.position.x = p(0);
@@ -64,5 +69,11 @@ PosePresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
 
     eigenToBoostArray<6, 6>(P2, msg_pose->pose.covariance);
 
+    msg_odom->header.frame_id = "/map";
+    msg_odom->header.stamp = keyframe->time();
+    msg_odom->pose.pose = msg_pose->pose.pose;
+    msg_odom->pose.covariance = msg_pose->pose.covariance;
+
     pub_pose_.publish(msg_pose);
+    pub_odom_.publish(msg_odom);
 }

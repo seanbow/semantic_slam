@@ -16,4 +16,5 @@ class PosePresenter : public Presenter
 
   private:
     ros::Publisher pub_pose_;
+    ros::Publisher pub_odom_;
 };
