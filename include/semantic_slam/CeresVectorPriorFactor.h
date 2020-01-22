@@ -27,13 +27,13 @@ class CeresVectorPriorFactor : public CeresFactor
         return boost::static_pointer_cast<VectorNode<Dim>>(nodes_[0]);
     }
 
-    void addToGtsamGraph(
+    virtual void addToGtsamGraph(
       boost::shared_ptr<gtsam::NonlinearFactorGraph> graph) const;
 
     using This = CeresVectorPriorFactor<Dim>;
     using Ptr = boost::shared_ptr<This>;
 
-  private:
+  protected:
     typename VectorNode<Dim>::VectorType prior_;
     Eigen::MatrixXd covariance_;
 

@@ -1,10 +1,12 @@
 #include "semantic_slam/SemanticSmoother.h"
 
+#include "semantic_slam/CeresImuBiasPriorFactor.h"
 #include "semantic_slam/CeresSE3PriorFactor.h"
 #include "semantic_slam/CeresVectorNormPriorFactor.h"
 #include "semantic_slam/CeresVectorPriorFactor.h"
 #include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
+#include "semantic_slam/ImuBiasNode.h"
 #include "semantic_slam/LoopCloser.h"
 #include "semantic_slam/OdometryHandler.h"
 #include "semantic_slam/SE3Node.h"
@@ -39,10 +41,10 @@ SemanticSmoother::SemanticSmoother(ObjectParams params, SemanticMapper* mapper)
     // graph_->solver_options().trust_region_strategy_type = ceres::DOGLEG;
     // graph_->solver_options().dogleg_type = ceres::SUBSPACE_DOGLEG;
 
-    graph_->solver_options().linear_solver_type = ceres::CGNR;
-    graph_->solver_options().nonlinear_conjugate_gradient_type =
-      ceres::POLAK_RIBIERE;
-    graph_->solver_options().max_linear_solver_iterations = 50;
+    // graph_->solver_options().linear_solver_type = ceres::CGNR;
+    // graph_->solver_options().nonlinear_conjugate_gradient_type =
+    //   ceres::POLAK_RIBIERE;
+    // graph_->solver_options().max_linear_solver_iterations = 50;
 
     graph_->solver_options().num_threads = 4;
 
@@ -54,6 +56,7 @@ SemanticSmoother::SemanticSmoother(ObjectParams params, SemanticMapper* mapper)
     essential_graph_->setSolverOptions(graph_->solver_options());
 
     last_kf_covariance_ = Eigen::MatrixXd::Zero(6, 6);
+    last_kf_bias_covariance_ = Eigen::MatrixXd::Zero(6, 6);
     last_optimized_kf_index_ = 0;
 
     // will become true if the user sets the handler later
@@ -86,7 +89,7 @@ SemanticSmoother::setOrigin(SemanticKeyframe::Ptr origin_frame)
         mapper_->gravity_node()->vector() = mapper_->gravity();
 
         graph_->addNode(mapper_->gravity_node());
-        graph_->setNodeConstant(mapper_->gravity_node());
+        // graph_->setNodeConstant(mapper_->gravity_node());
 
         // Add a prior on the gravity vector...
         Eigen::Vector3d g_prior = mapper_->gravity();
@@ -99,17 +102,34 @@ SemanticSmoother::setOrigin(SemanticKeyframe::Ptr origin_frame)
 
         graph_->addFactor(g_prior_fac);
 
+        // and on its norm
+        double g_norm_prior = 9.81;
+        double g_norm_prior_sigma = 0.05;
+        auto g_norm_prior_fac =
+          util::allocate_aligned<CeresVectorNormPriorFactor<3>>(
+            mapper_->gravity_node(), g_norm_prior, g_norm_prior_sigma);
+
+        graph_->addFactor(g_norm_prior_fac);
+
         // Set initial velocity & bias priors
         Eigen::Matrix<double, 6, 1> bias_prior = origin_frame->bias();
-        Eigen::Matrix<double, 6, 6> bias_cov = Eigen::MatrixXd::Zero(6, 6);
-        bias_cov.block<3, 3>(0, 0) = 2e-5 * 2e-5 * Eigen::Matrix3d::Identity();
-        bias_cov.block<3, 3>(3, 3) = 0.1 * 0.1 * Eigen::Matrix3d::Identity();
+        last_kf_bias_covariance_ = Eigen::MatrixXd::Zero(6, 6);
+        last_kf_bias_covariance_.block<3, 3>(0, 0) =
+          0.1 * 0.1 * Eigen::Matrix3d::Identity();
+        last_kf_bias_covariance_.block<3, 3>(3, 3) =
+          0.1 * 0.1 * Eigen::Matrix3d::Identity();
 
-        auto bias_prior_fac = util::allocate_aligned<CeresVectorPriorFactor<6>>(
-          origin_frame->bias_node(), bias_prior, bias_cov);
+        auto bias_prior_fac = util::allocate_aligned<CeresImuBiasPriorFactor>(
+          origin_frame->bias_node(), bias_prior, last_kf_bias_covariance_);
         graph_->addFactor(bias_prior_fac);
 
-        graph_->setNodeConstant(origin_frame->velocity_node());
+        // graph_->setNodeConstant(origin_frame->velocity_node());
+
+        Eigen::Vector3d velocity_prior = Eigen::Vector3d::Zero();
+        Eigen::Matrix3d vel_prior_cov = Eigen::Matrix3d::Identity();
+        auto vel_prior_fac = util::allocate_aligned<CeresVectorPriorFactor<3>>(
+          origin_frame->velocity_node(), velocity_prior, vel_prior_cov);
+        graph_->addFactor(vel_prior_fac);
     }
 }
 
@@ -305,12 +325,21 @@ SemanticSmoother::computeLatestCovariance()
         last_kf_covariance_ = frame->covariance();
         last_kf_covariance_time_ = frame->time();
 
+        if (params_.odometry_source == OdometrySource::INERTIAL) {
+            last_kf_bias_covariance_ = frame->bias_covariance();
+        }
+
         // propagate this covariance forward to keyframes not yet in the
         // graph...
         std::lock_guard<std::mutex> map_lock(mapper_->map_mutex());
         for (size_t i = frame->index() + 1; i < mapper_->keyframes().size();
              ++i) {
             mapper_->keyframes()[i]->covariance() = frame->covariance();
+
+            if (params_.odometry_source == OdometrySource::INERTIAL) {
+                mapper_->keyframes()[i]->bias_covariance() =
+                  frame->bias_covariance();
+            }
         }
     }
 
@@ -364,9 +393,11 @@ SemanticSmoother::computeCovariancesWithGtsam(
 
         for (auto& frame : frames) {
             auto cov = marginals.marginalCovariance(frame->key());
+            auto bias_cov = marginals.marginalCovariance(frame->bias_key());
 
             std::lock_guard<std::mutex> map_lock(mapper_->map_mutex());
             frame->covariance() = cov;
+            frame->bias_covariance() = bias_cov;
         }
 
         ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
@@ -571,9 +602,21 @@ SemanticSmoother::freezeNonCovisible(
         if (unfrozen_kfs_.count(kf->index())) {
             graph_->setNodeVariable(kf->graph_node());
             essential_graph_->setNodeVariable(kf->graph_node());
+            if (params_.odometry_source == OdometrySource::INERTIAL) {
+                graph_->setNodeVariable(kf->velocity_node());
+                graph_->setNodeVariable(kf->bias_node());
+                essential_graph_->setNodeVariable(kf->velocity_node());
+                essential_graph_->setNodeVariable(kf->bias_node());
+            }
         } else {
             graph_->setNodeConstant(kf->graph_node());
             essential_graph_->setNodeConstant(kf->graph_node());
+            if (params_.odometry_source == OdometrySource::INERTIAL) {
+                graph_->setNodeConstant(kf->velocity_node());
+                graph_->setNodeConstant(kf->bias_node());
+                essential_graph_->setNodeConstant(kf->velocity_node());
+                essential_graph_->setNodeConstant(kf->bias_node());
+            }
         }
     }
 

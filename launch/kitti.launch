@@ -118,7 +118,7 @@
         <param name="target_framerate"              value="10" />
     </node> -->
 
-    <node pkg="semantic_slam" type="kitti_data_node" name="kitti_data_node" output="screen" required="true">
+    <node pkg="semantic_slam" type="kitti_data_node" name="kitti_data_node" output="screen">
         <param name="data_dir" value="/mnt/MyBook/ubuntu_home/data/dataset/sequences/05" />
         <param name="delay" value="5" />
         <param name="rate" value="1" />

@@ -30,6 +30,8 @@ InertialCostTerm::preintegrate(const Eigen::VectorXd& bias0) const
     // std::cout << "PREINTEGRATION done\n";
     // std::cout << "preint x = " << preint_x_.transpose() << "\npreint P = \n"
     //           << preint_P_ << std::endl;
+
+    gtsam_preintegrator_ = integrator_->createGtsamIntegrator(t0_, t1_, bias0);
 }
 
 bool
@@ -64,8 +66,9 @@ InertialCostTerm::Evaluate(double const* const* parameters,
     // preint_Jbias_ = preint_xJP[1];
     // preint_P_ = preint_xJP[2];
 
-    Eigen::VectorXd preint_effective =
-      preint_x_ + preint_Jbias_ * (bias0 - bias_at_integration_);
+    Eigen::VectorXd delta_bias = bias0 - bias_at_integration_;
+
+    Eigen::VectorXd preint_effective = preint_x_ + preint_Jbias_ * delta_bias;
 
     Eigen::Quaterniond preint_q(preint_effective.head<4>());
     preint_q.normalize();
@@ -185,7 +188,7 @@ InertialCostTerm::Evaluate(double const* const* parameters,
                      preint_Jbias_.block<4, 6>(0, 0))
                       .topRows<3>();
 
-            // d(dv) and d(dp) are just -Jbias
+            // d(dv) and d(dp) are -Jbias
             J.block<6, 6>(3, 0) = -preint_Jbias_.block<6, 6>(4, 0);
 
             // d(bias0) is just -identity of course

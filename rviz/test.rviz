@@ -15,7 +15,7 @@ Panels:
         - /Odometry1
         - /Odometry1/Status1
       Splitter Ratio: 0.5
-    Tree Height: 850
+    Tree Height: 265
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -34,7 +34,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Image
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -107,7 +107,7 @@ Visualization Manager:
       Marker Topic: /trajectory
       Name: Marker
       Namespaces:
-        optimized_trajectory: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -115,7 +115,7 @@ Visualization Manager:
       Marker Topic: /keypoint_objects/object_markers
       Name: MarkerArray
       Namespaces:
-        objects: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Image
@@ -135,7 +135,7 @@ Visualization Manager:
       Marker Topic: /map_points
       Name: Marker
       Namespaces:
-        geometric_features: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Image
@@ -155,7 +155,7 @@ Visualization Manager:
       Marker Topic: /keypoint_objects/object_keypoint_markers
       Name: MarkerArray
       Namespaces:
-        object_keypoints: true
+        {}
       Queue Size: 100
       Value: true
     - Angle Tolerance: 0

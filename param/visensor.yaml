@@ -27,7 +27,7 @@ a_bias_sigma: [0.000923381686381264, 0.000982969307028553, 0.00096303657615688]
 w_bias_sigma: [6.37726050659781e-05, 5.84915680538512e-05, 6.1986577214854e-05]
 
 w_bias_init: [0.00376851608349017, 0.00621575543432985, 0.0163947597746038]
-# a_bias_init: [-0.01, 0.0025, 0.04]
+# a_bias_init: [-0.109362,    0.02555,   0.105537]
 a_bias_init: [0, 0, 0]
 
 ## Optimization parameters
@@ -35,7 +35,7 @@ a_bias_init: [0, 0, 0]
 covariance_delay: 0.1
 max_optimization_time: 0.5
 loop_closure_threshold: 50 # in number of keyframes
-smoothing_length: 1000
+smoothing_length: 100
 
 verbose_optimization: true
 use_manual_elimination_ordering: false
@@ -43,7 +43,7 @@ use_manual_elimination_ordering: false
 
 ## Feature_tracker parameters
 ransac_iterations: 50       # number of iterations in essential matrix estimating ransac loop
-feature_spacing: 5         # minimum pixel distance between extracted features. i.e. an upper bound of sorts on feature density
+feature_spacing: 10         # minimum pixel distance between extracted features. i.e. an upper bound of sorts on feature density
 max_features_per_im: 500    # maximum number of features to keep per image
 sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = more permissive
 tracking_framerate: 10     # drops images so tracking is performed at this framerate
@@ -54,26 +54,26 @@ odometry_type: "inertial"
 
 ### Geometric feature parameters
 include_geometric_features: true
-reprojection_error_threshold: 80
+reprojection_error_threshold: 10
 use_smart_projection_factors: true
 
 ### Semantic measurement parameters
-keypoint_msmt_sigma: 4                 # keypoint measurement sigma (pixels)
+keypoint_msmt_sigma: 2                 # keypoint measurement sigma (pixels)
 keypoint_initialization_depth_sigma: 2  # meters
 
 min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph
 min_landmark_observations: 3           # minimum number of observations needed for a keypoint before estimating depth and including in optimization
 min_observed_keypoints_to_initialize: 4
 
-keyframe_translation_threshold: 0.25
-keyframe_translation_without_measurement_threshold: 0.25
-keyframe_rotation_threshold: 10 # degrees
-keyframe_rotation_without_measurement_threshold: 10
+keyframe_translation_threshold: 0.1
+keyframe_translation_without_measurement_threshold: 0.1
+keyframe_rotation_threshold: 5 # degrees
+keyframe_rotation_without_measurement_threshold: 5
 
 ### Semantic object optimization parameters
 structure_regularization_factor: 5     # lambda in structure optimization term lambda * ||c||^2
 robust_estimator_parameter: 1.5
-include_objects_in_graph: true
+include_objects_in_graph: false
 
 # Error in the structure factor due to misalignment is defined as 
 # || L - R*S - t ||_W

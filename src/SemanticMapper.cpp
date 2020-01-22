@@ -164,12 +164,13 @@ SemanticMapper::processMessagesUpdateObjectsThread()
             for (auto& p : presenters_)
                 p->present(keyframes_, estimated_objects_);
 
-            std::cout << "Bias 0 = " << keyframes_[0]->bias().transpose()
-                      << std::endl;
-            // std::cout << "Gravity = " << gravity_.transpose() << std::endl;
-            std::cout << "q0 = "
-                      << keyframes_[0]->pose().rotation().coeffs().transpose()
-                      << std::endl;
+            // std::cout << "Latest bias = "
+            //           << keyframes_.back()->bias().transpose() << std::endl;
+            // // std::cout << "Gravity = " << gravity_.transpose() <<
+            // std::endl; std::cout << "q0 = "
+            //           <<
+            //           keyframes_[0]->pose().rotation().coeffs().transpose()
+            //           << std::endl;
         } else {
             ros::Duration(0.001).sleep();
         }
@@ -548,6 +549,10 @@ SemanticMapper::tryFetchNextKeyframe()
                     // have the processing bandwidth.
                     next_keyframe->covariance() =
                       smoother_->mostRecentKeyframeCovariance();
+                    if (params_.odometry_source == OdometrySource::INERTIAL) {
+                        next_keyframe->bias_covariance() =
+                          smoother_->mostRecentKeyframeBiasCovariance();
+                    }
                     keyframes_.push_back(next_keyframe);
                     break;
                 } else {
@@ -814,6 +819,10 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
 
     // TODO fix this bad approximation
     frame->covariance() = smoother_->mostRecentKeyframeCovariance();
+
+    if (params_.odometry_source == OdometrySource::INERTIAL)
+        frame->bias_covariance() =
+          smoother_->mostRecentKeyframeBiasCovariance();
 
     removeMeasurementsFromObjects(frame);
 

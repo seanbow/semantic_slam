@@ -15,6 +15,7 @@ class FactorGraph;
 class EstimatedObject;
 class CeresFactor;
 class SE3Node;
+class ImuBiasNode;
 
 template<int Dim>
 class VectorNode;
@@ -28,6 +29,7 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
     SemanticKeyframe(Key key, ros::Time time, bool include_inertial = false);
 
     Key key() const { return key_; }
+    Key bias_key() const { return Symbol('b', index()); }
     int index() const { return Symbol(key_).index(); }
     unsigned char chr() const { return Symbol(key_).chr(); }
 
@@ -126,8 +128,8 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
         return velocity_node_;
     }
 
-    boost::shared_ptr<VectorNode<6>>& bias_node() { return bias_node_; }
-    const boost::shared_ptr<VectorNode<6>>& bias_node() const
+    boost::shared_ptr<ImuBiasNode>& bias_node() { return bias_node_; }
+    const boost::shared_ptr<ImuBiasNode>& bias_node() const
     {
         return bias_node_;
     }
@@ -137,6 +139,12 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
 
     Eigen::Matrix<double, 6, 1>& bias() { return bias_; }
     const Eigen::Matrix<double, 6, 1>& bias() const { return bias_; }
+
+    Eigen::Matrix<double, 6, 6>& bias_covariance() { return bias_covariance_; }
+    const Eigen::Matrix<double, 6, 6>& bias_covariance() const
+    {
+        return bias_covariance_;
+    }
 
   private:
     Key key_;
@@ -185,9 +193,10 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
     // Only used/valid if odometry source is inertial
     Eigen::Vector3d velocity_;
     Eigen::Matrix<double, 6, 1> bias_;
+    Eigen::Matrix<double, 6, 6> bias_covariance_;
 
     boost::shared_ptr<VectorNode<3>> velocity_node_;
-    boost::shared_ptr<VectorNode<6>> bias_node_;
+    boost::shared_ptr<ImuBiasNode> bias_node_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

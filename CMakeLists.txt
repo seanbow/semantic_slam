@@ -116,6 +116,7 @@ add_library(SemanticMapper SHARED
   src/SmartProjectionFactor.cpp
   src/keypoints/gtsam/StructureFactor.cpp
   src/FactorGraph.cpp
+  src/ImuBiasNode.cpp
 
   src/keypoints/EstimatedKeypoint.cpp
   src/keypoints/geometry.cpp

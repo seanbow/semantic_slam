@@ -2,6 +2,7 @@
 
 #include "semantic_slam/CeresImuFactor.h"
 #include "semantic_slam/CeresSE3PriorFactor.h"
+#include "semantic_slam/ImuBiasNode.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/SemanticMapper.h"
@@ -122,8 +123,11 @@ InertialOdometryHandler::createKeyframe(ros::Time time)
 
     if (keyframes_.empty()) {
         // This is the first keyframe -- create the origin frame
-        SemanticKeyframe::Ptr frame = originKeyframe();
-        return frame;
+        throw std::logic_error(
+          "createKeyframe should only be called AFTER initializing an origin "
+          "frame with originKeyframe!");
+        // SemanticKeyframe::Ptr frame = originKeyframe();
+        // return frame;
     }
 
     auto last_kf = keyframes_.back();
@@ -195,6 +199,11 @@ InertialOdometryHandler::updateKeyframeAfterOptimization(
                                      optimized_keyframe->bias(),
                                      mapper_->gravity());
 
+    // std::cout
+    //   << "Delta velocity = "
+    //   << (qvp.segment<3>(4) - keyframe_to_update->velocity()).transpose()
+    //   << std::endl;
+
     keyframe_to_update->pose() =
       Pose3(Eigen::Quaterniond(xhat.head<4>()), xhat.tail<3>());
     keyframe_to_update->velocity() = xhat.segment<3>(4);
@@ -208,7 +217,10 @@ InertialOdometryHandler::originKeyframe()
         ros::Duration(0.002).sleep();
     }
 
-    while (integrator_->earliestTime() + .5 > integrator_->latestTime()) {
+    double averaging_time = 0.25;
+
+    while (integrator_->earliestTime() + averaging_time >
+           integrator_->latestTime()) {
         ros::Duration(0.002).sleep();
     }
 
@@ -220,14 +232,23 @@ InertialOdometryHandler::originKeyframe()
     // Estimate the initial orientation based on the first received
     // accelerometer measurement and gravity
     Eigen::Vector3d a = integrator_->a_msmt(integrator_->earliestTime());
-    Eigen::Vector3d avg = integrator_->averageAcceleration(
-      integrator_->earliestTime(), integrator_->earliestTime() + 0.5);
+    Eigen::Vector3d avg_a = integrator_->averageAcceleration(
+      integrator_->earliestTime(),
+      integrator_->earliestTime() + averaging_time);
+    Eigen::Vector3d avg_w =
+      integrator_->averageOmega(integrator_->earliestTime(),
+                                integrator_->earliestTime() + averaging_time);
 
     Eigen::Quaterniond q;
-    q.setFromTwoVectors(-avg, mapper_->gravity());
+    q.setFromTwoVectors(-avg_a, mapper_->gravity());
+
+    // Guess the initial biases as well assuming zero motion
+    Eigen::Vector3d local_gravity = q.conjugate() * mapper_->gravity();
+    kf->bias().head<3>() = avg_w;
+    kf->bias().tail<3>() = avg_a + local_gravity;
 
     std::cout << "First accel = " << a.transpose() << std::endl;
-    std::cout << "Average accel = " << avg.transpose() << std::endl;
+    std::cout << "Average accel = " << avg_a.transpose() << std::endl;
     std::cout << "Gravity = " << mapper_->gravity().transpose() << std::endl;
     std::cout << "Initial orientation = " << q.coeffs().transpose()
               << std::endl;
@@ -236,8 +257,8 @@ InertialOdometryHandler::originKeyframe()
     kf->pose() = Pose3(q, Eigen::Vector3d::Zero());
     kf->velocity() = Eigen::Vector3d::Zero();
 
-    kf->bias().head<3>() = Eigen::Vector3d(w_bias_init_.data());
-    kf->bias().tail<3>() = Eigen::Vector3d(a_bias_init_.data());
+    // kf->bias().head<3>() = Eigen::Vector3d(w_bias_init_.data());
+    // kf->bias().tail<3>() = Eigen::Vector3d(a_bias_init_.data());
 
     kf->graph_node()->pose() = Pose3::Identity();
     kf->velocity_node()->vector() = kf->velocity();

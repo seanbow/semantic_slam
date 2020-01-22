@@ -91,41 +91,58 @@ CeresImuFactor::addToGtsamGraph(
 {
     // For covariance purposes we will just include a between factor for now...
     auto cost_term = static_cast<InertialCostTerm*>(cf_);
+    auto gtsam_integrator = cost_term->gtsam_integrator();
 
-    // The preintegrated rotation is equal to the delta rotation. Position needs
-    // an offset based on gravity & rotation estimate
-    //
-    // p_pre = x0_q_map * (p1 - p0 - v*dt - 0.5*g*dt^2)
-    // --> dp = x0_q_map*(p1 - p0) = p_pre + x0_q_map*(v*dt + 0.5*g*dt^2)
-    Eigen::Quaterniond x0_q_x1(cost_term->preint_x().head<4>());
-    Eigen::Vector3d map_v_x0 = cost_term->preint_x().segment<3>(4);
-    Eigen::Vector3d preint_p = cost_term->preint_x().tail<3>();
-
-    double dt = pose_node(1)->time()->toSec() - pose_node(0)->time()->toSec();
-
-    Eigen::Quaterniond x0_q_map = pose_node(0)->pose().rotation().conjugate();
-
-    Eigen::Vector3d x0_p_x1 =
-      preint_p +
-      x0_q_map * (dt * map_v_x0 + 0.5 * dt * dt * gravity_node()->vector());
-
-    Pose3 between(x0_q_x1, x0_p_x1);
-
-    // For the covariance, we'll assume for now that the "between" covariance is
-    // equal to the preintegration covariance (not true but whatever)
-    Eigen::MatrixXd P_between(6, 6);
-    P_between.block<3, 3>(0, 0) = cost_term->preint_P().block<3, 3>(0, 0);
-    P_between.block<3, 3>(3, 3) = cost_term->preint_P().block<3, 3>(6, 6);
-    P_between.block<3, 3>(0, 3) = cost_term->preint_P().block<3, 3>(0, 6);
-    P_between.block<3, 3>(3, 0) = cost_term->preint_P().block<3, 3>(6, 0);
-
-    auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(P_between);
-
-    gtsam_factor_ = util::allocate_aligned<gtsam::BetweenFactor<gtsam::Pose3>>(
+    auto gtsam_factor = util::allocate_aligned<gtsam::CombinedImuFactor>(
       pose_node(0)->key(),
+      Symbol('v', pose_node(0)->index()),
       pose_node(1)->key(),
-      gtsam::Pose3(between),
-      gtsam_noise);
+      Symbol('v', pose_node(1)->index()),
+      Symbol('b', pose_node(0)->index()),
+      Symbol('b', pose_node(1)->index()),
+      *gtsam_integrator);
 
-    graph->push_back(gtsam_factor_);
+    graph->push_back(gtsam_factor);
+
+    // // The preintegrated rotation is equal to the delta rotation. Position
+    // needs
+    // // an offset based on gravity & rotation estimate
+    // //
+    // // p_pre = x0_q_map * (p1 - p0 - v*dt - 0.5*g*dt^2)
+    // // --> dp = x0_q_map*(p1 - p0) = p_pre + x0_q_map*(v*dt + 0.5*g*dt^2)
+    // Eigen::Quaterniond x0_q_x1(cost_term->preint_x().head<4>());
+    // Eigen::Vector3d map_v_x0 = cost_term->preint_x().segment<3>(4);
+    // Eigen::Vector3d preint_p = cost_term->preint_x().tail<3>();
+
+    // double dt = pose_node(1)->time()->toSec() -
+    // pose_node(0)->time()->toSec();
+
+    // Eigen::Quaterniond x0_q_map =
+    // pose_node(0)->pose().rotation().conjugate();
+
+    // Eigen::Vector3d x0_p_x1 =
+    //   preint_p +
+    //   x0_q_map * (dt * map_v_x0 + 0.5 * dt * dt * gravity_node()->vector());
+
+    // Pose3 between(x0_q_x1, x0_p_x1);
+
+    // // For the covariance, we'll assume for now that the "between" covariance
+    // is
+    // // equal to the preintegration covariance (not true but whatever)
+    // Eigen::MatrixXd P_between(6, 6);
+    // P_between.block<3, 3>(0, 0) = cost_term->preint_P().block<3, 3>(0, 0);
+    // P_between.block<3, 3>(3, 3) = cost_term->preint_P().block<3, 3>(6, 6);
+    // P_between.block<3, 3>(0, 3) = cost_term->preint_P().block<3, 3>(0, 6);
+    // P_between.block<3, 3>(3, 0) = cost_term->preint_P().block<3, 3>(6, 0);
+
+    // auto gtsam_noise = gtsam::noiseModel::Gaussian::Covariance(P_between);
+
+    // gtsam_factor_ =
+    // util::allocate_aligned<gtsam::BetweenFactor<gtsam::Pose3>>(
+    //   pose_node(0)->key(),
+    //   pose_node(1)->key(),
+    //   gtsam::Pose3(between),
+    //   gtsam_noise);
+
+    // graph->push_back(gtsam_factor_);
 }

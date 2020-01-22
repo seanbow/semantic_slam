@@ -265,7 +265,7 @@ GeometricFeatureHandler::processPendingFrames()
 
                 factor->addMeasurement(frame->graph_node(), msmt, msmt_noise);
 
-                if (factor->nMeasurements() >= 3 && !factor->inGraph()) {
+                if (factor->nMeasurements() >= 2 && !factor->inGraph()) {
                     graph_->addFactor(factor);
                 }
 
@@ -299,13 +299,14 @@ GeometricFeatureHandler::processPendingFrames()
 
                 factor->addMeasurement(frame->graph_node(), msmt, msmt_noise);
 
-                if (factor->nMeasurements() >= 5 && !factor->inGraph()) {
+                if (factor->nMeasurements() >= 2 && !factor->inGraph()) {
                     graph_->addNode(landmark_node);
                     graph_->addFactor(factor);
                 }
 
                 feature->point = landmark_node->vector();
                 feature->active = factor->active();
+                feature->triangulation_good = factor->triangulation_good();
             }
         }
 

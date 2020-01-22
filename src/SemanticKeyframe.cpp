@@ -2,6 +2,7 @@
 
 #include "semantic_slam/CeresFactor.h"
 #include "semantic_slam/FactorGraph.h"
+#include "semantic_slam/ImuBiasNode.h"
 #include "semantic_slam/SE3Node.h"
 #include "semantic_slam/VectorNode.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
@@ -30,7 +31,7 @@ SemanticKeyframe::SemanticKeyframe(Key key,
         velocity_node_ =
           util::allocate_aligned<VectorNode<3>>(Symbol('v', index), time);
         bias_node_ =
-          util::allocate_aligned<VectorNode<6>>(Symbol('b', index), time);
+          util::allocate_aligned<ImuBiasNode>(Symbol('b', index), time);
     }
 }
 

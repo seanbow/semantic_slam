@@ -23,6 +23,12 @@ class InertialCostTerm
     const Eigen::VectorXd& preint_x() const { return preint_x_; }
     const Eigen::MatrixXd& preint_P() const { return preint_P_; }
 
+    boost::shared_ptr<gtsam::PreintegratedCombinedMeasurements>
+    gtsam_integrator()
+    {
+        return gtsam_preintegrator_;
+    }
+
     // template<typename T>
     // bool operator()(const T* const map_x_body0_ptr,
     //                 const T* const map_v_body0_ptr,
@@ -49,6 +55,9 @@ class InertialCostTerm
     mutable Eigen::VectorXd bias_at_integration_;
 
     mutable bool have_preintegrated_;
+
+    mutable boost::shared_ptr<gtsam::PreintegratedCombinedMeasurements>
+      gtsam_preintegrator_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

@@ -71,6 +71,8 @@ class MultiProjectionFactor
 
     void triangulate(const aligned_vector<Pose3>& body_poses) const;
 
+    bool triangulation_good() const { return triangulation_good_; }
+
     void createGtsamFactors() const;
 
     void addToGtsamGraph(

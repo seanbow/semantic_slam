@@ -32,7 +32,7 @@ class VectorNode : public CeresNode
 
     boost::shared_ptr<CeresNode> clone() const;
 
-    boost::shared_ptr<gtsam::Value> getGtsamValue() const;
+    virtual boost::shared_ptr<gtsam::Value> getGtsamValue() const;
 
     using Ptr = boost::shared_ptr<This>;
 

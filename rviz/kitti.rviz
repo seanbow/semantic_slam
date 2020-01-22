@@ -12,7 +12,6 @@ Panels:
         - /MarkerArray2
         - /Marker3
         - /Odometry1
-        - /Odometry1/Status1
       Splitter Ratio: 0.5
     Tree Height: 307
   - Class: rviz/Selection
@@ -183,7 +182,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: true
+      Enabled: false
       Keep: 100
       Name: Odometry
       Position Tolerance: 0.10000000149011612
@@ -199,7 +198,7 @@ Visualization Manager:
         Value: Arrow
       Topic: /viso_pose/relative_pose
       Unreliable: false
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48

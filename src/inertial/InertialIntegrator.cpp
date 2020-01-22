@@ -3,7 +3,8 @@
 #include <algorithm>
 
 InertialIntegrator::InertialIntegrator()
-  : Q_(Eigen::MatrixXd::Zero(6, 6))
+  : bias_covariance_(Eigen::MatrixXd::Zero(6, 6))
+  , Q_(Eigen::MatrixXd::Zero(6, 6))
   , Q_random_walk_(Eigen::MatrixXd::Zero(6, 6))
 {}
 
@@ -39,6 +40,12 @@ InertialIntegrator::setBiasRandomWalkNoise(
       accel_sigma[1], accel_sigma[2];
 
     Q_random_walk_ = covs.array().pow(2).matrix().asDiagonal();
+}
+
+void
+InertialIntegrator::setInitialBiasCovariance(const Eigen::MatrixXd& covariance)
+{
+    bias_covariance_ = covariance;
 }
 
 Eigen::Vector3d
@@ -524,5 +531,80 @@ InertialIntegrator::preintegrateInertialWithJacobianAndCovariance(
         xJP[0].topRows<4>() *= -1;
     }
 
+    // The initial bias covariance doesn't affect the integration of the
+    // covariance but it does effect the final value through the bias jacobian.
+    // Unfortunately Jbias0 is w.r.t. the ambient quaternion space and P is
+    // w.r.t. the tangent space so we need another mapping here
+    Eigen::MatrixXd amb_to_tangent = Eigen::MatrixXd::Zero(9, 10);
+    amb_to_tangent.topLeftCorner<3, 3>() = 2.0 * Eigen::Matrix3d::Identity();
+    amb_to_tangent.bottomRightCorner<6, 6>() = Eigen::MatrixXd::Identity(6, 6);
+
+    xJP[2] += (amb_to_tangent * Jbias0) * bias_covariance_ *
+              (amb_to_tangent * Jbias0).transpose();
+
     return xJP;
+}
+
+boost::shared_ptr<gtsam::PreintegratedCombinedMeasurements::Params>
+InertialIntegrator::createGtsamParams()
+{
+    auto params =
+      gtsam::PreintegratedCombinedMeasurements::Params::MakeSharedD(0.0);
+
+    params->accelerometerCovariance = Q_.bottomRightCorner<3, 3>();
+    params->gyroscopeCovariance = Q_.topLeftCorner<3, 3>();
+    params->biasOmegaCovariance = Q_random_walk_.topLeftCorner<3, 3>();
+    params->biasAccCovariance = Q_random_walk_.bottomRightCorner<3, 3>();
+
+    params->integrationCovariance = 1e-8 * Eigen::MatrixXd::Identity(3, 3);
+
+    params->biasAccOmegaInt = Eigen::MatrixXd::Zero(6, 6);
+    params->biasAccOmegaInt.topLeftCorner<3, 3>() =
+      bias_covariance_.bottomRightCorner<3, 3>();
+    params->biasAccOmegaInt.bottomRightCorner<3, 3>() =
+      bias_covariance_.topLeftCorner<3, 3>();
+    params->biasAccOmegaInt.bottomLeftCorner<3, 3>() =
+      bias_covariance_.topRightCorner<3, 3>();
+    params->biasAccOmegaInt.topRightCorner<3, 3>() =
+      bias_covariance_.bottomLeftCorner<3, 3>();
+
+    return params;
+}
+
+boost::shared_ptr<gtsam::PreintegratedCombinedMeasurements>
+InertialIntegrator::createGtsamIntegrator(double t0,
+                                          double t1,
+                                          const Eigen::VectorXd& bias0)
+{
+    auto gtsam_params = createGtsamParams();
+    // gtsam bias ordering is [a, w]; ours is [w, a]
+    gtsam::imuBias::ConstantBias gtsam_bias(bias0.tail<3>(), bias0.head<3>());
+
+    auto gtsam_preintegrator =
+      boost::make_shared<gtsam::PreintegratedCombinedMeasurements>(gtsam_params,
+                                                                   gtsam_bias);
+
+    // Iterate through the desired times and measurements and add them to the
+    // GTSAM integrator
+
+    auto start_it = std::lower_bound(imu_times_.begin(), imu_times_.end(), t0);
+    size_t idx = start_it - imu_times_.begin();
+    double t = *start_it;
+
+    while (idx < imu_times_.size() - 1 && t < t1) {
+        t = imu_times_[idx];
+        double next_t = imu_times_[idx + 1];
+        double dt = next_t - t;
+
+        gtsam_preintegrator->integrateMeasurement(
+          accels_[idx], omegas_[idx], dt);
+
+        idx++;
+    }
+
+    if (t < t1) {
+        throw std::runtime_error("Not enough data to perform preintegration!");
+    }
+
+    return gtsam_preintegrator;
 }

@@ -8,6 +8,7 @@
 #include <Eigen/Core>
 #include <ceres/jet.h>
 #include <functional>
+#include <gtsam/navigation/CombinedImuFactor.h>
 #include <iostream>
 #include <type_traits>
 #include <vector>
@@ -21,6 +22,8 @@ class InertialIntegrator
                                      const std::vector<double>& accel_sigma);
     void setBiasRandomWalkNoise(const std::vector<double>& gyro_sigma,
                                 const std::vector<double>& accel_sigma);
+
+    void setInitialBiasCovariance(const Eigen::MatrixXd& covariance);
 
     Eigen::MatrixXd randomWalkCovariance() const { return Q_random_walk_; }
 
@@ -47,6 +50,11 @@ class InertialIntegrator
     Eigen::Vector3d averageAcceleration(double t1, double t2)
     {
         return averageMeasurement(t1, t2, accels_);
+    }
+
+    Eigen::Vector3d averageOmega(double t1, double t2)
+    {
+        return averageMeasurement(t1, t2, omegas_);
     }
 
     Eigen::Vector3d averageMeasurement(
@@ -147,9 +155,17 @@ class InertialIntegrator
       const std::vector<double>& times,
       const aligned_vector<Eigen::Vector3d>& data);
 
+    boost::shared_ptr<gtsam::PreintegratedCombinedMeasurements::Params>
+    createGtsamParams();
+
+    boost::shared_ptr<gtsam::PreintegratedCombinedMeasurements>
+    createGtsamIntegrator(double t0, double t1, const Eigen::VectorXd& bias0);
+
     std::vector<double> imu_times_;
     aligned_vector<Eigen::Vector3d> omegas_;
     aligned_vector<Eigen::Vector3d> accels_;
+
+    Eigen::MatrixXd bias_covariance_;
 
     Eigen::MatrixXd Q_;
     Eigen::MatrixXd Q_random_walk_;
