@@ -13,7 +13,7 @@ PosePresenter::setup()
       nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("pose", 10);
     
     pub_odom_ =
-      nh_.advertise<nav_msgs::Odometry>("semslam/robot_odom", 10);
+      nh_.advertise<nav_msgs::Odometry>("semslam/robot_odom", 10, true);
 }
 
 void

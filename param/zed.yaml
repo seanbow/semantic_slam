@@ -33,7 +33,7 @@ use_manual_elimination_ordering: false
 ## Feature_tracker parameters
 ransac_iterations: 25      # number of iterations in essential matrix estimating ransac loop
 feature_spacing: 5         # minimum pixel distance between extracted features. i.e. an upper bound of sorts on feature density
-max_features_per_im: 500    # maximum number of features to keep per image
+max_features_per_im: 50    # maximum number of features to keep per image
 sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = more permissive
 tracking_framerate: 3     # drops images so tracking is performed at this framerate
 
