@@ -7,6 +7,7 @@
 #include "semantic_slam/SemanticMapper.h"
 #include "semantic_slam/SmartProjectionFactor.h"
 #include "semantic_slam/VectorNode.h"
+#include <cv_bridge/cv_bridge.h>
 
 void
 GeometricFeatureHandler::setup()
@@ -265,7 +266,7 @@ GeometricFeatureHandler::processPendingFrames()
 
                 factor->addMeasurement(frame->graph_node(), msmt, msmt_noise);
 
-                if (factor->nMeasurements() >= 3 && !factor->inGraph()) {
+                if (factor->nMeasurements() >= 2 && !factor->inGraph()) {
                     graph_->addFactor(factor);
                 }
 
@@ -299,13 +300,14 @@ GeometricFeatureHandler::processPendingFrames()
 
                 factor->addMeasurement(frame->graph_node(), msmt, msmt_noise);
 
-                if (factor->nMeasurements() >= 5 && !factor->inGraph()) {
+                if (factor->nMeasurements() >= 2 && !factor->inGraph()) {
                     graph_->addNode(landmark_node);
                     graph_->addFactor(factor);
                 }
 
                 feature->point = landmark_node->vector();
                 feature->active = factor->active();
+                feature->triangulation_good = factor->triangulation_good();
             }
         }
 
@@ -398,7 +400,17 @@ GeometricFeatureHandler::imageCallback(const sensor_msgs::ImageConstPtr& msg)
     last_img_seq_ = msg->header.seq;
 
     FeatureTracker::Frame new_frame;
-    new_frame.image = msg;
+    new_frame.stamp = msg->header.stamp;
+    new_frame.seq = msg->header.seq;
+    
+    try {
+        auto cv_image = cv_bridge::toCvShare(msg, "bgr8");
+        cv::cvtColor(cv_image->image, new_frame.image, CV_BGR2GRAY);
+    } catch (cv_bridge::Exception& e) {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
+    }
+
     tracker_->addImage(std::move(new_frame));
 }
 

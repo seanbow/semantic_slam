@@ -17,13 +17,15 @@ class ExternalOdometryHandler : public OdometryHandler
 
     void msgCallback(const nav_msgs::Odometry::ConstPtr& msg);
 
-    boost::shared_ptr<SemanticKeyframe> originKeyframe(ros::Time time);
+    boost::shared_ptr<SemanticKeyframe> originKeyframe();
 
     boost::shared_ptr<SemanticKeyframe> createKeyframe(ros::Time time);
 
-    boost::shared_ptr<SemanticKeyframe> findNearestKeyframe(ros::Time time);
+    bool getRelativePoseEstimateTo(ros::Time t, Pose3& T12);
 
-    bool getRelativePoseEstimate(ros::Time t1, ros::Time t2, Pose3& T12);
+    void updateKeyframeAfterOptimization(
+      boost::shared_ptr<SemanticKeyframe> keyframe_to_update,
+      boost::shared_ptr<SemanticKeyframe> optimized_keyframe);
 
     // bool getRelativePoseJacobianEstimate(ros::Time t1, ros::Time t2,
     // Eigen::MatrixXd& J);

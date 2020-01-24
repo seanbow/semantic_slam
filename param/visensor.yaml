@@ -1,0 +1,117 @@
+## Calibration information
+
+# Intrinsics
+cam_model: Pinhole
+cam_height: 480
+cam_width: 752
+cam_fx: 460.4955903050918
+cam_fy: 461.5641169934272
+cam_cx: 368.4532400711323
+cam_cy: 240.4954080559481
+cam_d0: -0.284391896829766
+cam_d1: 0.07869873609282231
+cam_d2: 0.0007724844074325825
+cam_d3: 0.0002170099760282007
+
+### Extrinsics between robot body/IMU (frame "I") and camera ("C")
+I_p_C: [0.037167378311932,  -0.009235341501944,   0.003329588943888]
+I_q_C: [0.001406950720680,  -0.001770426965610,  -0.002821517243880,   0.999993462537867]
+
+# IMU intrinsics
+
+# measurement noise & bias random walk sigmas
+# see SCRIPT_bias.m
+a_sigma: [0.00175704896911368, 0.00182923617553506, 0.00170870447710514]
+w_sigma: [0.000188934246245825, 0.000195153415763111, 0.000179337434449913]
+a_bias_sigma: [0.000923381686381264, 0.000982969307028553, 0.00096303657615688]
+w_bias_sigma: [6.37726050659781e-05, 5.84915680538512e-05, 6.1986577214854e-05]
+
+w_bias_init: [0.00376851608349017, 0.00621575543432985, 0.0163947597746038]
+# a_bias_init: [-0.109362,    0.02555,   0.105537]
+a_bias_init: [0, 0, 0]
+
+## Optimization parameters
+# covariance_delay: 5.0
+covariance_delay: 0.1
+max_optimization_time: 0.5
+loop_closure_threshold: 50 # in number of keyframes
+smoothing_length: 100
+
+verbose_optimization: true
+use_manual_elimination_ordering: false
+
+
+## Feature_tracker parameters
+ransac_iterations: 50       # number of iterations in essential matrix estimating ransac loop
+feature_spacing: 10         # minimum pixel distance between extracted features. i.e. an upper bound of sorts on feature density
+max_features_per_im: 500    # maximum number of features to keep per image
+sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = more permissive
+tracking_framerate: 10     # drops images so tracking is performed at this framerate
+
+## Semslam parameters
+
+odometry_type: "inertial"
+
+### Geometric feature parameters
+include_geometric_features: true
+reprojection_error_threshold: 12
+use_smart_projection_factors: true
+
+### Semantic measurement parameters
+keypoint_msmt_sigma: 2                 # keypoint measurement sigma (pixels)
+keypoint_initialization_depth_sigma: 2  # meters
+
+min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph
+min_landmark_observations: 3           # minimum number of observations needed for a keypoint before estimating depth and including in optimization
+min_observed_keypoints_to_initialize: 4
+
+keyframe_translation_threshold: 0.1
+keyframe_translation_without_measurement_threshold: 0.1
+keyframe_rotation_threshold: 5 # degrees
+keyframe_rotation_without_measurement_threshold: 5
+
+### Semantic object optimization parameters
+structure_regularization_factor: 5     # lambda in structure optimization term lambda * ||c||^2
+robust_estimator_parameter: 1.5
+include_objects_in_graph: false
+
+# Error in the structure factor due to misalignment is defined as 
+# || L - R*S - t ||_W
+# where W = (1/structure_error_coefficient) * I
+# i.e. this is an inverse "noise" like value where higher = more penalty for 
+# deviations from the calculated object structure
+structure_error_coefficient: 100
+
+keypoint_activation_threshold: 0.2     # threshold above which to consider a keypoint observed
+
+# camera_range: 10                        # meters
+
+mahal_thresh_assign: 4                  # Mahalanobis distance below which to assign data (MLDataAssociator)
+mahal_thresh_init: 12                   # Mahalanobis distance above which to assign new mapped landmarks (MLDataAssociator)
+
+# max_new_factor_error: 300
+
+constraint_weight_threshold: 0.8        # if the weight of a constraint (i.e., an object measurement) is less than this do not incorporate the keypoint measurements corresponding to this object
+new_landmark_weight_threshold: 0.9      # if the weight of the last column in the weights matrix for a measurement is greater than this value, add a new object to the estimated_objects_ vector
+
+## Object classes
+model_names: ["car"]
+model_directory: "/home/kodlab/catkin_ws/src/object_pose_detection/semslam/semslam/models/objects/"
+
+gravity: [0, 0, -9.81]
+
+# init_p: [0, 0, 0]
+# init_p_sigma: [1.0e-7, 1.0e-7, 1.0e-7]
+
+# init_q: [0, 0, 0, 1]
+# init_q_sigma: [0.02, 0.02, 0.02]
+
+## Visualization
+geometric_point_scale: 0.1
+object_keypoint_scale: 0.1
+show_object_labels: true
+trajectory_width: 0.1
+covisibility_width: 0.01
+draw_semantic_covisibility: true
+draw_geometric_covisibility: false
+color_smoothing_window: true

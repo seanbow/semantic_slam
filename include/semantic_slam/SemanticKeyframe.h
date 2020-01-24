@@ -15,6 +15,10 @@ class FactorGraph;
 class EstimatedObject;
 class CeresFactor;
 class SE3Node;
+class ImuBiasNode;
+
+template<int Dim>
+class VectorNode;
 
 class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
 {
@@ -22,9 +26,10 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
     using This = SemanticKeyframe;
     using Ptr = boost::shared_ptr<This>;
 
-    SemanticKeyframe(Key key, ros::Time time);
+    SemanticKeyframe(Key key, ros::Time time, bool include_inertial = false);
 
     Key key() const { return key_; }
+    Key bias_key() const { return Symbol('b', index()); }
     int index() const { return Symbol(key_).index(); }
     unsigned char chr() const { return Symbol(key_).chr(); }
 
@@ -82,7 +87,7 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
 
     aligned_vector<ObjectMeasurement>& measurements() { return measurements_; }
 
-    const std::map<SemanticKeyframe::Ptr, int> neighbors() const
+    const std::map<SemanticKeyframe::Ptr, int>& neighbors() const
     {
         return neighbors_;
     }
@@ -97,7 +102,7 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
         return association_weights_;
     }
 
-    const std::map<SemanticKeyframe::Ptr, int> geometric_neighbors() const
+    const std::map<SemanticKeyframe::Ptr, int>& geometric_neighbors() const
     {
         return geometric_neighbors_;
     }
@@ -115,6 +120,31 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
     }
 
     ros::Time image_time;
+
+    // Only used/valid if odometry source is inertial
+    boost::shared_ptr<VectorNode<3>>& velocity_node() { return velocity_node_; }
+    const boost::shared_ptr<VectorNode<3>>& velocity_node() const
+    {
+        return velocity_node_;
+    }
+
+    boost::shared_ptr<ImuBiasNode>& bias_node() { return bias_node_; }
+    const boost::shared_ptr<ImuBiasNode>& bias_node() const
+    {
+        return bias_node_;
+    }
+
+    Eigen::Vector3d& velocity() { return velocity_; }
+    const Eigen::Vector3d& velocity() const { return velocity_; }
+
+    Eigen::Matrix<double, 6, 1>& bias() { return bias_; }
+    const Eigen::Matrix<double, 6, 1>& bias() const { return bias_; }
+
+    Eigen::Matrix<double, 6, 6>& bias_covariance() { return bias_covariance_; }
+    const Eigen::Matrix<double, 6, 6>& bias_covariance() const
+    {
+        return bias_covariance_;
+    }
 
   private:
     Key key_;
@@ -146,6 +176,8 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
     // true if a loop closure was detected in this keyframe
     bool loop_closing_;
 
+    bool include_inertial_;
+
     // aligned_vector<ObjectMeasurement> measurements_;
     std::vector<boost::shared_ptr<EstimatedObject>> visible_objects_;
 
@@ -157,6 +189,14 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
     std::map<SemanticKeyframe::Ptr, int> neighbors_;
 
     std::map<SemanticKeyframe::Ptr, int> geometric_neighbors_;
+
+    // Only used/valid if odometry source is inertial
+    Eigen::Vector3d velocity_;
+    Eigen::Matrix<double, 6, 1> bias_;
+    Eigen::Matrix<double, 6, 6> bias_covariance_;
+
+    boost::shared_ptr<VectorNode<3>> velocity_node_;
+    boost::shared_ptr<ImuBiasNode> bias_node_;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

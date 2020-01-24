@@ -15,7 +15,7 @@ Panels:
         - /Odometry1
         - /Odometry1/Status1
       Splitter Ratio: 0.5
-    Tree Height: 850
+    Tree Height: 265
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -235,10 +235,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7803983092308044
+      Pitch: 0.39039885997772217
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.1703991889953613
+      Yaw: 3.525399923324585
     Saved: ~
 Window Geometry:
   Displays:

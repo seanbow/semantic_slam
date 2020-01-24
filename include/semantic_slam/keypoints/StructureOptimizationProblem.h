@@ -67,7 +67,7 @@ class StructureOptimizationProblem
     boost::shared_ptr<CameraCalibration> camera_calibration_;
     Pose3 body_T_camera_;
 
-    ceres::Problem ceres_problem_;
+    boost::shared_ptr<ceres::Problem> ceres_problem_;
 
     Pose3 object_pose_;
 

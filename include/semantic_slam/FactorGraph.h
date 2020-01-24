@@ -24,6 +24,7 @@ class FactorGraph
     FactorGraph();
 
     void addNode(CeresNodePtr node);
+    void addNodes(const std::vector<CeresNodePtr>& nodes);
 
     void addFactor(CeresFactorPtr factor);
     void addFactors(std::vector<CeresFactorPtr> factors);
@@ -57,8 +58,10 @@ class FactorGraph
 
     bool setNodeConstant(Key key);
     bool setNodeConstant(CeresNodePtr node);
+    bool setNodesConstant(const std::vector<CeresNodePtr>& nodes);
     bool setNodeVariable(Key key);
     bool setNodeVariable(CeresNodePtr node);
+    bool setNodesVariable(const std::vector<CeresNodePtr>& nodes);
 
     bool isNodeConstant(CeresNodePtr node) const;
 

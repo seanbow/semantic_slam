@@ -52,6 +52,16 @@ FactorGraph::setNodeConstant(CeresNodePtr node)
 }
 
 bool
+FactorGraph::setNodesConstant(const std::vector<CeresNodePtr>& nodes)
+{
+    for (const auto& node : nodes) {
+        setNodeConstant(node);
+    }
+
+    return true;
+}
+
+bool
 FactorGraph::setNodeVariable(Key key)
 {
     const auto& node = getNode(key);
@@ -63,6 +73,15 @@ FactorGraph::setNodeVariable(CeresNodePtr node)
 {
     for (auto& block : node->parameter_blocks()) {
         problem_->SetParameterBlockVariable(block);
+    }
+    return true;
+}
+
+bool
+FactorGraph::setNodesVariable(const std::vector<CeresNodePtr>& nodes)
+{
+    for (const auto& node : nodes) {
+        setNodeVariable(node);
     }
     return true;
 }
@@ -185,6 +204,14 @@ FactorGraph::addNode(CeresNodePtr node)
     nodes_[node->key()] = node;
     node->addToProblem(problem_);
     modified_ = true;
+}
+
+void
+FactorGraph::addNodes(const std::vector<CeresNodePtr>& nodes)
+{
+    for (auto& node : nodes) {
+        addNode(node);
+    }
 }
 
 void

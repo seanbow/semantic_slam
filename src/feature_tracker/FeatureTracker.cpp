@@ -10,6 +10,7 @@
 #include <sensor_msgs/image_encodings.h>
 // #include <sensor_msgs/CameraInfo.h>
 #include <opencv/cv.h>
+#include <opencv2/imgproc/imgproc.hpp>
 // #include <opencv2/features2d.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/features2d/features2d.hpp>
@@ -82,11 +83,11 @@ FeatureTracker::addKeyframeTime(
     int last_kf_index = -1;
     int this_kf_index = -1;
     for (size_t i = 0; i < image_buffer_.size(); ++i) {
-        if (image_buffer_[i].image->header.stamp == t) {
+        if (image_buffer_[i].stamp == t) {
             this_kf_index = i;
         }
 
-        if (image_buffer_[i].image->header.stamp == last_keyframe_time_) {
+        if (image_buffer_[i].stamp == last_keyframe_time_) {
             last_kf_index = i;
         }
     }
@@ -94,7 +95,7 @@ FeatureTracker::addKeyframeTime(
     if (this_kf_index < 0) {
         ROS_ERROR_STREAM("Unable to find image for time " << t);
         // ROS_ERROR_STREAM("Last buffer time = " <<
-        // image_buffer_.back().image->header.stamp); last_keyframe_time_ = t;
+        // image_buffer_.back().stamp); last_keyframe_time_ = t;
         return false;
     }
 
@@ -102,7 +103,7 @@ FeatureTracker::addKeyframeTime(
         ROS_ERROR_STREAM("Unable to find image for time "
                          << last_keyframe_time_);
         // ROS_ERROR_STREAM("Last buffer time = " <<
-        // image_buffer_.back().image->header.stamp); last_keyframe_time_ = t;
+        // image_buffer_.back().stamp); last_keyframe_time_ = t;
         return false;
     }
 
@@ -121,8 +122,8 @@ FeatureTracker::addKeyframeTime(
         while (!next_image_far_enough) {
             // make sure we don't drop the next keyframe
             if (i + 1 < this_kf_index) {
-                ros::Time this_time = image_buffer_[i].image->header.stamp;
-                ros::Time next_time = image_buffer_[i + 1].image->header.stamp;
+                ros::Time this_time = image_buffer_[i].stamp;
+                ros::Time next_time = image_buffer_[i + 1].stamp;
 
                 if (next_time - this_time < ros::Duration(image_period_)) {
                     image_buffer_.erase(image_buffer_.begin() + i + 1);
@@ -146,8 +147,12 @@ FeatureTracker::addKeyframeTime(
     // Remove old unneeded frames
     std::lock_guard<std::mutex> lock(buffer_mutex_);
 
+    ROS_INFO_STREAM("Image buffer size = " << image_buffer_.size() << "; start index = " << this_kf_index);
+
     image_buffer_.erase(image_buffer_.begin(),
                         image_buffer_.begin() + this_kf_index);
+
+    ROS_INFO_STREAM("Image buffer size = " << image_buffer_.size());
 
     last_keyframe_time_ = t;
 
@@ -157,20 +162,9 @@ FeatureTracker::addKeyframeTime(
 void
 FeatureTracker::extractKeypointsDescriptors(Frame& frame)
 {
-    cv_bridge::CvImageConstPtr cv_image;
-    cv::Mat img;
-
     // TIME_TIC;
 
-    try {
-        cv_image = cv_bridge::toCvShare(frame.image, "bgr8");
-        cv::cvtColor(cv_image->image, img, CV_BGR2GRAY);
-    } catch (cv_bridge::Exception& e) {
-        ROS_ERROR("cv_bridge exception: %s", e.what());
-        return;
-    }
-
-    (*orb_)(img, cv::Mat(), frame.keypoints, frame.descriptors);
+    (*orb_)(frame.image, cv::Mat(), frame.keypoints, frame.descriptors);
 
     // ROS_INFO_STREAM("Extraction took " << TIME_TOC << " ms.");
 
@@ -251,7 +245,7 @@ FeatureTracker::trackFeaturesForward(size_t idx1)
             tf.pt = tf.kp.pt;
             tf.descriptor = descriptors2.row(indices2[i]);
 
-            tf.frame_id = frame2.image->header.seq; // TODO
+            tf.frame_id = frame2.seq; // TODO
 
             tf.n_images_in = frame1.feature_tracks[indices1[i]].n_images_in + 1;
             tf.pt_id = frame1.feature_tracks[indices1[i]].pt_id;
@@ -269,12 +263,13 @@ FeatureTracker::trackFeaturesForward(size_t idx1)
     // publish marked image with new tracks
 
     cv::Mat color_img;
-    try {
-        color_img = cv_bridge::toCvCopy(frame2.image, "bgr8")->image;
-    } catch (cv_bridge::Exception& e) {
-        ROS_ERROR("cv_bridge exception: %s", e.what());
-        return;
-    }
+    cv::cvtColor(frame2.image, color_img, CV_GRAY2BGR);
+    // try {
+    //     color_img = cv_bridge::toCvCopy(frame2.image, "bgr8")->image;
+    // } catch (cv_bridge::Exception& e) {
+    //     ROS_ERROR("cv_bridge exception: %s", e.what());
+    //     return;
+    // }
 
     // mark image
     // cv::Scalar pt_color = cv::Scalar(0, 255, 0); // green
@@ -298,7 +293,8 @@ FeatureTracker::trackFeaturesForward(size_t idx1)
     }
 
     cv_bridge::CvImage img_msg;
-    img_msg.header = frame2.image->header;
+    img_msg.header.seq = frame2.seq;
+    img_msg.header.stamp = frame2.stamp;
     img_msg.image = color_img;
     img_msg.encoding = sensor_msgs::image_encodings::BGR8;
 
@@ -365,7 +361,7 @@ FeatureTracker::addNewKeyframeFeatures(Frame& frame)
 
         if (good_detection[idx[i]]) {
             TrackedFeature new_feat(frame.keypoints[idx[i]].pt,
-                                    frame.image->header.seq,
+                                    frame.seq,
                                     n_features_extracted_++,
                                     frame.keypoints[idx[i]].size);
             new_feat.kp = frame.keypoints[idx[i]];

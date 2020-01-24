@@ -2,27 +2,48 @@
 
 #include "semantic_slam/CeresFactor.h"
 #include "semantic_slam/FactorGraph.h"
+#include "semantic_slam/ImuBiasNode.h"
 #include "semantic_slam/SE3Node.h"
+#include "semantic_slam/VectorNode.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
 
 #include <unordered_map>
 
-SemanticKeyframe::SemanticKeyframe(Key key, ros::Time time)
+SemanticKeyframe::SemanticKeyframe(Key key,
+                                   ros::Time time,
+                                   bool include_inertial)
   : key_(key)
   , time_(time)
   , in_graph_(false)
   , measurements_processed_(false)
   , covariance_computed_exactly_(false)
   , loop_closing_(false)
+  , include_inertial_(include_inertial)
 {
     graph_node_ = util::allocate_aligned<SE3Node>(key, time);
     pose_covariance_ = Eigen::MatrixXd::Zero(6, 6);
+
+    // Should just be passing in the index not the key, need to hack the index
+    // out here
+    auto index = Symbol(key).index();
+
+    if (include_inertial_) {
+        velocity_node_ =
+          util::allocate_aligned<VectorNode<3>>(Symbol('v', index), time);
+        bias_node_ =
+          util::allocate_aligned<ImuBiasNode>(Symbol('b', index), time);
+    }
 }
 
 void
 SemanticKeyframe::addToGraph(boost::shared_ptr<FactorGraph> graph)
 {
     graph->addNode(graph_node_);
+    if (include_inertial_) {
+        graph->addNode(velocity_node_);
+        graph->addNode(bias_node_);
+    }
+
     graph->addFactor(spine_factor_);
 
     if (graph->solver_options().linear_solver_ordering) {

@@ -2,6 +2,7 @@
 
 #include "semantic_slam/ExternalOdometryHandler.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
+#include "semantic_slam/InertialOdometryHandler.h"
 #include "semantic_slam/SemanticMapper.h"
 #include "semantic_slam/presenters/GeometricCovisibilityPresenter.h"
 #include "semantic_slam/presenters/GeometricMapPresenter.h"
@@ -13,6 +14,7 @@
 #include "semantic_slam/presenters/SemanticCovisibilityPresenter.h"
 #include "semantic_slam/presenters/TrajectoryPresenter.h"
 
+#include <signal.h>
 #include <glog/logging.h>
 
 int
@@ -20,22 +22,31 @@ main(int argc, char* argv[])
 {
     ros::init(argc, argv, "semslam");
 
+    ros::NodeHandle pnh("~");
+
+    std::string odometry_type;
+    if (!pnh.getParam("odometry_type", odometry_type)) {
+        ROS_ERROR("Unable to read odometry_type parameter!");
+        return 1;
+    }
+
+    boost::shared_ptr<OdometryHandler> odom_handler;
+
+    if (odometry_type == "external") {
+        odom_handler = util::allocate_aligned<ExternalOdometryHandler>();
+    } else if (odometry_type == "inertial") {
+        odom_handler = util::allocate_aligned<InertialOdometryHandler>();
+    } else {
+        ROS_ERROR_STREAM("Unknown odometry type: " << odometry_type);
+        return 1;
+    }
+
     auto mapper = util::allocate_aligned<SemanticMapper>();
-
-    auto odom_handler = util::allocate_aligned<ExternalOdometryHandler>();
-    mapper->setOdometryHandler(odom_handler);
-
     auto geom_handler = util::allocate_aligned<GeometricFeatureHandler>();
-    mapper->setGeometricFeatureHandler(geom_handler);
 
     // Setup and add presenters
-    // auto pose_presenter = util::allocate_aligned<PosePresenter>();
-    // auto trajectory_presenter =
-    // util::allocate_aligned<TrajectoryPresenter>(); auto object_presenter =
-    // util::allocate_aligned<ObjectMeshPresenter>(); auto geom_presenter =
-    // util::allocate_aligned<ObjectPosePresenter>(); auto object_pose_presenter =
-    // util::allocate_aligned<GeometricMapPresenter>(); auto kp_presenter =
-    // util::allocate_aligned<ObjectKeypointPresenter>();
+    mapper->setOdometryHandler(odom_handler);
+    mapper->setGeometricFeatureHandler(geom_handler);
 
     mapper->addPresenter(util::allocate_aligned<PosePresenter>());
     mapper->addPresenter(util::allocate_aligned<TrajectoryPresenter>());

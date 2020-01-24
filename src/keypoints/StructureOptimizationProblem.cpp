@@ -148,10 +148,12 @@ StructureOptimizationProblem::StructureOptimizationProblem(
     m_ = model_.mu.cols();
     k_ = model_.pc.rows() / 3;
 
+    ceres_problem_ = boost::make_shared<ceres::Problem>();
+
     basis_coefficients_ = Eigen::VectorXd::Zero(k_);
 
     // ceres::Problem will take ownership of this pointer
-    pose_parameterization_ = SE3Node::Parameterization();
+    pose_parameterization_ = new SE3Node::Parameterization;
 
     for (size_t i = 0; i < m_; ++i) {
         kps_.push_back(util::allocate_aligned<Eigen::Vector3d>());
@@ -174,9 +176,9 @@ StructureOptimizationProblem::StructureOptimizationProblem(
     ceres::LossFunction* structure_loss = new ceres::ScaledLoss(
       NULL, params_.structure_error_coefficient, ceres::TAKE_OWNERSHIP);
 
-    ceres_problem_.AddResidualBlock(
+    ceres_problem_->AddResidualBlock(
       structure_cf_, structure_loss, ceres_parameters_);
-    ceres_problem_.SetParameterization(object_pose_.data(),
+    ceres_problem_->SetParameterization(object_pose_.data(),
                                        pose_parameterization_);
 }
 
@@ -249,12 +251,12 @@ StructureOptimizationProblem::addKeypointMeasurement(
                                  body_T_camera_.translation(),
                                  camera_calibration_);
 
-    // ceres_problem_.AddResidualBlock(projection_cf, NULL,
+    // ceres_problem_->AddResidualBlock(projection_cf, NULL,
     // object_pose_.rotation_data(), object_pose_.translation_data(),
     // kps_[kp_msmt.kp_class_id]->data());
     auto& pose_node = local_pose_nodes_[index];
     projection_residual_ids_[index] =
-      ceres_problem_.AddResidualBlock(projection_cf,
+      ceres_problem_->AddResidualBlock(projection_cf,
                                       huber_loss,
                                       pose_node->pose().data(),
                                       kps_[kp_msmt.kp_class_id]->data());
@@ -267,7 +269,7 @@ StructureOptimizationProblem::addKeypointMeasurement(
     //     kp_msmt.measured_depth, depth_covariance, body_T_camera_.rotation(),
     //     body_T_camera_.translation());
 
-    //   ceres_problem_.AddResidualBlock(
+    //   ceres_problem_->AddResidualBlock(
     //     range_cf, cauchy_loss, cam_pose.rotation_data(),
     //     cam_pose.translation_data(), kps_[kp_msmt.kp_class_id]->data());
     // }
@@ -284,7 +286,7 @@ StructureOptimizationProblem::removeKeypointMeasurement(
     auto residual_it = projection_residual_ids_.find(index);
 
     if (residual_it != projection_residual_ids_.end()) {
-        ceres_problem_.RemoveResidualBlock(residual_it->second);
+        ceres_problem_->RemoveResidualBlock(residual_it->second);
         projection_residual_ids_.erase(residual_it);
     }
 }
@@ -334,7 +336,7 @@ StructureOptimizationProblem::solve()
     // options.linear_solver_type = ceres::SPARSE_SCHUR;
     options.minimizer_progress_to_stdout = false;
     ceres::Solver::Summary summary;
-    ceres::Solve(options, &ceres_problem_, &summary);
+    ceres::Solve(options, ceres_problem_.get(), &summary);
 
     // std::cout << summary.FullReport() << "\n";
     // std::cout << summary.BriefReport() << "\n";
@@ -395,13 +397,13 @@ StructureOptimizationProblem::computeCovariances()
 
     blocks.push_back(object_pose_.data());
 
-    bool succeeded = covariance_->Compute(blocks, &ceres_problem_);
+    bool succeeded = covariance_->Compute(blocks, ceres_problem_.get());
 
     if (!succeeded) {
         ROS_WARN_STREAM("Covariance computation failed");
         ROS_WARN_STREAM("Problem has "
-                        << ceres_problem_.NumParameters() << " parameters and "
-                        << ceres_problem_.NumResiduals() << " residuals.");
+                        << ceres_problem_->NumParameters() << " parameters and "
+                        << ceres_problem_->NumResiduals() << " residuals.");
         have_covariance_ = false;
     } else {
         have_covariance_ = true;
@@ -420,20 +422,18 @@ StructureOptimizationProblem::addCamera(SemanticKeyframe::Ptr keyframe,
         auto& node = local_pose_nodes_[keyframe->index()];
         node->pose() = keyframe->pose();
 
-        ceres_problem_.AddParameterBlock(node->pose().data(), 7);
-        ceres_problem_.SetParameterization(node->pose().data(),
-                                           pose_parameterization_);
+        node->addToProblem(ceres_problem_);
 
         if (!use_constant_camera_pose) {
             ceres::CostFunction* pose_prior_cf = PosePriorCostTerm::Create(
               keyframe->pose(), keyframe->covariance());
 
             prior_residual_ids_[keyframe->index()] =
-              ceres_problem_.AddResidualBlock(
+              ceres_problem_->AddResidualBlock(
                 pose_prior_cf, NULL, node->pose().data());
 
         } else {
-            ceres_problem_.SetParameterBlockConstant(node->pose().data());
+            ceres_problem_->SetParameterBlockConstant(node->pose().data());
         }
 
         solved_ = false;
@@ -443,7 +443,7 @@ StructureOptimizationProblem::addCamera(SemanticKeyframe::Ptr keyframe,
         // ceres::CostFunction* front_cf =
         // FrontOfCameraConstraint::Create(body_T_camera_.rotation(),
         //                                                                 body_T_camera_.translation());
-        // ceres_problem_.AddResidualBlock(
+        // ceres_problem_->AddResidualBlock(
         //   front_cf, NULL, camera_poses_[pose_index].rotation_data(),
         //                   camera_poses_[pose_index].translation_data(),
         //                   object_pose_.translation_data());
@@ -465,11 +465,11 @@ StructureOptimizationProblem::removeCamera(
     keyframes_.erase(keyframe->index());
     local_pose_nodes_.erase(keyframe->index());
 
-    ceres_problem_.RemoveParameterBlock(node->pose().data());
+    ceres_problem_->RemoveParameterBlock(node->pose().data());
 
     if (prior_residual_ids_.find(keyframe->index()) !=
         prior_residual_ids_.end()) {
-        ceres_problem_.RemoveResidualBlock(
+        ceres_problem_->RemoveResidualBlock(
           prior_residual_ids_[keyframe->index()]);
         prior_residual_ids_.erase(keyframe->index());
     }

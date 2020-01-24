@@ -12,7 +12,7 @@ if(CCACHE_FOUND)
 endif(CCACHE_FOUND)
 
 # add_compile_options(-g -O3 -march=native -ffast-math -flto=auto -Wall)
-add_compile_options(-g -O3 -march=native -ffast-math -Wall -ansi -fdiagnostics-color)
+add_compile_options(-g -O3 -march=native -ffast-math -Wall -ansi -fdiagnostics-color -ftemplate-backtrace-limit=0)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -94,12 +94,15 @@ add_library(SemanticMapper SHARED
   src/Utils.cpp
   src/munkres.cpp
   src/MLDataAssociator.cpp
+  
+  src/inertial/InertialIntegrator.cpp
 
   src/ceres_cost_terms/ceres_pose_prior.cpp
   src/ceres_cost_terms/ceres_projection.cpp
   src/ceres_cost_terms/ceres_structure.cpp
   src/ceres_cost_terms/ceres_structure_projection.cpp
   src/ceres_cost_terms/ceres_between.cpp
+  src/ceres_cost_terms/ceres_inertial.cpp
   src/LocalParameterizations.cpp
 
   src/CeresNode.cpp
@@ -107,10 +110,13 @@ add_library(SemanticMapper SHARED
   src/CeresProjectionFactor.cpp
   src/CeresBetweenFactor.cpp
   src/CeresStructureFactor.cpp
+  src/CeresImuFactor.cpp
+  src/CeresSE3PriorFactor.cpp
   src/MultiProjectionFactor.cpp
   src/SmartProjectionFactor.cpp
   src/keypoints/gtsam/StructureFactor.cpp
   src/FactorGraph.cpp
+  src/ImuBiasNode.cpp
 
   src/keypoints/EstimatedKeypoint.cpp
   src/keypoints/geometry.cpp
@@ -122,6 +128,7 @@ add_library(SemanticMapper SHARED
   src/SemanticSmoother.cpp
   src/SemanticMapper.cpp
   src/ExternalOdometryHandler.cpp
+  src/InertialOdometryHandler.cpp
 
   src/presenters/GeometricMapPresenter.cpp
   src/presenters/SemanticCovisibilityPresenter.cpp
@@ -184,6 +191,11 @@ target_link_libraries(object_tracking_node
   ${catkin_LIBRARIES}
   SimpleObjectTracker
 )
+
+# add_library(InertialIntegrator src/inertial/InertialIntegrator.cpp)
+# target_link_libraries(InertialIntegrator
+#   ${catkin_LIBRARIES}
+# )
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -274,6 +286,12 @@ target_link_libraries(testFactorGraphClone
     SemanticMapper
     ${CERES_LIBRARIES}
     gtsam
+)
+
+catkin_add_gtest(testInertialIntegrator test/testInertialIntegrator.cpp)
+target_link_libraries(testInertialIntegrator
+    SemanticMapper
+    ${catkin_LIBRARIES}
 )
 
 

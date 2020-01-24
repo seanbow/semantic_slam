@@ -114,11 +114,13 @@ computeProjectionJacobian(const Pose3& G_T_I,
                           const Pose3& I_T_C,
                           const Eigen::Vector3d& G_l);
 
-inline Eigen::Matrix3d
-skewsymm(const Eigen::Vector3d& x)
+template<typename Derived>
+inline Eigen::Matrix<typename Derived::Scalar, 3, 3>
+skewsymm(const Eigen::MatrixBase<Derived>& x)
 {
-    Eigen::Matrix3d S;
-    S << 0, -x(2), x(1), x(2), 0, -x(0), -x(1), x(0), 0;
+    using T = typename Derived::Scalar;
+    Eigen::Matrix<T, 3, 3> S;
+    S << T(0.0), -x(2), x(1), x(2), T(0.0), -x(0), -x(1), x(0), T(0.0);
     return S;
 }
 

@@ -40,6 +40,12 @@ enum class OptimizationBackend
     GTSAM_ISAM
 };
 
+enum class OdometrySource
+{
+    EXTERNAL,
+    INERTIAL,
+};
+
 struct ObjectParams
 {
     double max_new_factor_error;
@@ -99,6 +105,8 @@ struct ObjectParams
     double structure_error_coefficient;
 
     double robust_estimator_parameter;
+
+    OdometrySource odometry_source;
 
     ObjectParams()
       : calibration_tolerance(1e-2)

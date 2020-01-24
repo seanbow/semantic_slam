@@ -13,5 +13,7 @@ enum class FactorType
     ODOMETRY = 4,
     PRIOR = 5,
 
-    ORIGIN = 6
+    ORIGIN = 6,
+
+    INERTIAL = 7
 };

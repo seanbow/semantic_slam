@@ -54,6 +54,11 @@ class SemanticSmoother
         return last_kf_covariance_;
     }
 
+    Eigen::MatrixXd mostRecentKeyframeBiasCovariance()
+    {
+        return last_kf_bias_covariance_;
+    }
+
     ros::Time mostRecentCovarianceTime() { return last_kf_covariance_time_; }
     int mostRecentOptimizedKeyframeIndex() { return last_optimized_kf_index_; }
 
@@ -92,6 +97,7 @@ class SemanticSmoother
     std::atomic<bool> invalidate_optimization_;
 
     Eigen::MatrixXd last_kf_covariance_;
+    Eigen::MatrixXd last_kf_bias_covariance_;
     ros::Time last_kf_covariance_time_;
     int last_optimized_kf_index_;
 

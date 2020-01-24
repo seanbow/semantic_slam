@@ -1,15 +1,16 @@
 
 #include "semantic_slam/SemanticMapper.h"
 
-#include "semantic_slam/ExternalOdometryHandler.h"
 #include "semantic_slam/FactorGraph.h"
 #include "semantic_slam/GeometricFeatureHandler.h"
 #include "semantic_slam/LocalParameterizations.h"
 #include "semantic_slam/LoopCloser.h"
 #include "semantic_slam/MLDataAssociator.h"
+#include "semantic_slam/OdometryHandler.h"
 #include "semantic_slam/Presenter.h"
 #include "semantic_slam/SemanticKeyframe.h"
 #include "semantic_slam/SemanticSmoother.h"
+#include "semantic_slam/VectorNode.h"
 #include "semantic_slam/keypoints/EstimatedKeypoint.h"
 #include "semantic_slam/keypoints/EstimatedObject.h"
 
@@ -56,6 +57,8 @@ SemanticMapper::setup()
 
     node_chr_ = 'o';
 
+    gravity_ << 0, 0, -9.81;
+
     std::string base_path = ros::package::getPath("semantic_slam");
     std::string model_dir = base_path + std::string("/models/objects/");
 
@@ -73,11 +76,13 @@ SemanticMapper::setup()
     smoother_->setMaxOptimizationTime(max_optimization_time_);
     smoother_->setSmoothingLength(smoothing_length_);
     smoother_->setLoopClosureThreshold(loop_closure_threshold_);
+
+    // Only used if our odometry source is inertial
+    gravity_node_ = util::allocate_aligned<Vector3dNode>(Symbol('r', 0));
 }
 
 void
-SemanticMapper::setOdometryHandler(
-  boost::shared_ptr<ExternalOdometryHandler> odom)
+SemanticMapper::setOdometryHandler(boost::shared_ptr<OdometryHandler> odom)
 {
     odometry_handler_ = odom;
     odom->setGraph(smoother_->graph());
@@ -122,6 +127,13 @@ SemanticMapper::start()
 }
 
 void
+SemanticMapper::stop()
+{
+    ROS_WARN_STREAM("Stopping SemanticMapper.");
+    running_ = false;
+}
+
+void
 SemanticMapper::processMessagesUpdateObjectsThread()
 {
     while (ros::ok() && running_) {
@@ -158,6 +170,14 @@ SemanticMapper::processMessagesUpdateObjectsThread()
 
             for (auto& p : presenters_)
                 p->present(keyframes_, estimated_objects_);
+
+            // std::cout << "Latest bias = "
+            //           << keyframes_.back()->bias().transpose() << std::endl;
+            // // std::cout << "Gravity = " << gravity_.transpose() <<
+            // std::endl; std::cout << "q0 = "
+            //           <<
+            //           keyframes_[0]->pose().rotation().coeffs().transpose()
+            //           << std::endl;
         } else {
             ros::Duration(0.001).sleep();
         }
@@ -420,6 +440,19 @@ SemanticMapper::loadParameters()
         return false;
     }
 
+    std::string odometry_source;
+    if (!pnh_.getParam("odometry_type", odometry_source)) {
+        ROS_ERROR("Unable to load odometry_type parameter");
+    }
+
+    if (odometry_source == "external") {
+        params_.odometry_source = OdometrySource::EXTERNAL;
+    } else if (odometry_source == "inertial") {
+        params_.odometry_source = OdometrySource::INERTIAL;
+    } else {
+        ROS_ERROR_STREAM("Unknown odometry source type: " << odometry_source);
+    }
+
     return true;
 }
 
@@ -433,8 +466,8 @@ SemanticMapper::keepFrame(
     auto last_keyframe = keyframes_.back();
 
     Pose3 relpose;
-    bool got_relpose = odometry_handler_->getRelativePoseEstimate(
-      last_keyframe->time(), msg.header.stamp, relpose);
+    bool got_relpose =
+      odometry_handler_->getRelativePoseEstimateTo(msg.header.stamp, relpose);
 
     if (!got_relpose) {
         // ROS_WARN_STREAM("Too few odometry messages received to get keyframe
@@ -466,8 +499,7 @@ SemanticMapper::keepFrame(
 void
 SemanticMapper::anchorOrigin()
 {
-    SemanticKeyframe::Ptr origin_kf =
-      odometry_handler_->originKeyframe(ros::Time(0));
+    SemanticKeyframe::Ptr origin_kf = odometry_handler_->originKeyframe();
 
     keyframes_.emplace_back(origin_kf);
     pending_keyframes_.emplace_back(origin_kf);
@@ -524,6 +556,10 @@ SemanticMapper::tryFetchNextKeyframe()
                     // have the processing bandwidth.
                     next_keyframe->covariance() =
                       smoother_->mostRecentKeyframeCovariance();
+                    if (params_.odometry_source == OdometrySource::INERTIAL) {
+                        next_keyframe->bias_covariance() =
+                          smoother_->mostRecentKeyframeBiasCovariance();
+                    }
                     keyframes_.push_back(next_keyframe);
                     break;
                 } else {
@@ -790,6 +826,10 @@ SemanticMapper::updateKeyframeObjects(SemanticKeyframe::Ptr frame)
 
     // TODO fix this bad approximation
     frame->covariance() = smoother_->mostRecentKeyframeCovariance();
+
+    if (params_.odometry_source == OdometrySource::INERTIAL)
+        frame->bias_covariance() =
+          smoother_->mostRecentKeyframeBiasCovariance();
 
     removeMeasurementsFromObjects(frame);
 

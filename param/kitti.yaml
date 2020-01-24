@@ -26,7 +26,7 @@ I_q_C: [-0.5, 0.5, -0.5, 0.5] # IMU x forward, y left, z up <-> camera x right, 
 covariance_delay: 0.1
 max_optimization_time: 0.5
 loop_closure_threshold: 50 # in number of keyframes
-smoothing_length: 100 
+smoothing_length: 100
 
 verbose_optimization: true
 use_manual_elimination_ordering: false
@@ -40,6 +40,8 @@ sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = mo
 tracking_framerate: 10     # drops images so tracking is performed at this framerate
 
 ## Semslam parameters
+
+odometry_type: "external"   # odometry is handled by the VISO node, so "external"
 
 ### Geometric feature parameters
 include_geometric_features: true
@@ -96,7 +98,7 @@ gravity: [0, 0, -9.81]
 # init_q_sigma: [0.02, 0.02, 0.02]
 
 ## Visualization
-geometric_point_scale: 0.75
+geometric_point_scale: 0.4
 object_keypoint_scale: 0.5
 show_object_labels: true
 trajectory_width: 0.25
