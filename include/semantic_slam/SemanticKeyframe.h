@@ -87,7 +87,7 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
 
     aligned_vector<ObjectMeasurement>& measurements() { return measurements_; }
 
-    const std::map<SemanticKeyframe::Ptr, int> neighbors() const
+    const std::map<SemanticKeyframe::Ptr, int>& neighbors() const
     {
         return neighbors_;
     }
@@ -102,7 +102,7 @@ class SemanticKeyframe : public boost::enable_shared_from_this<SemanticKeyframe>
         return association_weights_;
     }
 
-    const std::map<SemanticKeyframe::Ptr, int> geometric_neighbors() const
+    const std::map<SemanticKeyframe::Ptr, int>& geometric_neighbors() const
     {
         return geometric_neighbors_;
     }

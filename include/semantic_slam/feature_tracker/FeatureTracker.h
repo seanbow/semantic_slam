@@ -91,7 +91,10 @@ class FeatureTracker
 
     struct Frame
     {
-        sensor_msgs::ImageConstPtr image;
+        ros::Time stamp;
+        uint32_t seq;
+        cv::Mat image;
+        
         std::vector<TrackedFeature> feature_tracks;
         std::vector<cv::KeyPoint> keypoints;
         cv::Mat descriptors;

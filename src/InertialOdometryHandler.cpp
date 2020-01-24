@@ -136,6 +136,8 @@ InertialOdometryHandler::createKeyframe(ros::Time time)
     qvp0.segment<3>(4) = last_kf->velocity();
     qvp0.tail<3>() = last_kf->pose().translation();
 
+    integrator_->setInitialBiasCovariance(last_kf->bias_covariance());
+
     auto xhat = integrator_->integrateInertial(last_kf->time().toSec(),
                                                time.toSec(),
                                                qvp0,

@@ -18,7 +18,7 @@ OdometryTransformPresenter::setup()
 void
 OdometryTransformPresenter::publishFunction()
 {
-    ros::Rate publish_rate(1); // parameter is in Hz
+    ros::Rate publish_rate(10); // parameter is in Hz
 
     while (ros::ok()) {
         geometry_msgs::TransformStamped transform;

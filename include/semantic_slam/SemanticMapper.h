@@ -57,6 +57,7 @@ class SemanticMapper
     Eigen::MatrixXd computePlxExact(Key l_key, Key x_key);
 
     void start();
+    void stop();
 
     void msgCallback(
       const object_pose_interface_msgs::KeypointDetections::ConstPtr& msg);

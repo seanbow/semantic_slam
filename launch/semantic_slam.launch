@@ -44,7 +44,7 @@
     <param name="/use_sim_time" value="true" />
 
     <node pkg="semantic_slam" type="semantic_slam_node" name="semantic_slam" output="screen"
-                launch-prefix="" >
+                launch-prefix="valgrind --leak-check=full --verbose --show-leak-kinds=all --log-file=valgrind-out.log" >
         <!-- <env name="CPUPROFILE" value="/tmp/prof.out" /> -->
 
         <param name="odom_topic" value="$(arg odom_topic)" />
@@ -117,7 +117,7 @@
     <!-- 2019-10-23-11-41-52.bag or 2019-10-23-13-16-11.bag -->
     <node pkg="rosbag" type="play" name="rosbag_player" output="log" 
             args="--clock /mnt/data/turtlebot/2019-10-23-11-41-52.bag
-                  --delay 5
+                  --delay 20
                   --queue 10000" >
         <param name="use_sim_time" value="true" />
     </node>

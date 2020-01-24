@@ -89,7 +89,7 @@ SemanticSmoother::setOrigin(SemanticKeyframe::Ptr origin_frame)
         mapper_->gravity_node()->vector() = mapper_->gravity();
 
         graph_->addNode(mapper_->gravity_node());
-        // graph_->setNodeConstant(mapper_->gravity_node());
+        graph_->setNodeConstant(mapper_->gravity_node());
 
         // Add a prior on the gravity vector...
         Eigen::Vector3d g_prior = mapper_->gravity();
@@ -393,11 +393,18 @@ SemanticSmoother::computeCovariancesWithGtsam(
 
         for (auto& frame : frames) {
             auto cov = marginals.marginalCovariance(frame->key());
-            auto bias_cov = marginals.marginalCovariance(frame->bias_key());
+            Eigen::MatrixXd bias_cov;
+
+            if (params_.odometry_source == OdometrySource::INERTIAL) {
+                bias_cov = marginals.marginalCovariance(frame->bias_key());
+            }
 
             std::lock_guard<std::mutex> map_lock(mapper_->map_mutex());
             frame->covariance() = cov;
-            frame->bias_covariance() = bias_cov;
+
+            if (params_.odometry_source == OdometrySource::INERTIAL) {
+                frame->bias_covariance() = bias_cov;
+            }
         }
 
         ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");

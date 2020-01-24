@@ -127,6 +127,13 @@ SemanticMapper::start()
 }
 
 void
+SemanticMapper::stop()
+{
+    ROS_WARN_STREAM("Stopping SemanticMapper.");
+    running_ = false;
+}
+
+void
 SemanticMapper::processMessagesUpdateObjectsThread()
 {
     while (ros::ok() && running_) {

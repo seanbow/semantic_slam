@@ -13,6 +13,7 @@
 #include "semantic_slam/presenters/SemanticCovisibilityPresenter.h"
 #include "semantic_slam/presenters/TrajectoryPresenter.h"
 
+#include <signal.h>
 #include <glog/logging.h>
 
 int
@@ -44,14 +45,6 @@ main(int argc, char* argv[])
 
     mapper->setOdometryHandler(odom_handler);
     mapper->setGeometricFeatureHandler(geom_handler);
-
-    // Setup and add presenters
-    // auto pose_presenter = util::allocate_aligned<PosePresenter>();
-    // auto trajectory_presenter =
-    // util::allocate_aligned<TrajectoryPresenter>(); auto object_presenter =
-    // util::allocate_aligned<ObjectMeshPresenter>(); auto geom_presenter =
-    // util::allocate_aligned<GeometricMapPresenter>(); auto kp_presenter =
-    // util::allocate_aligned<ObjectKeypointPresenter>();
 
     mapper->addPresenter(util::allocate_aligned<PosePresenter>());
     mapper->addPresenter(util::allocate_aligned<TrajectoryPresenter>());

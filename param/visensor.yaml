@@ -54,7 +54,7 @@ odometry_type: "inertial"
 
 ### Geometric feature parameters
 include_geometric_features: true
-reprojection_error_threshold: 10
+reprojection_error_threshold: 12
 use_smart_projection_factors: true
 
 ### Semantic measurement parameters

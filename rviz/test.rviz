@@ -34,7 +34,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: Image
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -107,7 +107,7 @@ Visualization Manager:
       Marker Topic: /trajectory
       Name: Marker
       Namespaces:
-        {}
+        optimized_trajectory: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -115,7 +115,7 @@ Visualization Manager:
       Marker Topic: /keypoint_objects/object_markers
       Name: MarkerArray
       Namespaces:
-        {}
+        objects: true
       Queue Size: 100
       Value: true
     - Class: rviz/Image
@@ -135,7 +135,7 @@ Visualization Manager:
       Marker Topic: /map_points
       Name: Marker
       Namespaces:
-        {}
+        geometric_features: true
       Queue Size: 100
       Value: true
     - Class: rviz/Image
@@ -155,7 +155,7 @@ Visualization Manager:
       Marker Topic: /keypoint_objects/object_keypoint_markers
       Name: MarkerArray
       Namespaces:
-        {}
+        object_keypoints: true
       Queue Size: 100
       Value: true
     - Angle Tolerance: 0
@@ -235,10 +235,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7803983092308044
+      Pitch: 0.39039885997772217
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.1703991889953613
+      Yaw: 3.525399923324585
     Saved: ~
 Window Geometry:
   Displays:
