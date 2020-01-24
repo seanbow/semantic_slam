@@ -147,12 +147,8 @@ FeatureTracker::addKeyframeTime(
     // Remove old unneeded frames
     std::lock_guard<std::mutex> lock(buffer_mutex_);
 
-    ROS_INFO_STREAM("Image buffer size = " << image_buffer_.size() << "; start index = " << this_kf_index);
-
     image_buffer_.erase(image_buffer_.begin(),
                         image_buffer_.begin() + this_kf_index);
-
-    ROS_INFO_STREAM("Image buffer size = " << image_buffer_.size());
 
     last_keyframe_time_ = t;
 
