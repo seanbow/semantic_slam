@@ -43,7 +43,7 @@ odometry_type: "external"   # odometry is handled by the zed, so "external"
 
 ### Geometric feature parameters
 include_geometric_features: true
-reprojection_error_threshold: 4
+reprojection_error_threshold: 8 
 use_smart_projection_factors: true
 
 ### Semantic measurement parameters
@@ -52,7 +52,7 @@ keypoint_initialization_depth_sigma: 2  # meters
 
 min_object_n_keypoints: 4               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph
 min_landmark_observations: 4           # minimum number of observations needed for a keypoint before estimating depth and including in optimization
-min_observed_keypoints_to_initialize: 4
+min_observed_keypoints_to_initialize: 4 
 
 keyframe_translation_threshold: 0.05
 keyframe_translation_without_measurement_threshold: 0.05
@@ -73,7 +73,7 @@ structure_error_coefficient: 500
 
 keypoint_activation_threshold: 0.4     # threshold above which to consider a keypoint observed
 
-camera_range: 10                        # meters
+camera_range: 4                      # meters
 
 mahal_thresh_assign: 4                  # Mahalanobis distance below which to assign data (MLDataAssociator)
 loop_closure_mahal_thresh: 3            # used in place of mahal_thresh_assign if an assignment would trigger a loop closure
