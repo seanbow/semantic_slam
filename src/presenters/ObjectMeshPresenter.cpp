@@ -109,7 +109,7 @@ ObjectMeshPresenter::present(
         } else if (obj->obj_name() == "gascan") {
             model_scale = 0.25;
         } else if (obj->obj_name() == "cart") {
-            model_scale = 0.12;
+            model_scale = 0.08;
         } else if (obj->obj_name() == "tableclosed") {
             model_scale = 8.0;
         } else if (obj->obj_name() == "ladder") {

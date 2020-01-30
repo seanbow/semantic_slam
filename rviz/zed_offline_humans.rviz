@@ -8,9 +8,8 @@ Panels:
         - /Status1
         - /PoseWithCovariance1
         - /Marker1
-        - /MarkerArray1
         - /Marker2
-        - /MarkerArray2
+        - /MarkerArray1
         - /Odometry1
         - /Path1
       Splitter Ratio: 0.5
@@ -33,7 +32,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Image
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -94,15 +93,7 @@ Visualization Manager:
       Marker Topic: /pose_tracking/trajectory
       Name: Marker
       Namespaces:
-        optimized_trajectory: true
-      Queue Size: 100
-      Value: true
-    - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: /pose_tracking/keypoint_objects/object_markers
-      Name: MarkerArray
-      Namespaces:
-        objects: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -110,7 +101,7 @@ Visualization Manager:
       Marker Topic: /pose_tracking/map_points
       Name: Marker
       Namespaces:
-        geometric_features: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -118,7 +109,7 @@ Visualization Manager:
       Marker Topic: /pose_tracking/keypoint_objects/object_keypoint_markers
       Name: MarkerArray
       Namespaces:
-        object_keypoints: true
+        {}
       Queue Size: 100
       Value: true
     - Angle Tolerance: 0
@@ -217,7 +208,15 @@ Visualization Manager:
       Marker Topic: /human_mesh/pose_estimator/meshes
       Name: MarkerArray
       Namespaces:
-        human_pose_demo: true
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /object_markers_republished
+      Name: MarkerArray
+      Namespaces:
+        {}
       Queue Size: 100
       Value: true
   Enabled: true
