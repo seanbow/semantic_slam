@@ -13,7 +13,7 @@ Panels:
         - /Odometry1
         - /Path1
       Splitter Ratio: 0.5
-    Tree Height: 814
+    Tree Height: 265
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -32,7 +32,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: Image
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -93,7 +93,7 @@ Visualization Manager:
       Marker Topic: /pose_tracking/trajectory
       Name: Marker
       Namespaces:
-        {}
+        optimized_trajectory: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -101,7 +101,7 @@ Visualization Manager:
       Marker Topic: /pose_tracking/map_points
       Name: Marker
       Namespaces:
-        {}
+        geometric_features: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -109,7 +109,7 @@ Visualization Manager:
       Marker Topic: /pose_tracking/keypoint_objects/object_keypoint_markers
       Name: MarkerArray
       Namespaces:
-        {}
+        object_keypoints: true
       Queue Size: 100
       Value: true
     - Angle Tolerance: 0
@@ -208,7 +208,7 @@ Visualization Manager:
       Marker Topic: /object_markers_republished
       Name: MarkerArray
       Namespaces:
-        {}
+        objects: true
       Queue Size: 100
       Value: true
   Enabled: true
@@ -239,25 +239,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 9.385339736938477
+      Distance: 8.074285507202148
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 1.9492509365081787
-        Y: 0.3177359700202942
-        Z: 1.5240843296051025
+        X: 1.578514575958252
+        Y: 1.9077529907226562
+        Z: 1.7084633111953735
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.9153982400894165
+      Pitch: 0.5603986382484436
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.420398712158203
+      Yaw: 3.140399217605591
     Saved: ~
 Window Geometry:
   Displays:
