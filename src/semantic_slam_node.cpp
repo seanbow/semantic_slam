@@ -10,6 +10,7 @@
 #include "semantic_slam/presenters/ObjectMeshPresenter.h"
 #include "semantic_slam/presenters/ObjectPosePresenter.h"
 #include "semantic_slam/presenters/OdometryTransformPresenter.h"
+#include "semantic_slam/presenters/PoseTransformPresenter.h"
 #include "semantic_slam/presenters/PosePresenter.h"
 #include "semantic_slam/presenters/SemanticCovisibilityPresenter.h"
 #include "semantic_slam/presenters/TrajectoryPresenter.h"
@@ -55,6 +56,7 @@ main(int argc, char* argv[])
     mapper->addPresenter(util::allocate_aligned<GeometricMapPresenter>());
     mapper->addPresenter(util::allocate_aligned<ObjectKeypointPresenter>());
     mapper->addPresenter(util::allocate_aligned<OdometryTransformPresenter>());
+    mapper->addPresenter(util::allocate_aligned<PoseTransformPresenter>());
     mapper->addPresenter(
       util::allocate_aligned<SemanticCovisibilityPresenter>());
     mapper->addPresenter(

@@ -139,6 +139,7 @@ add_library(SemanticMapper SHARED
   src/presenters/ObjectKeypointPresenter.cpp
   src/presenters/GeometricCovisibilityPresenter.cpp
   src/presenters/OdometryTransformPresenter.cpp
+  src/presenters/PoseTransformPresenter.cpp
 
   src/feature_tracker/ORBextractor.cpp
   src/feature_tracker/TwoPointRansac.cpp
