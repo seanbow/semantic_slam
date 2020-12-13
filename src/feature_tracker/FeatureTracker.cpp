@@ -9,7 +9,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/image_encodings.h>
 // #include <sensor_msgs/CameraInfo.h>
-#include <opencv/cv.h>
+#include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 // #include <opencv2/features2d.hpp>
 #include <cv_bridge/cv_bridge.h>

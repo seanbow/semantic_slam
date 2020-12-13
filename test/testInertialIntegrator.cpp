@@ -14,6 +14,7 @@
 
 #include "semantic_slam/CeresImuFactor.h"
 #include "semantic_slam/FactorGraph.h"
+#include "semantic_slam/ceres_cost_terms/ceres_inertial.h"
 
 Eigen::Matrix<double, 6, 1> zero_bias = Eigen::Matrix<double, 6, 1>::Zero();
 Eigen::Vector3d G_gravity(0, 0, -9.81);
@@ -784,7 +785,7 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
               << std::endl
               << std::endl;
 
-    graph.solver_options().max_num_iterations = 100;
+    graph.solver_options().max_num_iterations = 1000;
 
     // graph.solver_options().trust_region_strategy_type = ceres::DOGLEG;
     // graph.solver_options().dogleg_type = ceres::SUBSPACE_DOGLEG;
@@ -794,12 +795,18 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
     //   ceres::POLAK_RIBIERE;
     // graph.solver_options().max_linear_solver_iterations = 50;
 
-    graph.solver_options().linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-
     // graph.solver_options().initial_trust_region_radius = 1e16;
     // graph.solver_options().use_inner_iterations = true;
 
     // graph.solver_options().use_nonmonotonic_steps = true;
+
+    // graph.solver_options().linear_solver_type = ceres::ITERATIVE_SCHUR;
+    // graph.solver_options().preconditioner_type = ceres::CLUSTER_JACOBI;
+
+    // graph.solver_options().linear_solver_type = ceres::SPARSE_SCHUR;
+
+    // graph.solver_options().visibility_clustering_type =
+    // ceres::SINGLE_LINKAGE;
 
     graph.solve(true);
 
@@ -825,6 +832,7 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
     // EXPECT_NEAR(x(8), 31.91, 1);
     // EXPECT_NEAR(x(9), -38.492, 1);
 }
+
 TEST(InertialIntegratorTest, testInertialFactor_GtsamComparison)
 {
     // InertialIntegrator integrator;
@@ -839,17 +847,6 @@ TEST(InertialIntegratorTest, testInertialFactor_GtsamComparison)
     auto times = dlmread(time_file);
     auto accels = dlmread(accel_file);
     auto omegas = dlmread(gyro_file);
-
-    // add to integrator...
-    // for (size_t i = 0; i < times.rows(); ++i) {
-    //     integrator.addData(times(i), accels.row(i), omegas.row(i));
-    // }
-
-    // Eigen::VectorXd x0 = Eigen::VectorXd::Zero(10);
-    // x0(3) = 1.0; // set identity quaternion
-    // // initial position = [50 0 50]
-    // x0(7) = 50;
-    // x0(9) = 50;
 
     FactorGraph graph;
 
@@ -871,8 +868,8 @@ TEST(InertialIntegratorTest, testInertialFactor_GtsamComparison)
     graph.setNodesConstant({ origin_x, origin_v, origin_b, gravity_node });
 
     // Say a keyframe every some seconds...
-    double key_period = 0.1;
-    double tmax = 20.0;
+    double key_period = 1.0;
+    double tmax = 10.0;
     double last_key_time = 0.0;
     SE3NodePtr last_x = origin_x;
     Vector3dNodePtr last_v = origin_v;
@@ -886,24 +883,6 @@ TEST(InertialIntegratorTest, testInertialFactor_GtsamComparison)
                                             { 1.7e-3, 1.7e-3, 1.7e-3 });
     integrator->setBiasRandomWalkNoise({ 5e-5, 5e-5, 5e-5 },
                                        { 1e-3, 1e-3, 1e-3 });
-
-    // Set up GTSAM IMU factor parameters etc
-    auto preint_params =
-      gtsam::PreintegratedCombinedMeasurements::Params::MakeSharedD();
-
-    preint_params->gyroscopeCovariance =
-      Eigen::Vector3d(1e-4, 1e-4, 1e-4).array().pow(2).matrix().asDiagonal();
-    preint_params->accelerometerCovariance =
-      Eigen::Vector3d(1.7e-3, 1.7e-3, 1.7e-3)
-        .array()
-        .pow(2)
-        .matrix()
-        .asDiagonal();
-
-    preint_params->biasOmegaCovariance =
-      Eigen::Vector3d(5e-5, 5e-5, 5e-5).array().pow(2).matrix().asDiagonal();
-    preint_params->biasAccCovariance =
-      Eigen::Vector3d(1e-3, 1e-3, 1e-3).array().pow(2).matrix().asDiagonal();
 
     auto b0 = gtsam::imuBias::ConstantBias(Eigen::Vector3d::Zero(),
                                            Eigen::Vector3d::Zero());
@@ -976,14 +955,65 @@ TEST(InertialIntegratorTest, testInertialFactor_GtsamComparison)
             graph.addFactor(factor);
 
             // test test...
-            // auto cf = factor->cf();
-            // double residual[15];
-            // double* parameters[] = {
-            //     last_x->pose().data(),   last_v->vector().data(),
-            //     last_b->vector().data(), x->pose().data(),
-            //     v->vector().data(),      b->vector().data()
-            // };
-            // cf->Evaluate(parameters, residual, NULL);
+            auto cf = static_cast<InertialCostTerm*>(factor->cf());
+            double residual[15];
+            double* parameters[] = {
+                last_x->pose().data(),        last_v->vector().data(),
+                last_b->vector().data(),      x->pose().data(),
+                v->vector().data(),           b->vector().data(),
+                gravity_node->vector().data()
+            };
+            cf->Evaluate(parameters, residual, NULL);
+
+            auto preint_P = cf->preint_P();
+
+            auto gtsam_PIM = cf->gtsam_integrator();
+            auto gtsam_preint_P = gtsam_PIM->preintMeasCov();
+
+            Eigen::VectorXd gtsam_preint(10);
+            gtsam_preint.head<4>() =
+              gtsam_PIM->deltaRij().toQuaternion().coeffs();
+            gtsam_preint.segment<3>(4) = gtsam_PIM->deltaVij();
+            gtsam_preint.tail<3>() = gtsam_PIM->deltaPij();
+
+            std::cout << "preint:\n" << cf->preint_x().transpose() << std::endl;
+            std::cout << "GTSAM preint:\n " << gtsam_preint.transpose()
+                      << std::endl;
+
+            std::cout << "Preint P:\n" << preint_P << std::endl;
+
+            Eigen::MatrixXd P(15, 15);
+            P.block<3, 3>(0, 0) = gtsam_preint_P.block<3, 3>(0, 0);
+            P.block<3, 3>(0, 3) = gtsam_preint_P.block<3, 3>(0, 6);
+            P.block<3, 3>(0, 6) = gtsam_preint_P.block<3, 3>(0, 3);
+            P.block<3, 3>(0, 9) = gtsam_preint_P.block<3, 3>(0, 12);
+            P.block<3, 3>(0, 12) = gtsam_preint_P.block<3, 3>(0, 9);
+
+            P.block<3, 3>(3, 0) = gtsam_preint_P.block<3, 3>(6, 0);
+            P.block<3, 3>(3, 3) = gtsam_preint_P.block<3, 3>(6, 6);
+            P.block<3, 3>(3, 6) = gtsam_preint_P.block<3, 3>(6, 3);
+            P.block<3, 3>(3, 9) = gtsam_preint_P.block<3, 3>(6, 12);
+            P.block<3, 3>(3, 12) = gtsam_preint_P.block<3, 3>(6, 9);
+
+            P.block<3, 3>(6, 0) = gtsam_preint_P.block<3, 3>(3, 0);
+            P.block<3, 3>(6, 3) = gtsam_preint_P.block<3, 3>(3, 6);
+            P.block<3, 3>(6, 6) = gtsam_preint_P.block<3, 3>(3, 3);
+            P.block<3, 3>(6, 9) = gtsam_preint_P.block<3, 3>(3, 12);
+            P.block<3, 3>(6, 12) = gtsam_preint_P.block<3, 3>(3, 9);
+
+            P.block<3, 3>(9, 0) = gtsam_preint_P.block<3, 3>(12, 0);
+            P.block<3, 3>(9, 3) = gtsam_preint_P.block<3, 3>(12, 6);
+            P.block<3, 3>(9, 6) = gtsam_preint_P.block<3, 3>(12, 3);
+            P.block<3, 3>(9, 9) = gtsam_preint_P.block<3, 3>(12, 12);
+            P.block<3, 3>(9, 12) = gtsam_preint_P.block<3, 3>(12, 9);
+
+            P.block<3, 3>(12, 0) = gtsam_preint_P.block<3, 3>(9, 0);
+            P.block<3, 3>(12, 3) = gtsam_preint_P.block<3, 3>(9, 6);
+            P.block<3, 3>(12, 6) = gtsam_preint_P.block<3, 3>(9, 3);
+            P.block<3, 3>(12, 9) = gtsam_preint_P.block<3, 3>(9, 12);
+            P.block<3, 3>(12, 12) = gtsam_preint_P.block<3, 3>(9, 9);
+
+            std::cout << "GTSAM Preint P:\n" << P << std::endl;
 
             // std::cout << "Residual on adding = [";
             // for (int i = 0; i < 15; ++i) {

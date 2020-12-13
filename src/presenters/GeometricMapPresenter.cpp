@@ -32,7 +32,7 @@ GeometricMapPresenter::present(
     points.pose.orientation.z = 0;
     points.pose.orientation.w = 1;
 
-    points.header.frame_id = "/map";
+    points.header.frame_id = "map";
     points.header.stamp = ros::Time::now();
 
     Eigen::Vector3d rgb_color(153, 0, 76);

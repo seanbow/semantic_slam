@@ -41,7 +41,7 @@ TrajectoryPresenter::present(
     traj.pose.orientation.z = 0;
     traj.pose.orientation.w = 1;
 
-    traj.header.frame_id = "/map";
+    traj.header.frame_id = "map";
     traj.header.stamp = keyframes.back()->time();
 
     Eigen::Vector3d rgb_color(0, 1, 0);

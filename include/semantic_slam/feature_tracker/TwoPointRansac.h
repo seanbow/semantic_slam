@@ -6,7 +6,7 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/SVD>
 #include <iostream>
-#include <opencv/cv.h>
+#include <opencv2/opencv.hpp>
 #include <ros/ros.h>
 #include <vector>
 

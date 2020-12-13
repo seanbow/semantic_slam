@@ -68,7 +68,7 @@ TwoPointRansac::computeInliersNormalized(
     int n_points = points_A.cols();
 
     int winner = 0;
-    int winning_inliers = 0;
+    size_t winning_inliers = 0;
 
     // double sqrt_samp_threshold = 6.25e-4;
     // double sqrt_samp_threshold = 5e-4;

@@ -192,6 +192,8 @@ target_link_libraries(object_tracking_node
   SimpleObjectTracker
 )
 
+set(NODES semantic_slam_node image_republish_node kitti_data_node object_tracking_node)
+
 # add_library(InertialIntegrator src/inertial/InertialIntegrator.cpp)
 # target_link_libraries(InertialIntegrator
 #   ${catkin_LIBRARIES}
@@ -228,9 +230,10 @@ target_link_libraries(object_tracking_node
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
-# install(TARGETS ${PROJECT_NAME}_node
-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+install(
+  TARGETS ${NODES}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
@@ -248,11 +251,24 @@ target_link_libraries(object_tracking_node
 # )
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
-# install(FILES
-#   # myfile1
-#   # myfile2
-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-# )
+install(
+  DIRECTORY launch
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
+install(
+  DIRECTORY param
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+
+install(
+  DIRECTORY models
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
+install(
+  DIRECTORY rviz
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
 
 #############
 ## Testing ##

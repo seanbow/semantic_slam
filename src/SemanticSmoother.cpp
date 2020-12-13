@@ -89,7 +89,7 @@ SemanticSmoother::setOrigin(SemanticKeyframe::Ptr origin_frame)
         mapper_->gravity_node()->vector() = mapper_->gravity();
 
         graph_->addNode(mapper_->gravity_node());
-        graph_->setNodeConstant(mapper_->gravity_node());
+        // graph_->setNodeConstant(mapper_->gravity_node());
 
         // Add a prior on the gravity vector...
         Eigen::Vector3d g_prior = mapper_->gravity();
@@ -126,7 +126,7 @@ SemanticSmoother::setOrigin(SemanticKeyframe::Ptr origin_frame)
         // graph_->setNodeConstant(origin_frame->velocity_node());
 
         Eigen::Vector3d velocity_prior = Eigen::Vector3d::Zero();
-        Eigen::Matrix3d vel_prior_cov = Eigen::Matrix3d::Identity();
+        Eigen::Matrix3d vel_prior_cov = 0.01 * Eigen::Matrix3d::Identity();
         auto vel_prior_fac = util::allocate_aligned<CeresVectorPriorFactor<3>>(
           origin_frame->velocity_node(), velocity_prior, vel_prior_cov);
         graph_->addFactor(vel_prior_fac);

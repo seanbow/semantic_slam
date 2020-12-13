@@ -311,6 +311,24 @@ InertialIntegrator::Dstatedot_dstate(double t,
 }
 
 Eigen::MatrixXd
+InertialIntegrator::Dstatedot_dstate_with_bias(
+  double t,
+  const Eigen::VectorXd& state,
+  const Eigen::VectorXd& gyro_accel_bias)
+{
+    // Compute full Jacobian of d([q v p bg ba])/dt w.r.t. full state
+
+    Eigen::MatrixXd J = Eigen::MatrixXd::Zero(16, 16);
+
+    J.topLeftCorner<10, 10>() = Dstatedot_dstate(t, state, gyro_accel_bias);
+    J.topRightCorner<10, 6>() = Dstatedot_dbias(t, state, gyro_accel_bias);
+
+    // dbg = dba = 0
+
+    return J;
+}
+
+Eigen::MatrixXd
 InertialIntegrator::Dstatedot_dnoise(double t,
                                      const Eigen::VectorXd& state,
                                      const Eigen::VectorXd& gyro_accel_bias)
@@ -403,10 +421,13 @@ InertialIntegrator::Pdot(double t,
                          const Eigen::VectorXd& gyro_accel_bias)
 {
     // Use continuous time kalman filter equation:
-    //   Pdot = F*P + P*F' + Q
+    //   Pdot = F*P + P*F' + G*Q*G'
     // First compute error state transition matrix F and noise matrix G
+    Eigen::MatrixXd F_full = Eigen::MatrixXd::Zero(16, 16);
+    F_full.topLeftCorner<10, 10>() =
+      Dstatedot_dstate(t, state, gyro_accel_bias);
+    F_full.topRightCorner<10, 6>() = Dstatedot_dbias(t, state, gyro_accel_bias);
 
-    Eigen::MatrixXd F_full = Dstatedot_dstate(t, state, gyro_accel_bias);
     Eigen::MatrixXd G_full = Dstatedot_dnoise(t, state, gyro_accel_bias);
 
     // Need to translate F_full from the full ambient quaternion space to
@@ -415,21 +436,25 @@ InertialIntegrator::Pdot(double t,
     QuaternionLocalParameterization().ComputeJacobian(state.head<4>().data(),
                                                       Dqfull_dqlocal.data());
 
-    Eigen::MatrixXd F(9, 9);
+    Eigen::MatrixXd F(15, 15);
     F.block<3, 3>(0, 0) =
       2 * (F_full.block<4, 4>(0, 0) * Dqfull_dqlocal).topRows<3>();
 
-    F.block<3, 6>(0, 3) = 2 * F_full.block<3, 6>(0, 4);
+    F.block<3, 12>(0, 3) = 2 * F_full.block<3, 12>(0, 4);
 
-    F.block<6, 3>(3, 0) = F_full.block<6, 4>(4, 0) * Dqfull_dqlocal;
+    F.block<12, 3>(3, 0) = F_full.block<12, 4>(4, 0) * Dqfull_dqlocal;
 
-    F.block<6, 6>(3, 3) = F_full.block<6, 6>(4, 4);
+    F.block<12, 12>(3, 3) = F_full.block<12, 12>(4, 4);
 
-    Eigen::MatrixXd G(9, 6);
+    Eigen::MatrixXd G = Eigen::MatrixXd::Zero(15, 6);
     G.topRows<3>() = 2 * G_full.topRows<3>();
-    G.bottomRows<6>() = G_full.bottomRows<6>();
+    G.block<6, 6>(3, 0) = G_full.bottomRows<6>();
 
-    return F * P + P * F.transpose() + G * Q_ * G.transpose();
+    Eigen::MatrixXd G_walk = Eigen::MatrixXd::Zero(15, 6);
+    G_walk.bottomRows<6>() = Eigen::MatrixXd::Identity(6, 6);
+
+    return F * P + P * F.transpose() + G * Q_ * G.transpose() +
+           G_walk * Q_random_walk_ * G_walk.transpose();
 }
 
 Eigen::VectorXd
@@ -487,7 +512,7 @@ InertialIntegrator::integrateInertialWithCovariance(
           };
       };
 
-    Eigen::MatrixXd P0 = Eigen::MatrixXd::Zero(9, 9);
+    Eigen::MatrixXd P0 = Eigen::MatrixXd::Zero(15, 15);
 
     auto xP = this->integrateRK4(f, t1, t2, { qvp0, P0 }, 0.005);
     Eigen::VectorXd x = xP[0];
@@ -520,7 +545,7 @@ InertialIntegrator::preintegrateInertialWithJacobianAndCovariance(
     qvp_identity(3) = 1.0;
 
     Eigen::MatrixXd Jbias0 = Eigen::MatrixXd::Zero(10, 6);
-    Eigen::MatrixXd P0 = Eigen::MatrixXd::Zero(9, 9);
+    Eigen::MatrixXd P0 = Eigen::MatrixXd::Zero(15, 15);
 
     auto xJP =
       this->integrateRK4(f, t1, t2, { qvp_identity, Jbias0, P0 }, 0.005);
@@ -531,16 +556,23 @@ InertialIntegrator::preintegrateInertialWithJacobianAndCovariance(
         xJP[0].topRows<4>() *= -1;
     }
 
+    // J here is d(qvp)/d(bias0).
+    // To account for initial bias covariance we need d(q v p bg ba)/d(bias0).
+    Eigen::MatrixXd Jbias_full = Eigen::MatrixXd(16, 6);
+    Jbias_full.topRows<10>() = xJP[1];
+    Jbias_full.bottomRows<6>() = Eigen::MatrixXd::Identity(6, 6);
+
     // The initial bias covariance doesn't affect the integration of the
     // covariance but it does effect the final value through the bias jacobian.
-    // Unfortunately Jbias0 is w.r.t. the ambient quaternion space and P is
+    // Unfortunately Jbias is w.r.t. the ambient quaternion space and P is
     // w.r.t. the tangent space so we need another mapping here
-    Eigen::MatrixXd amb_to_tangent = Eigen::MatrixXd::Zero(9, 10);
+    Eigen::MatrixXd amb_to_tangent = Eigen::MatrixXd::Zero(15, 16);
     amb_to_tangent.topLeftCorner<3, 3>() = 2.0 * Eigen::Matrix3d::Identity();
-    amb_to_tangent.bottomRightCorner<6, 6>() = Eigen::MatrixXd::Identity(6, 6);
+    amb_to_tangent.bottomRightCorner<12, 12>() =
+      Eigen::MatrixXd::Identity(12, 12);
 
-    xJP[2] += (amb_to_tangent * Jbias0) * bias_covariance_ *
-              (amb_to_tangent * Jbias0).transpose();
+    xJP[2] += (amb_to_tangent * Jbias_full) * bias_covariance_ *
+              (amb_to_tangent * Jbias_full).transpose();
 
     return xJP;
 }
@@ -590,10 +622,11 @@ InertialIntegrator::createGtsamIntegrator(double t0,
     auto start_it = std::lower_bound(imu_times_.begin(), imu_times_.end(), t0);
     size_t idx = start_it - imu_times_.begin();
     double t = *start_it;
+    double next_t = t;
 
-    while (idx < imu_times_.size() - 1 && t < t1) {
+    while (idx < imu_times_.size() - 1 && next_t < t1) {
         t = imu_times_[idx];
-        double next_t = imu_times_[idx + 1];
+        next_t = imu_times_[idx + 1];
         double dt = next_t - t;
 
         gtsam_preintegrator->integrateMeasurement(
@@ -602,7 +635,7 @@ InertialIntegrator::createGtsamIntegrator(double t0,
         idx++;
     }
 
-    if (t < t1) {
+    if (next_t < t1) {
         throw std::runtime_error("Not enough data to perform preintegration!");
     }
 

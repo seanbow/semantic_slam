@@ -2,38 +2,38 @@
 
 # Intrinsics
 cam_model: Pinhole
-cam_height: 480
-cam_width: 752
-cam_fx: 460.4955903050918
-cam_fy: 461.5641169934272
-cam_cx: 368.4532400711323
-cam_cy: 240.4954080559481
-cam_d0: -0.284391896829766
-cam_d1: 0.07869873609282231
-cam_d2: 0.0007724844074325825
-cam_d3: 0.0002170099760282007
+cam_height: 512
+cam_width: 512
+cam_fx: 190.97847715128717
+cam_fy: 190.9733070521226
+cam_cx: 254.93170605935475
+cam_cy: 256.8974428996504
+cam_d0: 0.0034823894022493434
+cam_d1: 0.0007150348452162257
+cam_d2: -0.0020532361418706202
+cam_d3: 0.00020293673591811182
 
 ### Extrinsics between robot body/IMU (frame "I") and camera ("C")
-I_p_C: [0.037167378311932,  -0.009235341501944,   0.003329588943888]
-I_q_C: [0.001406950720680,  -0.001770426965610,  -0.002821517243880,   0.999993462537867]
+I_p_C: [0.045574835649698, -0.071161801837997, -0.044681254117144]
+I_q_C: [-0.013355443369657, -0.694796521648944, 0.719041245297768, 0.007688510750625]
 
 # IMU intrinsics
 
 # measurement noise & bias random walk sigmas
 # see SCRIPT_bias.m
-a_sigma: [0.00175704896911368, 0.00182923617553506, 0.00170870447710514]
-w_sigma: [0.000188934246245825, 0.000195153415763111, 0.000179337434449913]
-a_bias_sigma: [0.000923381686381264, 0.000982969307028553, 0.00096303657615688]
-w_bias_sigma: [6.37726050659781e-05, 5.84915680538512e-05, 6.1986577214854e-05]
+a_sigma: [0.0028, 0.0028, 0.0028]
+w_sigma: [0.00016, 0.00016, 0.00016]
+a_bias_sigma: [0.00086, 0.00086, 0.00086]
+w_bias_sigma: [0.000022, 0.000022, 0.000022]
 
-w_bias_init: [0.00376851608349017, 0.00621575543432985, 0.0163947597746038]
+w_bias_init: [0.0, 0.0, 0.0]
 # a_bias_init: [-0.109362,    0.02555,   0.105537]
 a_bias_init: [0, 0, 0]
 
 ## Optimization parameters
 # covariance_delay: 5.0
 covariance_delay: 0.1
-max_optimization_time: 0.5
+max_optimization_time: 1.0
 loop_closure_threshold: 50 # in number of keyframes
 smoothing_length: 100
 
@@ -43,10 +43,10 @@ use_manual_elimination_ordering: false
 
 ## Feature_tracker parameters
 ransac_iterations: 50       # number of iterations in essential matrix estimating ransac loop
-feature_spacing: 5         # minimum pixel distance between extracted features. i.e. an upper bound of sorts on feature density
+feature_spacing: 10         # minimum pixel distance between extracted features. i.e. an upper bound of sorts on feature density
 max_features_per_im: 500    # maximum number of features to keep per image
 sqrt_samp_thresh: 0.01      # Threshold on inliers in sampson error, higher = more permissive
-tracking_framerate: 10     # drops images so tracking is performed at this framerate
+tracking_framerate: 20     # drops images so tracking is performed at this framerate
 
 ## Semslam parameters
 
@@ -58,7 +58,7 @@ reprojection_error_threshold: 8
 use_smart_projection_factors: true
 
 ### Semantic measurement parameters
-keypoint_msmt_sigma: 2                 # keypoint measurement sigma (pixels)
+keypoint_msmt_sigma: 3                 # keypoint measurement sigma (pixels)
 keypoint_initialization_depth_sigma: 2  # meters
 
 min_object_n_keypoints: 5               # minimum number of observed keypoints needed to consider an object good and include it in the factor graph

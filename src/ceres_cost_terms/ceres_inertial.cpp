@@ -32,6 +32,66 @@ InertialCostTerm::preintegrate(const Eigen::VectorXd& bias0) const
     //           << preint_P_ << std::endl;
 
     gtsam_preintegrator_ = integrator_->createGtsamIntegrator(t0_, t1_, bias0);
+
+    // preint_x_.head<4>() =
+    //   gtsam_preintegrator_->deltaRij().toQuaternion().coeffs();
+    // preint_x_.segment<3>(4) = gtsam_preintegrator_->deltaVij();
+    // preint_x_.tail<3>() = gtsam_preintegrator_->deltaPij();
+
+    // preint_P_.block<3, 3>(0, 0) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(0, 0);
+    // preint_P_.block<3, 3>(0, 3) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(0, 6);
+    // preint_P_.block<3, 3>(0, 6) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(0, 3);
+    // preint_P_.block<3, 3>(0, 9) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(0, 12);
+    // preint_P_.block<3, 3>(0, 12) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(0, 9);
+
+    // preint_P_.block<3, 3>(3, 0) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(6, 0);
+    // preint_P_.block<3, 3>(3, 3) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(6, 6);
+    // preint_P_.block<3, 3>(3, 6) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(6, 3);
+    // preint_P_.block<3, 3>(3, 9) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(6, 12);
+    // preint_P_.block<3, 3>(3, 12) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(6, 9);
+
+    // preint_P_.block<3, 3>(6, 0) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(3, 0);
+    // preint_P_.block<3, 3>(6, 3) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(3, 6);
+    // preint_P_.block<3, 3>(6, 6) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(3, 3);
+    // preint_P_.block<3, 3>(6, 9) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(3, 12);
+    // preint_P_.block<3, 3>(6, 12) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(3, 9);
+
+    // preint_P_.block<3, 3>(9, 0) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(12, 0);
+    // preint_P_.block<3, 3>(9, 3) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(12, 6);
+    // preint_P_.block<3, 3>(9, 6) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(12, 3);
+    // preint_P_.block<3, 3>(9, 9) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(12, 12);
+    // preint_P_.block<3, 3>(9, 12) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(12, 9);
+
+    // preint_P_.block<3, 3>(12, 0) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(9, 0);
+    // preint_P_.block<3, 3>(12, 3) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(9, 6);
+    // preint_P_.block<3, 3>(12, 6) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(9, 3);
+    // preint_P_.block<3, 3>(12, 9) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(9, 12);
+    // preint_P_.block<3, 3>(12, 12) =
+    //   gtsam_preintegrator_->preintMeasCov().block<3, 3>(9, 9);
 }
 
 bool
@@ -68,6 +128,13 @@ InertialCostTerm::Evaluate(double const* const* parameters,
 
     Eigen::VectorXd delta_bias = bias0 - bias_at_integration_;
 
+    if (delta_bias.norm() > 1e-4) {
+        preintegrate(bias0);
+        delta_bias.setZero();
+    }
+
+    // std::cout << "Delta bias = " << delta_bias.transpose() << std::endl;
+
     Eigen::VectorXd preint_effective = preint_x_ + preint_Jbias_ * delta_bias;
 
     Eigen::Quaterniond preint_q(preint_effective.head<4>());
@@ -101,13 +168,12 @@ InertialCostTerm::Evaluate(double const* const* parameters,
 
     // Construct the full covariance of the residual
     // Right now P is covariance of [q v p] (in tangent space)
-    Eigen::MatrixXd Pfull = Eigen::MatrixXd::Zero(15, 15);
-    Pfull.block<9, 9>(0, 0) = preint_P_;
-
-    Pfull.block<6, 6>(9, 9) = dt * integrator_->randomWalkCovariance();
+    // Eigen::MatrixXd Pfull = Eigen::MatrixXd::Zero(15, 15);
+    // Pfull.block<9, 9>(0, 0) = preint_P_;
+    // Pfull.block<6, 6>(9, 9) = dt * integrator_->randomWalkCovariance();
 
     Eigen::MatrixXd sqrtPinv = Eigen::MatrixXd::Identity(15, 15);
-    Pfull.llt().matrixL().solveInPlace(sqrtPinv);
+    preint_P_.llt().matrixL().solveInPlace(sqrtPinv);
 
     // std::cout << "Residual before P:\n"
     //           << residual.transpose() << "\nand P = \n"

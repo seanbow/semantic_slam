@@ -39,7 +39,7 @@ PosePresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
     geometry_msgs::PoseWithCovarianceStampedPtr msg_pose(
       new geometry_msgs::PoseWithCovarianceStamped);
     nav_msgs::OdometryPtr msg_odom(new nav_msgs::Odometry);
-    msg_pose->header.frame_id = "/map";
+    msg_pose->header.frame_id = "map";
     msg_pose->header.stamp = keyframe->time();
     msg_pose->pose.pose.position.x = p(0);
     msg_pose->pose.pose.position.y = p(1);
@@ -69,7 +69,7 @@ PosePresenter::present(const std::vector<SemanticKeyframe::Ptr>& keyframes,
 
     eigenToBoostArray<6, 6>(P2, msg_pose->pose.covariance);
 
-    msg_odom->header.frame_id = "/map";
+    msg_odom->header.frame_id = "map";
     msg_odom->header.stamp = keyframe->time();
     msg_odom->pose.pose = msg_pose->pose.pose;
     msg_odom->pose.covariance = msg_pose->pose.covariance;

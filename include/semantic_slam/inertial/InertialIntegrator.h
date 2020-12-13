@@ -146,6 +146,11 @@ class InertialIntegrator
                                      const Eigen::VectorXd& state,
                                      const Eigen::VectorXd& gyro_accel_bias);
 
+    Eigen::MatrixXd Dstatedot_dstate_with_bias(
+      double t,
+      const Eigen::VectorXd& state,
+      const Eigen::VectorXd& gyro_accel_bias);
+
     Eigen::MatrixXd Dstatedot_dnoise(double t,
                                      const Eigen::VectorXd& state,
                                      const Eigen::VectorXd& gyro_accel_bias);

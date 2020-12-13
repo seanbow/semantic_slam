@@ -7,7 +7,7 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/SVD>
 #include <iostream>
-#include <opencv/cv.h>
+#include <opencv2/opencv.hpp>
 #include <ros/ros.h>
 #include <vector>
 /* @brief RANSAC class. It is is initialized and preallocates all the space
