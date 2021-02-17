@@ -27,8 +27,8 @@ a_bias_sigma: [0.000923381686381264, 0.000982969307028553, 0.00096303657615688]
 w_bias_sigma: [6.37726050659781e-05, 5.84915680538512e-05, 6.1986577214854e-05]
 
 w_bias_init: [0.00376851608349017, 0.00621575543432985, 0.0163947597746038]
-# a_bias_init: [-0.109362,    0.02555,   0.105537]
-a_bias_init: [0, 0, 0]
+a_bias_init: [-0.109362,    0.02555,   0.105537]
+# a_bias_init: [0, 0, 0]
 
 ## Optimization parameters
 # covariance_delay: 5.0
@@ -53,8 +53,8 @@ tracking_framerate: 10     # drops images so tracking is performed at this frame
 odometry_type: "inertial"
 
 ### Geometric feature parameters
-include_geometric_features: true
-reprojection_error_threshold: 8
+include_geometric_features: false
+reprojection_error_threshold: 2
 use_smart_projection_factors: true
 
 ### Semantic measurement parameters

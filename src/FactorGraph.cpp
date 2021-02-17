@@ -17,8 +17,9 @@ FactorGraph::FactorGraph()
     // set covariance options if needed...
     // covariance_options_....?
     covariance_options_.apply_loss_function = true;
-    covariance_options_.num_threads = 4;
-    // covariance_options_.algorithm_type = ceres::SPARSE_CHOLESKY;
+    covariance_options_.num_threads = 1;
+    // covariance_options_.algorithm_type = ceres::DENSE_SVD;
+    // covariance_options_.null_space_rank = -1;
     covariance_ = boost::make_shared<ceres::Covariance>(covariance_options_);
 }
 
@@ -448,6 +449,60 @@ FactorGraph::getMarginalCovariance(const std::vector<CeresNodePtr>& nodes) const
 
     return C.selfadjointView<Eigen::Upper>();
 }
+
+Eigen::SparseMatrix<double, Eigen::RowMajor>
+FactorGraph::getJacobians() const
+{
+    // this function is kinda useless?
+    std::vector<CeresNodePtr> nodes;
+    for (auto kv : nodes_) {
+        nodes.push_back(kv.second);
+    }
+
+    return getJacobians(nodes);
+}
+
+Eigen::SparseMatrix<double, Eigen::RowMajor>
+FactorGraph::getJacobians(const std::vector<CeresNodePtr>& nodes, 
+                          const std::vector<CeresFactorPtr>& factors) const
+{
+    ceres::Problem::EvaluateOptions options;
+
+    // Extract all parameter blocks from `nodes` and set them to be evaluated
+    for (auto& node : nodes) {
+        for (auto& block : node->parameter_blocks()) {
+            options.parameter_blocks.push_back(block);
+        }
+    }
+
+    // If we were passed in a set of factors, extract the residual ids, and we will
+    // only return a subset of the Jacobian's rows.
+    if (factors.size() > 0) {
+        for (auto& fac : factors) {
+            auto residual_id = fac->getResidualId(problem_.get());
+            options.residual_blocks.push_back(residual_id);
+        }
+    }
+
+    ceres::CRSMatrix jacobian;
+    problem_->Evaluate(options, nullptr, nullptr, nullptr, &jacobian);
+
+    Eigen::SparseMatrix<double, Eigen::RowMajor> sparse_jacobian =
+        Eigen::MappedSparseMatrix<double, Eigen::RowMajor>(
+            jacobian.num_rows, jacobian.num_cols,
+            static_cast<int>(jacobian.values.size()),
+            jacobian.rows.data(), jacobian.cols.data(), jacobian.values.data());
+
+    return sparse_jacobian;
+
+}
+
+// Eigen::SparseMatrix<double, Eigen::RowMajor>
+// FactorGraph::getJacobianRFactor(const std::vector<CeresNodePtr>& nodes) const
+// {
+//     // 
+//     auto J = 
+// }
 
 void
 FactorGraph::addIterationCallback(IterationCallbackType callback)

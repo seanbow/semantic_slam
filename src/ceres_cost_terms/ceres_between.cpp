@@ -17,19 +17,19 @@ BetweenCostTerm::BetweenCostTerm(const Pose3& between,
 
 #if CERES_BETWEEN_AUTODIFF
 
+#include <ceres/autodiff_cost_function.h>
+
 template<typename T>
 bool
-BetweenCostTerm::operator()(const T* const q1_ptr,
-                            const T* const p1_ptr,
-                            const T* const q2_ptr,
-                            const T* const p2_ptr,
+BetweenCostTerm::operator()(const T* const qp1_ptr,
+                            const T* const qp2_ptr,
                             T* residuals_ptr) const
 {
-    Eigen::Map<const Eigen::Matrix<T, 3, 1>> p_a(p1_ptr);
-    Eigen::Map<const Eigen::Quaternion<T>> q_a(q1_ptr);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> p_a(qp1_ptr + 4);
+    Eigen::Map<const Eigen::Quaternion<T>> q_a(qp1_ptr);
 
-    Eigen::Map<const Eigen::Matrix<T, 3, 1>> p_b(p2_ptr);
-    Eigen::Map<const Eigen::Quaternion<T>> q_b(q2_ptr);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> p_b(qp2_ptr + 4);
+    Eigen::Map<const Eigen::Quaternion<T>> q_b(qp2_ptr);
 
     // Compute the relative transformation between the two frames.
     Eigen::Quaternion<T> q_a_inverse = q_a.conjugate();
@@ -60,7 +60,7 @@ ceres::CostFunction*
 BetweenCostTerm::Create(const Pose3& between, const Eigen::MatrixXd& cov)
 {
     BetweenCostTerm* term = new BetweenCostTerm(between, cov);
-    return new ceres::AutoDiffCostFunction<BetweenCostTerm, 6, 4, 3, 4, 3>(
+    return new ceres::AutoDiffCostFunction<BetweenCostTerm, 6, 7, 7>(
       term);
 }
 

@@ -405,6 +405,7 @@ GeometricFeatureHandler::imageCallback(const sensor_msgs::ImageConstPtr& msg)
     
     try {
         auto cv_image = cv_bridge::toCvShare(msg, "bgr8");
+        if (cv_image->image.empty()) return;
         cv::cvtColor(cv_image->image, new_frame.image, CV_BGR2GRAY);
     } catch (cv_bridge::Exception& e) {
         ROS_ERROR("cv_bridge exception: %s", e.what());

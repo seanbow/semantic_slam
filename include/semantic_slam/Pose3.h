@@ -71,6 +71,7 @@ class Pose3
     operator gtsam::Pose3() const;
 
   private:
+    // This sort of unfortunate data structure layout is needed for easier interfacing with Ceres
     Eigen::Matrix<double, 7, 1> data_vector_;
     Eigen::Map<Eigen::Quaterniond> q_;
     Eigen::Map<Eigen::Vector3d> p_;

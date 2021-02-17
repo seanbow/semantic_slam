@@ -284,12 +284,18 @@ TEST(InertialIntegratorTest, testRK4_inertialStateSimulatedCircleTrajectory)
       fmt::format("{}/test/data/accel_meas.dat", base_path));
     std::string gyro_file(fmt::format("{}/test/data/gyro_meas.dat", base_path));
 
-    auto times = dlmread(time_file);
-    auto accels = dlmread(accel_file);
-    auto omegas = dlmread(gyro_file);
+    // std::cout << "accel file path: " << accel_file << std::endl;
 
-    // std::cout << "times = \n" << times << std::endl;
+    // auto times = dlmread(time_file);
+    auto accels_and_times = dlmread(accel_file);
+    auto omegas_and_times = dlmread(gyro_file);
+
     // std::cout << "accels = \n" << accels << std::endl;
+
+    Eigen::MatrixXd times = accels_and_times.col(0) / 1000.0;
+    // std::cout << "times = \n" << times << std::endl;
+    Eigen::MatrixXd accels = accels_and_times.rightCols(3);
+    Eigen::MatrixXd omegas = omegas_and_times.rightCols(3);
 
     // add to integrator...
     for (size_t i = 0; i < times.rows(); ++i) {
@@ -298,24 +304,24 @@ TEST(InertialIntegratorTest, testRK4_inertialStateSimulatedCircleTrajectory)
 
     Eigen::VectorXd x0 = Eigen::VectorXd::Zero(10);
     x0(3) = 1.0; // set identity quaternion
-    // initial position = [50 0 50]
-    x0(7) = 50;
-    x0(9) = 50;
+    // initial position = [0 0 0]
+    // x0(7) = 0;
+    // x0(9) = 0;
 
     Eigen::VectorXd x =
-      integrator.integrateInertial(0, 40, x0, zero_bias, G_gravity);
+      integrator.integrateInertial(0, 59, x0, zero_bias, G_gravity);
 
     std::cout << "X final =\n" << x << std::endl;
 
     // from known truth values
-    EXPECT_NEAR(x(3), -0.771482, 1e-3);
+    EXPECT_NEAR(x(3), 1, 1e-3);
 
-    EXPECT_NEAR(x(4), -16.98, 1e-1);
-    EXPECT_NEAR(x(5), -20.49, 1e-1);
-    EXPECT_NEAR(x(6), -16.98, 1e-1);
-    EXPECT_NEAR(x(7), -38.492, 1);
-    EXPECT_NEAR(x(8), 31.91, 1);
-    EXPECT_NEAR(x(9), -38.492, 1);
+    EXPECT_NEAR(x(4), -0.0642, 1e-1);
+    EXPECT_NEAR(x(5), 0.0954, 1e-1);
+    EXPECT_NEAR(x(6), -0.03146, 1e-1);
+    EXPECT_NEAR(x(7), -2.23, 1);
+    EXPECT_NEAR(x(8), 2.634, 1);
+    EXPECT_NEAR(x(9), -0.73, 1);
 }
 
 TEST(InertialIntegratorTest, testRK4_inertialCircleTrajectoryWithCovariance)
@@ -329,9 +335,17 @@ TEST(InertialIntegratorTest, testRK4_inertialCircleTrajectoryWithCovariance)
       fmt::format("{}/test/data/accel_meas.dat", base_path));
     std::string gyro_file(fmt::format("{}/test/data/gyro_meas.dat", base_path));
 
-    auto times = dlmread(time_file);
-    auto accels = dlmread(accel_file);
-    auto omegas = dlmread(gyro_file);
+
+    // auto times = dlmread(time_file);
+    auto accels_and_times = dlmread(accel_file);
+    auto omegas_and_times = dlmread(gyro_file);
+
+    // std::cout << "accels = \n" << accels << std::endl;
+
+    Eigen::MatrixXd times = accels_and_times.col(0) / 1000.0;
+    // std::cout << "times = \n" << times << std::endl;
+    Eigen::MatrixXd accels = accels_and_times.rightCols(3);
+    Eigen::MatrixXd omegas = omegas_and_times.rightCols(3);
 
     // std::cout << "times = \n" << times << std::endl;
     // std::cout << "accels = \n" << accels << std::endl;
@@ -343,18 +357,22 @@ TEST(InertialIntegratorTest, testRK4_inertialCircleTrajectoryWithCovariance)
 
     Eigen::VectorXd x0 = Eigen::VectorXd::Zero(10);
     x0(3) = 1.0; // set identity quaternion
-    // initial position = [50 0 50]
-    x0(7) = 50;
-    x0(9) = 50;
+    // initial position = [0 0 0]
 
     // These values are approx. the values of the IMU in the VI sensor
-    integrator.setAdditiveMeasurementNoise({ 1e-4, 1e-4, 1e-4 },
-                                           { 1.7e-3, 1.7e-3, 1.7e-3 });
-    integrator.setBiasRandomWalkNoise({ 5e-5, 5e-5, 5e-5 },
-                                      { 1e-3, 1e-3, 1e-3 });
+    // integrator.setAdditiveMeasurementNoise({ 1e-4, 1e-4, 1e-4 },
+    //                                        { 1.7e-3, 1.7e-3, 1.7e-3 });
+    // integrator.setBiasRandomWalkNoise({ 5e-5, 5e-5, 5e-5 },
+    //                                   { 1e-3, 1e-3, 1e-3 });
+
+    // Values used in IMU simulation
+    integrator.setAdditiveMeasurementNoise({ 5.6e-5, 5.6e-5, 5.6e-5 },
+                                           { 7.e-4, 7.e-4, 7.e-4 });
+    integrator.setBiasRandomWalkNoise({ 1.6e-6, 1.6e-6, 1.6e-6 },
+                                      { 5.6e-5, 5.6e-5, 5.6e-5 });
 
     auto xP = integrator.integrateInertialWithCovariance(
-      0, 40, x0, zero_bias, G_gravity);
+      0, 59, x0, zero_bias, G_gravity);
 
     std::cout << "X final =\n" << xP[0] << std::endl;
 
@@ -363,16 +381,30 @@ TEST(InertialIntegratorTest, testRK4_inertialCircleTrajectoryWithCovariance)
 
     // from known truth values
     Eigen::VectorXd x = xP[0];
-    EXPECT_NEAR(x(3), 0.771482, 1e-3);
+    EXPECT_NEAR(x(3), 1, 1e-3);
 
-    EXPECT_NEAR(x(4), -16.98, 1e-1);
-    EXPECT_NEAR(x(5), -20.49, 1e-1);
-    EXPECT_NEAR(x(6), -16.98, 1e-1);
-    EXPECT_NEAR(x(7), -38.492, 1);
-    EXPECT_NEAR(x(8), 31.91, 1);
-    EXPECT_NEAR(x(9), -38.492, 1);
+    EXPECT_NEAR(x(4), -0.0642, 1e-1);
+    EXPECT_NEAR(x(5), 0.0954, 1e-1);
+    EXPECT_NEAR(x(6), -0.03146, 1e-1);
+    EXPECT_NEAR(x(7), -2.23, 1);
+    EXPECT_NEAR(x(8), 2.634, 1);
+    EXPECT_NEAR(x(9), -0.73, 1);
 
-    // TODO compute truth values for P...
+    // and for the covariance
+    auto P = xP[1];
+
+    EXPECT_NEAR(P(0,0), 1.8622e-7, 1e-10);
+    EXPECT_NEAR(P(0,1), 0.0000222703e-6, 1e-10);
+    EXPECT_NEAR(P(0,2), 0.00025412e-6, 1e-10);
+    EXPECT_NEAR(P(1,1), 0.1862179e-6, 1e-10);
+    EXPECT_NEAR(P(2,2), 0.2487645e-6, 1e-10);
+
+    EXPECT_NEAR(P(3,3), 0.02108388874, 1e-3);
+
+    EXPECT_NEAR(P(6,6), 11.4417822, 1e-1);
+    EXPECT_NEAR(P(7,7), 11.43928287, 1e-1);
+    EXPECT_NEAR(P(8,8), 0.25475502, 1e-1);
+
 }
 
 TEST(InertialIntegratorTest, testRK4_inertialJacobians)
@@ -386,9 +418,17 @@ TEST(InertialIntegratorTest, testRK4_inertialJacobians)
       fmt::format("{}/test/data/accel_meas.dat", base_path));
     std::string gyro_file(fmt::format("{}/test/data/gyro_meas.dat", base_path));
 
-    auto times = dlmread(time_file);
-    auto accels = dlmread(accel_file);
-    auto omegas = dlmread(gyro_file);
+
+    // auto times = dlmread(time_file);
+    auto accels_and_times = dlmread(accel_file);
+    auto omegas_and_times = dlmread(gyro_file);
+
+    // std::cout << "accels = \n" << accels << std::endl;
+
+    Eigen::MatrixXd times = accels_and_times.col(0) / 1000.0;
+    // std::cout << "times = \n" << times << std::endl;
+    Eigen::MatrixXd accels = accels_and_times.rightCols(3);
+    Eigen::MatrixXd omegas = omegas_and_times.rightCols(3);
 
     // std::cout << "times = \n" << times << std::endl;
     // std::cout << "accels = \n" << accels << std::endl;
@@ -399,20 +439,26 @@ TEST(InertialIntegratorTest, testRK4_inertialJacobians)
     }
 
     // These values are approx. the values of the IMU in the VI sensor
-    integrator.setAdditiveMeasurementNoise({ 1e-4, 1e-4, 1e-4 },
-                                           { 1.7e-3, 1.7e-3, 1.7e-3 });
-    integrator.setBiasRandomWalkNoise({ 5e-5, 5e-5, 5e-5 },
-                                      { 1e-3, 1e-3, 1e-3 });
+    // integrator.setAdditiveMeasurementNoise({ 1e-4, 1e-4, 1e-4 },
+    //                                        { 1.7e-3, 1.7e-3, 1.7e-3 });
+    // integrator.setBiasRandomWalkNoise({ 5e-5, 5e-5, 5e-5 },
+    //                                   { 1e-3, 1e-3, 1e-3 });
+
+    // Values used in IMU simulation
+    integrator.setAdditiveMeasurementNoise({ 5.6e-5, 5.6e-5, 5.6e-5 },
+                                           { 7.e-4, 7.e-4, 7.e-4 });
+    integrator.setBiasRandomWalkNoise({ 1.6e-6, 1.6e-6, 1.6e-6 },
+                                      { 5.6e-5, 5.6e-5, 5.6e-5 });
 
     double t1 = 0;
-    double t2 = 40;
+    double t2 = 5;
 
     auto xJ = integrator.preintegrateInertialWithJacobianAndCovariance(
       t1, t2, zero_bias);
 
-    std::cout << "X preint final =\n" << xJ[0].transpose() << std::endl;
+    // std::cout << "X preint final =\n" << xJ[0].transpose() << std::endl;
 
-    std::cout << "cov = \n" << xJ[2] << std::endl;
+    // std::cout << "cov = \n" << xJ[2] << std::endl;
 
     // Compute actual X estimate from this preintegration
     Eigen::VectorXd xhat(10);
@@ -420,7 +466,7 @@ TEST(InertialIntegratorTest, testRK4_inertialJacobians)
     xhat.segment<3>(4) = xJ[0].middleRows<3>(4) + G_gravity * (t2 - t1);
     xhat.tail<3>() = xJ[0].bottomRows<3>() +
                      0.5 * G_gravity * (t2 - t1) * (t2 - t1) +
-                     Eigen::Vector3d(50, 0, 50);
+                     Eigen::Vector3d(0, 0, 0);
 
     std::cout << "X estimate final = \n" << xhat.transpose() << std::endl;
 
@@ -428,7 +474,7 @@ TEST(InertialIntegratorTest, testRK4_inertialJacobians)
 
     // Compare the result of a small perturbation when multiplying the Jacobian
     // and when just re-doing the integration...
-    Eigen::Vector3d delta_ba(0.01, 0.01, -0.01);
+    Eigen::Vector3d delta_ba(0.001, 0.001, -0.0001);
     Eigen::Vector3d delta_bg(0, 0, 0.004);
     Eigen::VectorXd delta_b(6);
     delta_b << delta_bg, delta_ba;
@@ -610,9 +656,17 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
       fmt::format("{}/test/data/accel_meas.dat", base_path));
     std::string gyro_file(fmt::format("{}/test/data/gyro_meas.dat", base_path));
 
-    auto times = dlmread(time_file);
-    auto accels = dlmread(accel_file);
-    auto omegas = dlmread(gyro_file);
+
+    // auto times = dlmread(time_file);
+    auto accels_and_times = dlmread(accel_file);
+    auto omegas_and_times = dlmread(gyro_file);
+
+    // std::cout << "accels = \n" << accels << std::endl;
+
+    Eigen::MatrixXd times = accels_and_times.col(0) / 1000.0;
+    // std::cout << "times = \n" << times << std::endl;
+    Eigen::MatrixXd accels = accels_and_times.rightCols(3);
+    Eigen::MatrixXd omegas = omegas_and_times.rightCols(3);
 
     // add to integrator...
     // for (size_t i = 0; i < times.rows(); ++i) {
@@ -656,10 +710,16 @@ TEST(InertialIntegratorTest, testInertialFactor_Construct)
       util::allocate_aligned<InertialIntegrator>();
 
     // These values are approx. the values of the IMU in the VI sensor
-    integrator->setAdditiveMeasurementNoise({ 1e-4, 1e-4, 1e-4 },
-                                            { 1.7e-3, 1.7e-3, 1.7e-3 });
-    integrator->setBiasRandomWalkNoise({ 5e-5, 5e-5, 5e-5 },
-                                       { 1e-3, 1e-3, 1e-3 });
+    // integrator->setAdditiveMeasurementNoise({ 1e-4, 1e-4, 1e-4 },
+    //                                         { 1.7e-3, 1.7e-3, 1.7e-3 });
+    // integrator->setBiasRandomWalkNoise({ 5e-5, 5e-5, 5e-5 },
+    //                                    { 1e-3, 1e-3, 1e-3 });
+
+    // Values used in IMU simulation
+    integrator->setAdditiveMeasurementNoise({ 5.6e-5, 5.6e-5, 5.6e-5 },
+                                           { 7.e-4, 7.e-4, 7.e-4 });
+    integrator->setBiasRandomWalkNoise({ 1.6e-6, 1.6e-6, 1.6e-6 },
+                                      { 5.6e-5, 5.6e-5, 5.6e-5 });
 
     for (size_t i = 0; i < times.rows(); ++i) {
         double t = times(i);
@@ -837,6 +897,7 @@ TEST(InertialIntegratorTest, testInertialFactor_GtsamComparison)
 {
     // InertialIntegrator integrator;
 
+
     // Read in simulated data
     std::string base_path = ros::package::getPath("semantic_slam");
     std::string time_file(fmt::format("{}/test/data/times.dat", base_path));
@@ -844,9 +905,17 @@ TEST(InertialIntegratorTest, testInertialFactor_GtsamComparison)
       fmt::format("{}/test/data/accel_meas.dat", base_path));
     std::string gyro_file(fmt::format("{}/test/data/gyro_meas.dat", base_path));
 
-    auto times = dlmread(time_file);
-    auto accels = dlmread(accel_file);
-    auto omegas = dlmread(gyro_file);
+
+    // auto times = dlmread(time_file);
+    auto accels_and_times = dlmread(accel_file);
+    auto omegas_and_times = dlmread(gyro_file);
+
+    // std::cout << "accels = \n" << accels << std::endl;
+
+    Eigen::MatrixXd times = accels_and_times.col(0) / 1000.0;
+    // std::cout << "times = \n" << times << std::endl;
+    Eigen::MatrixXd accels = accels_and_times.rightCols(3);
+    Eigen::MatrixXd omegas = omegas_and_times.rightCols(3);
 
     FactorGraph graph;
 
@@ -879,10 +948,16 @@ TEST(InertialIntegratorTest, testInertialFactor_GtsamComparison)
       util::allocate_aligned<InertialIntegrator>();
 
     // These values are approx. the values of the IMU in the VI sensor
-    integrator->setAdditiveMeasurementNoise({ 1e-4, 1e-4, 1e-4 },
-                                            { 1.7e-3, 1.7e-3, 1.7e-3 });
-    integrator->setBiasRandomWalkNoise({ 5e-5, 5e-5, 5e-5 },
-                                       { 1e-3, 1e-3, 1e-3 });
+    // integrator->setAdditiveMeasurementNoise({ 1e-4, 1e-4, 1e-4 },
+    //                                         { 1.7e-3, 1.7e-3, 1.7e-3 });
+    // integrator->setBiasRandomWalkNoise({ 5e-5, 5e-5, 5e-5 },
+    //                                    { 1e-3, 1e-3, 1e-3 });
+
+    // Values used in IMU simulation
+    integrator->setAdditiveMeasurementNoise({ 5.6e-5, 5.6e-5, 5.6e-5 },
+                                           { 7.e-4, 7.e-4, 7.e-4 });
+    integrator->setBiasRandomWalkNoise({ 1.6e-6, 1.6e-6, 1.6e-6 },
+                                      { 5.6e-5, 5.6e-5, 5.6e-5 });
 
     auto b0 = gtsam::imuBias::ConstantBias(Eigen::Vector3d::Zero(),
                                            Eigen::Vector3d::Zero());

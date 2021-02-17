@@ -61,7 +61,7 @@ find_package(OpenCV)
 catkin_package(
  INCLUDE_DIRS include
 #  LIBRARIES semantic_slam
-#  CATKIN_DEPENDS other_catkin_pkg
+#  CATKIN_DEPENDS darknet_ros_msgs object_pose_interface_msgs
 #  DEPENDS system_lib
 )
 
@@ -170,6 +170,11 @@ add_library(SimpleObjectTracker src/SimpleObjectTracker.cpp)
 target_link_libraries(SimpleObjectTracker
   ${catkin_LIBRARIES}
 )
+# add_dependencies(SimpleObjectTracker 
+#   ${object_pose_interface_msgs_EXPORTED_TARGETS} 
+#   ${darknet_ros_msgs_EXPORTED_TARGETS}
+#   ${catkin_EXPORTED_TARGETS}
+# )
 
 add_executable(semantic_slam_node src/semantic_slam_node.cpp)
 target_link_libraries(semantic_slam_node
@@ -193,6 +198,7 @@ target_link_libraries(object_tracking_node
   SimpleObjectTracker
 )
 
+set(LIBRARIES SemanticMapper SimpleObjectTracker)
 set(NODES semantic_slam_node image_republish_node kitti_data_node object_tracking_node)
 
 # add_library(InertialIntegrator src/inertial/InertialIntegrator.cpp)
@@ -238,11 +244,11 @@ install(
 
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
-# install(TARGETS ${PROJECT_NAME}
-#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-# )
+install(TARGETS ${LIBRARIES}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+)
 
 ## Mark cpp header files for installation
 # install(DIRECTORY include/${PROJECT_NAME}/
@@ -269,6 +275,12 @@ install(
 install(
   DIRECTORY rviz
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
+install(
+  DIRECTORY test
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  FILES_MATCHING PATTERN "*.dat"
 )
 
 #############
@@ -300,6 +312,13 @@ target_link_libraries(testProjectionFactors
 
 catkin_add_gtest(testFactorGraphClone test/testFactorGraphClone.cpp)
 target_link_libraries(testFactorGraphClone
+    SemanticMapper
+    ${CERES_LIBRARIES}
+    gtsam
+)
+
+catkin_add_gtest(testCovarianceCalculations test/testCovarianceCalculations.cpp)
+target_link_libraries(testCovarianceCalculations
     SemanticMapper
     ${CERES_LIBRARIES}
     gtsam

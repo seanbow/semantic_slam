@@ -44,6 +44,7 @@ class InertialOdometryHandler : public OdometryHandler
     boost::shared_ptr<InertialIntegrator> integrator_;
 
     std::mutex mutex_;
+    std::condition_variable cv_;
 
     Pose3 last_odom_;
     ros::Time last_time_;
@@ -51,6 +52,7 @@ class InertialOdometryHandler : public OdometryHandler
 
     size_t received_msgs_;
     size_t last_msg_seq_;
+    double last_msg_time_;
 
     unsigned char node_chr_;
 

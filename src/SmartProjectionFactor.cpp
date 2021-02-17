@@ -84,7 +84,7 @@ SmartProjectionFactor::decideIfTriangulate(
     for (size_t i = 0; i < body_poses.size(); ++i) {
         Pose3 camera_pose = body_poses[i].compose(I_T_C_);
 
-        if (!camera_pose.equals(triangulation_poses_[i], 1e-5)) {
+        if (!camera_pose.equals(triangulation_poses_[i], 1e-4)) {
             equal = false;
             break;
         }

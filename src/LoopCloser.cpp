@@ -28,27 +28,20 @@ LoopCloser::startLoopClosing(boost::shared_ptr<FactorGraph> graph,
 void
 LoopCloser::optimizeCurrentGraph()
 {
-    current_graph_->solver_options().max_solver_time_in_seconds = 4;
-
-    // current_graph_->solver_options().minimizer_type = ceres::LINE_SEARCH;
-    // current_graph_->solver_options().line_search_direction_type =
-    //   ceres::NONLINEAR_CONJUGATE_GRADIENT;
-    // current_graph_->solver_options().nonlinear_conjugate_gradient_type =
-    //   ceres::POLAK_RIBIERE;
+    current_graph_->solver_options().max_solver_time_in_seconds = 400;
 
     current_graph_->solver_options().max_num_iterations = 100000;
 
-    current_graph_->solver_options().linear_solver_type = ceres::CGNR;
-    current_graph_->solver_options().nonlinear_conjugate_gradient_type =
-      ceres::POLAK_RIBIERE;
-    current_graph_->solver_options().max_linear_solver_iterations = 25;
+    current_graph_->solver_options().linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
 
-    // current_graph_->solver_options().linear_solver_type =
-    //   ceres::SPARSE_NORMAL_CHOLESKY;
+    // current_graph_->solver_options().linear_solver_type = ceres::CGNR;
+    // current_graph_->solver_options().nonlinear_conjugate_gradient_type =
+    //   ceres::POLAK_RIBIERE;
+    // current_graph_->solver_options().max_linear_solver_iterations = 25;
 
-    current_graph_->solver_options().function_tolerance = 1e-4;
-    current_graph_->solver_options().gradient_tolerance = 1e-8;
-    current_graph_->solver_options().parameter_tolerance = 1e-6;
+    // current_graph_->solver_options().function_tolerance = 1e-4;
+    // current_graph_->solver_options().gradient_tolerance = 1e-8;
+    // current_graph_->solver_options().parameter_tolerance = 1e-6;
 
     time_start_ = std::chrono::high_resolution_clock::now();
 

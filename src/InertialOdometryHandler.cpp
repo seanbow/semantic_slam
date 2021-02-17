@@ -27,6 +27,7 @@ InertialOdometryHandler::setup()
 
     received_msgs_ = 0;
     last_keyframe_index_ = 0;
+    last_msg_time_ = 0;
 
     node_chr_ = 'x';
 
@@ -70,18 +71,21 @@ InertialOdometryHandler::msgCallback(const sensor_msgs::Imu::ConstPtr& msg)
     {
         std::lock_guard<std::mutex> lock(mutex_);
         msg_queue_.push_back(*msg);
+
+        last_msg_seq_ = msg->header.seq;
+        last_msg_time_ = msg->header.stamp.toSec();
+
+        // For now, just have one single integrator with all of our data.
+        Eigen::Vector3d a, w;
+        a << msg->linear_acceleration.x, msg->linear_acceleration.y,
+          msg->linear_acceleration.z;
+        w << msg->angular_velocity.x, msg->angular_velocity.y,
+          msg->angular_velocity.z;
+
+        integrator_->addData(msg->header.stamp.toSec(), a, w);
     }
 
-    last_msg_seq_ = msg->header.seq;
-
-    // For now, just have one single integrator with all of our data.
-    Eigen::Vector3d a, w;
-    a << msg->linear_acceleration.x, msg->linear_acceleration.y,
-      msg->linear_acceleration.z;
-    w << msg->angular_velocity.x, msg->angular_velocity.y,
-      msg->angular_velocity.z;
-
-    integrator_->addData(msg->header.stamp.toSec(), a, w);
+    cv_.notify_all();
 }
 
 bool
@@ -138,11 +142,25 @@ InertialOdometryHandler::createKeyframe(ros::Time time)
 
     integrator_->setInitialBiasCovariance(last_kf->bias_covariance());
 
-    auto xhat = integrator_->integrateInertial(last_kf->time().toSec(),
-                                               time.toSec(),
-                                               qvp0,
-                                               last_kf->bias(),
-                                               mapper_->gravity());
+    Eigen::VectorXd xhat;
+
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        cv_.wait(lock, [&](){
+              if (last_msg_time_ < time.toSec()) {
+                  // ROS_WARN_STREAM("IMU data is " << time.toSec() - last_msg_time_ << " seconds behind. Waiting...");
+                  return false;
+              } else {
+                  return true;
+              }; 
+            });
+
+        xhat = integrator_->integrateInertial(last_kf->time().toSec(),
+                                              time.toSec(),
+                                              qvp0,
+                                              last_kf->bias(),
+                                              mapper_->gravity());
+    }
 
     Pose3 G_T_x(Eigen::Quaterniond(xhat.head<4>()), xhat.tail<3>());
 

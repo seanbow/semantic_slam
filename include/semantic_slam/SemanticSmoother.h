@@ -129,5 +129,8 @@ class SemanticSmoother
     bool computeCovariancesWithGtsam(
       const std::vector<boost::shared_ptr<SemanticKeyframe>>& frames);
 
+    bool computeCovariancesWithCeres(
+      const std::vector<boost::shared_ptr<SemanticKeyframe>>& frames);
+
     std::atomic<bool> running_;
 };

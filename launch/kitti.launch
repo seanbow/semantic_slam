@@ -21,7 +21,7 @@
     <arg name="yolo"                                default="true"/>
 
     <arg name="launch-args"                         default=""/>
-    <arg name="launch-delay"                        default="30.0"/>
+    <arg name="launch-delay"                        default="5.0"/>
 
     <!-- Object tracking parameters -->  
     <arg name="use_image_topic" default="false" /> <!-- Would turn off image topic if using passthrough tracker -->
@@ -120,7 +120,7 @@
 
     <node pkg="semantic_slam" type="kitti_data_node" name="kitti_data_node" output="screen">
         <param name="data_dir" value="/mnt/data/KITTI/sequences/05" />
-        <param name="delay" value="5" />
+        <param name="delay" value="$(arg launch-delay)" />
         <param name="rate" value="1" />
     </node>
 

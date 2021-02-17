@@ -21,6 +21,8 @@ class CeresFactor
     virtual void addToProblem(boost::shared_ptr<ceres::Problem> problem) = 0;
     virtual void removeFromProblem(boost::shared_ptr<ceres::Problem> problem);
 
+    ceres::ResidualBlockId getResidualId(ceres::Problem* problem) { return residual_ids_[problem]; }
+
     FactorType type() const { return type_; }
     int tag() const { return tag_; }
 

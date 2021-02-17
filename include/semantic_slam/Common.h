@@ -133,6 +133,11 @@ struct GeometricFeature
 
     using Ptr = boost::shared_ptr<GeometricFeature>;
 
+    GeometricFeature()
+      : id(0), active(false), triangulation_good(false), 
+        point(Eigen::Vector3d::Zero()) 
+        { }
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 

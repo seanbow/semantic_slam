@@ -128,7 +128,7 @@ class InertialIntegrator
                          const Eigen::MatrixXd& P,
                          const Eigen::VectorXd& gyro_accel_bias);
 
-    Eigen::MatrixXd quaternionMatrixOmega(const Eigen::VectorXd& w);
+    // Eigen::MatrixXd quaternionMatrixOmega(const Eigen::VectorXd& w);
 
     Eigen::MatrixXd Dqdot_dnoise(const Eigen::VectorXd& quat);
 

@@ -21,14 +21,17 @@
 int
 main(int argc, char* argv[])
 {
-    ros::init(argc, argv, "semslam");
+    ros::init(argc, argv, "semantic_slam");
 
     ros::NodeHandle pnh("~");
 
     std::string odometry_type;
-    if (!pnh.getParam("odometry_type", odometry_type)) {
+    while (!pnh.getParam("odometry_type", odometry_type)) {
         ROS_ERROR("Unable to read odometry_type parameter!");
+        ROS_WARN_STREAM("Looking in namespace " << pnh.getNamespace());
+        ROS_WARN_STREAM("Resolved param name: " << pnh.resolveName("odometry_type"));
         return 1;
+        // ros::Duration(1.0).sleep();
     }
 
     boost::shared_ptr<OdometryHandler> odom_handler;

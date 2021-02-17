@@ -1,6 +1,7 @@
 #pragma once
 
 #include "semantic_slam/Common.h"
+#include <Eigen/Sparse>
 
 #include <ceres/ceres.h>
 
@@ -90,6 +91,15 @@ class FactorGraph
     Eigen::MatrixXd getMarginalCovariance(
       const std::vector<CeresNodePtr>& nodes) const;
 
+    Eigen::SparseMatrix<double, Eigen::RowMajor> getJacobians() const;
+
+    Eigen::SparseMatrix<double, Eigen::RowMajor> 
+    getJacobians(const std::vector<CeresNodePtr>& nodes, 
+                 const std::vector<CeresFactorPtr>& factors={}) const;
+
+    // Eigen::SparseMatrix<double, Eigen::RowMajor>
+    // getJacobianRFactor(const std::vector<CeresNodePtr>& nodes) const;
+
     CeresNodePtr findLastNodeBeforeTime(unsigned char symbol_chr,
                                         ros::Time time);
     CeresNodePtr findFirstNodeAfterTime(unsigned char symbol_chr,
@@ -114,6 +124,9 @@ class FactorGraph
 
     bool modified_; //< Whether or not the graph has been modified since the
                     // last solving
+
+    std::vector<CeresNodePtr> new_nodes_;
+    std::vector<CeresFactorPtr> new_factors_;
 
     ceres::Solver::Options solver_options_;
 

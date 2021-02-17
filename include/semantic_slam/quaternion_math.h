@@ -28,12 +28,25 @@ quat_Omega(const Eigen::Vector3d& omega)
 {
     Eigen::Matrix4d Om;
 
-    Om.block<3, 3>(0, 0) = skewsymm(omega);
+    Om.block<3, 3>(0, 0) = -skewsymm(omega);
     Om.block<3, 1>(0, 3) = omega;
-    Om.block<1, 3>(3, 0) = omega.transpose();
+    Om.block<1, 3>(3, 0) = -omega.transpose();
     Om(3, 3) = 0;
 
     return Om;
+}
+
+inline Eigen::Matrix4d
+quat_Gamma(const Eigen::Vector3d& omega)
+{
+    Eigen::Matrix4d Gm;
+
+    Gm.block<3, 3>(0, 0) = skewsymm(omega);
+    Gm.block<3, 1>(0, 3) = omega;
+    Gm.block<1, 3>(3, 0) = -omega.transpose();
+    Gm(3, 3) = 0;
+
+    return Gm;
 }
 
 inline Eigen::Matrix4d

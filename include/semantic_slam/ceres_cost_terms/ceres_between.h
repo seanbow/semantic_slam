@@ -23,10 +23,8 @@ class BetweenCostTerm
 
 #if CERES_BETWEEN_AUTODIFF
     template<typename T>
-    bool operator()(const T* const q1,
-                    const T* const p1,
-                    const T* const q2,
-                    const T* const p2,
+    bool operator()(const T* const qp1,
+                    const T* const qp2,
                     T* residual_ptr) const;
 #else
     bool Evaluate(double const* const* parameters,

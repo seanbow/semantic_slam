@@ -22,6 +22,8 @@
 #include <gtsam/nonlinear/NonlinearEquality.h>
 #include <gtsam/nonlinear/Values.h>
 
+#include <fstream>
+
 SemanticSmoother::SemanticSmoother(ObjectParams params, SemanticMapper* mapper)
   : mapper_(mapper)
   , params_(params)
@@ -74,7 +76,7 @@ SemanticSmoother::setOrigin(SemanticKeyframe::Ptr origin_frame)
 
     // Try prior factors instead
     Eigen::Matrix<double, 6, 6> prior_cov = Eigen::MatrixXd::Zero(6, 6);
-    prior_cov.block<3, 3>(0, 0) = 1 * 1 * Eigen::Matrix3d::Identity();
+    prior_cov.block<3, 3>(0, 0) = 1e-8 * 1e-8 * Eigen::Matrix3d::Identity();
     prior_cov.block<3, 3>(3, 3) = 1e-6 * 1e-6 * Eigen::Matrix3d::Identity();
 
     auto prior_fac = util::allocate_aligned<CeresSE3PriorFactor>(
@@ -194,7 +196,7 @@ SemanticSmoother::processingThreadFunction()
             // actual loop closing process
             if (loop_closure_added) {
                 prepareGraphNodes();
-                loop_closer_->startLoopClosing(graph_, loop_closure_index);
+                loop_closer_->startLoopClosing(essential_graph_, loop_closure_index);
                 mapper_->setOperationMode(
                   SemanticMapper::OperationMode::LOOP_CLOSING);
             } else {
@@ -355,7 +357,8 @@ SemanticSmoother::computeCovariances(
     // near-zero covariance
     unfreezeAll();
 
-    bool success = computeCovariancesWithGtsam(frames);
+    // bool success = computeCovariancesWithGtsam(frames);
+    bool success = computeCovariancesWithCeres(frames);
 
     for (auto& frame : frames) {
         frame->covariance_computed_exactly() = true;
@@ -407,7 +410,13 @@ SemanticSmoother::computeCovariancesWithGtsam(
             }
         }
 
-        ROS_INFO_STREAM("Covariance computation took " << TIME_TOC << " ms.");
+        auto computation_time = TIME_TOC;
+
+        ROS_INFO_STREAM("Covariance computation took " << computation_time << " ms.");
+
+        std::ofstream outfile("cov_times.txt", std::ios_base::app);
+        outfile << graph_->num_nodes() << ", " << graph_->num_factors() << ", " << computation_time << std::endl;
+
     } catch (gtsam::IndeterminantLinearSystemException& e) {
         ROS_WARN_STREAM("Covariance computation failed! Error: " << e.what());
 
@@ -441,6 +450,47 @@ SemanticSmoother::computeCovariancesWithGtsam(
 
     return true;
 }
+bool
+SemanticSmoother::computeCovariancesWithCeres(
+  const std::vector<SemanticKeyframe::Ptr>& frames)
+{
+    TIME_TIC;
+
+    for (auto& frame : frames) {
+        
+        bool cov_succeeded = graph_->computeMarginalCovariance(std::vector<Key>{frame->key()});
+        if (!cov_succeeded) {
+            ROS_WARN_STREAM("Covariance computation failed!");
+            return false;
+        }
+        
+        auto cov = graph_->getMarginalCovariance(frame->key());
+        Eigen::MatrixXd bias_cov;
+
+        if (params_.odometry_source == OdometrySource::INERTIAL) {
+            graph_->computeMarginalCovariance(std::vector<Key>{frame->bias_key()});
+            bias_cov = graph_->getMarginalCovariance(frame->bias_key());
+        }
+
+        std::lock_guard<std::mutex> map_lock(mapper_->map_mutex());
+        frame->covariance() = cov;
+
+        if (params_.odometry_source == OdometrySource::INERTIAL) {
+            frame->bias_covariance() = bias_cov;
+        }
+    }
+
+    auto computation_time = TIME_TOC;
+
+    ROS_INFO_STREAM("Covariance computation took " << computation_time << " ms.");
+
+    std::ofstream outfile("cov_times_ceres.txt", std::ios_base::app);
+    outfile << graph_->num_nodes() << ", " << graph_->num_factors() << ", " << computation_time << std::endl;
+        
+
+    return true;
+}
+
 
 void
 SemanticSmoother::prepareGraphNodes()
